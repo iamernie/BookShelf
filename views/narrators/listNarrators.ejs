@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Narrators - Book Tracker</title>
+    <!-- Bootstrap CSS CDN -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <%- include('../navbar') %>
+    <!-- Adjust the path to your navbar partial -->
+
+    <div class="container mt-4">
+      <h2 class="mb-3">Narrators List</h2>
+      <a href="/narrators/add" class="btn btn-success mb-4">Add New Narrator</a>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Bio</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% narrators.forEach(function(narrator) { %>
+          <tr>
+            <td><%= narrator.name %></td>
+            <td><%= narrator.bio %></td>
+            <td>
+              <a
+                href="/narrators/edit/<%= narrator.id %>"
+                class="btn btn-sm btn-primary"
+                >Edit</a
+              >
+              <form
+                action="/narrators/<%= narrator.id %>?_method=DELETE"
+                method="post"
+                style="display: inline"
+              >
+                <button type="submit" class="btn btn-sm btn-danger">
+                  Delete
+                </button>
+              </form>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bootstrap JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  </body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Book - Book Tracker</title>
+    <!-- Bootstrap CSS CDN -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <!-- Include Navbar Here -->
+    <%- include('../navbar') %>
+    <!-- Include the navbar partial -->
+    <!-- This line includes the navbar partial -->
+
+    <div class="container mt-4">
+      <h2 class="mb-3">Add New Book</h2>
+      <form action="/books" method="post">
+        <div class="form-group">
+          <label for="title">Title:</label>
+          <input
+            type="text"
+            class="form-control"
+            id="title"
+            name="title"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="authorId">Author:</label>
+          <select class="form-control" id="authorId" name="authorId">
+            <option value="">Select an Author</option>
+            <% authors.forEach(function(author) { %>
+            <option value="<%= author.id %>"><%= author.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Series Dropdown -->
+        <div class="form-group">
+          <label for="seriesId">Series:</label>
+          <select class="form-control" id="seriesId" name="seriesId">
+            <option value="">Select a Series (Optional)</option>
+            <% series.forEach(function(serie) { %>
+            <option value="<%= serie.id %>"><%= serie.title %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Cover image URL -->
+        <div class="form-group">
+          <label for="coverImageUrl">Cover Image URL:</label>
+          <input
+            type="text"
+            class="form-control"
+            id="coverImageUrl"
+            name="coverImageUrl"
+          />
+        </div>
+
+        <!-- Formats Dropdown -->
+        <div class="form-group">
+          <label for="formatIds">Formats:</label>
+          <select multiple class="form-control" id="formatIds" name="formatIds">
+            <% formats.forEach(function(format) { %>
+            <option value="<%= format.id %>"><%= format.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Start Date -->
+        <div class="form-group">
+          <label for="startReadingDate">Start Reading Date:</label>
+          <input
+            type="date"
+            class="form-control"
+            id="startReadingDate"
+            name="startReadingDate"
+          />
+        </div>
+
+        <!-- End Date -->
+        <div class="form-group">
+          <label for="completedDate">Completed Date:</label>
+          <input
+            type="date"
+            class="form-control"
+            id="completedDate"
+            name="completedDate"
+          />
+        </div>
+
+        <!-- Rating -->
+        <div class="form-group">
+          <label for="rating">Rating:</label>
+          <input
+            type="number"
+            class="form-control"
+            id="rating"
+            name="rating"
+            min="1"
+            max="5"
+          />
+        </div>
+
+        <!-- Status -->
+        <div class="form-group">
+          <label for="currentStatus">Current Status:</label>
+          <input
+            type="text"
+            class="form-control"
+            id="currentStatus"
+            name="currentStatus"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Add Book</button>
+      </form>
+    </div>
+
+    <!-- Bootstrap JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  </body>
+</html>

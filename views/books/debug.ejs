@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- ... existing head content ... -->
+    <%- include('../navbar') %>
+  </head>
+  <body>
+    <!-- ... navbar inclusion ... -->
+
+    <div class="container mt-4">
+      <h2 class="mb-3">Edit Book</h2>
+      <% books.forEach(function(book) { %>
+      <!-- Displaying book details -->
+      <div>
+        <h4>Book Details</h4>
+        <p>Title: <%= book.title %></p>
+        <p>Author ID: <%= book.authorId %></p>
+        <p>Author Name: <%= book.author.name %></p>
+        <p>Series ID: <%= book.seriesId %></p>
+        <p>Series: <%= book.series.title %></p>
+        <p>Narrator ID: <%= book.narratorId %></p>
+        <p>Cover Image URL: <%= book.coverImageUrl %></p>
+        <p>
+          Start Reading Date: <%= book.startReadingDate ?
+          book.startReadingDate.toISOString().split('T')[0] : 'N/A' %>
+        </p>
+        <p>
+          Completed Date: <%= book.completedDate ?
+          book.completedDate.toISOString().split('T')[0] : 'N/A' %>
+        </p>
+        <p>Rating: <%= book.rating %></p>
+        <p>Current Status: <%= book.currentStatus %></p>
+
+        <!-- Displaying associated formats -->
+        <h4>Associated Formats</h4>
+        <% if (book.Formats && Array.isArray(book.Formats)) { %>
+        <ul>
+          <% book.Formats.forEach(function(format) { %>
+          <li>ID: <%= format.id %>, Name: <%= format.name %></li>
+          <% }) %>
+        </ul>
+        <% } else { %>
+        <p>No associated formats.</p>
+        <% } %>
+      </div>
+    </div>
+    <% }) %> <%- include('../partials/footer') %>
+    <!-- ... Bootstrap JS, Popper.js, and jQuery ... -->
+  </body>
+</html>

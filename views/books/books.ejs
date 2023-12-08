@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Books - Book Tracker</title>
+    <!-- Bootstrap CSS CDN -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    />
+
+    <script>
+      function showBookDetails(book) {
+        var modalBody = document.querySelector("#bookDetailsModal .modal-body");
+        var modalFooter = document.querySelector(
+          "#bookDetailsModal .modal-footer"
+        );
+
+        modalBody.innerHTML = `
+          <img src="${
+            book.coverImageUrl
+          }" alt="Book Cover" class="img-fluid mb-3">
+          <p><strong>Title:</strong> ${book.title}</p>
+          <p><strong>Author:</strong> ${
+            book.Author ? book.Author.name : "Unknown"
+          }</p>
+          <!-- Include other book properties here -->
+        `;
+
+        modalFooter.innerHTML = `
+          <a href="/books/edit/${book.id}" class="btn btn-primary">Edit</a>
+          <form action="/books/${book.id}?_method=DELETE" method="post" style="display: inline">
+            <button type="submit" class="btn btn-danger">Delete</button>
+          </form>
+        `;
+
+        $("#bookDetailsModal").modal("show");
+      }
+    </script>
+
+    <style>
+      .card-container {
+        padding: 10px;
+      }
+      .book-card {
+        position: relative; /* Needed for absolute positioning of the edit button */
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        transition: 0.3s;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .book-card:hover {
+        box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+      }
+      .book-image {
+        width: 100%;
+        height: auto;
+        object-fit: cover;
+      }
+      .book-info {
+        padding: 10px;
+      }
+      .book-title,
+      .book-author,
+      .book-series,
+      .book-status {
+        margin-bottom: 5px; /* Reduced bottom margin */
+        line-height: 1.2; /* Adjust line height for tighter text */
+      }
+      .edit-btn {
+        position: absolute;
+        top: 10px; /* Position from the top of the card */
+        right: 10px; /* Position from the right of the card */
+        opacity: 0; /* Initially hidden */
+        transition: opacity 0.3s ease; /* Smooth transition for the opacity */
+      }
+      .book-card:hover .edit-btn {
+        opacity: 1; /* Show the button on hover */
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../navbar') %><!-- Include the navbar partial -->
+
+    <!-- Modal Structure -->
+    <div
+      class="modal fade"
+      id="bookDetailsModal"
+      tabindex="-1"
+      role="dialog"
+      aria-labelledby="bookDetailsModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="bookDetailsModalLabel">Book Details</h5>
+            <button
+              type="button"
+              class="close"
+              data-dismiss="modal"
+              aria-label="Close"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <!-- Book details will be dynamically inserted here -->
+          </div>
+          <div class="modal-footer">
+            <!-- Edit and Delete buttons will be dynamically inserted here -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <!--  End of Modal content -->
+
+    <div class="container mt-4">
+      <h2 class="mb-3">Books List</h2>
+      <a href="/books/add" class="btn btn-success mb-4">Add New Book</a>
+
+      <div class="row">
+        <% books.forEach(function(book) { %>
+        <div class="col-md-4 mb-4">
+          <div
+            class="card book-card"
+            style="cursor: pointer"
+            data-toggle="modal"
+            data-target="#bookDetailsModal"
+            onclick="showBookDetails(<%= JSON.stringify(book) %>)"
+          >
+            <img
+              class="card-img-top book-image"
+              src="<%= book.coverImageUrl %>"
+              alt="Book Cover"
+            />
+            <div class="card-body book-info">
+              <h5 class="card-title book-title"><%= book.title %></h5>
+              <p class="book-author">
+                Author: <%= book.author ? book.author.name : 'Unknown' %>
+              </p>
+              <p class="book-series">
+                Series: <%= book.series ? book.series.title : 'N/A' %>
+              </p>
+              <p class="book-status">
+                Status: <%= book.currentStatus %><%= book.currentStatus ===
+                'Done' ? ' ✓' : '' %>
+              </p>
+              <!-- ... other book details and actions ... -->
+              <!-- Hover-activated Edit Button -->
+              <a
+                href="/books/edit/<%= book.id %>"
+                class="btn btn-primary edit-btn"
+                >Edit</a
+              >
+            </div>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+    </div>
+    <!-- Bootstrap JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  </body>
+</html>

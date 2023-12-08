@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('../partials/header') %>
+  </head>
+  <body>
+    <%- include('../navbar') %>
+    <!-- Adjust the path to your navbar partial -->
+
+    <div class="container mt-4">
+      <h2 class="mb-3">Formats List</h2>
+      <a href="/formats/add" class="btn btn-success mb-4">Add New Format</a>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% formats.forEach(function(format) { %>
+          <tr>
+            <td><%= format.name %></td>
+            <td>
+              <a
+                href="/formats/edit/<%= format.id %>"
+                class="btn btn-sm btn-primary"
+                >Edit</a
+              >
+              <form
+                action="/formats/<%= format.id %>?_method=DELETE"
+                method="post"
+                style="display: inline"
+              >
+                <button type="submit" class="btn btn-sm btn-danger">
+                  Delete
+                </button>
+              </form>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <%- include('../partials/footer') %>
+  </body>
+</html>
