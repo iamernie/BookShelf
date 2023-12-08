@@ -12,6 +12,21 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET all books in a series
+router.get("/:id/books", async (req, res) => {
+  try {
+    const seriesId = req.params.id;
+    const books = await Book.findAll({
+      where: { seriesId: seriesId },
+      include: [Series, Author] // Include other related models as needed
+    });
+    res.render('series/seriesBooks', { books, seriesId }); // Render a view with the books in the series
+  } catch (error) {
+    console.error('Error fetching books by series:', error);
+    res.status(500).send('Error occurred while fetching books');
+  }
+});
+
 // GET the form for adding a new series
 router.get("/add", (req, res) => {
   res.render("series/addSeries");

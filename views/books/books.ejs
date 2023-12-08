@@ -166,7 +166,12 @@
                 Author: <%= book.author ? book.author.name : 'Unknown' %>
               </p>
               <p class="book-series">
-                Series: <%= book.series ? book.series.title : 'N/A' %>
+                Series: 
+                <% if (book.series) { %>
+                  <a href="/series/<%= book.series.id %>"><%= book.series.title %></a>
+              <% } else { %>
+                  N/A
+              <% } %>
               </p>
               <p class="book-status">
                 Status: <%= book.status.name %><%= book.status.name === 'Done' ?
