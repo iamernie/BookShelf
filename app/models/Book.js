@@ -43,6 +43,11 @@ const Book = sequelize.define("book", {
 
   startReadingDate: Sequelize.DATE,
   completedDate: Sequelize.DATE,
+  releaseDate: {
+    type: Sequelize.DATE,
+    allowNull: true, // Allow null if you want to make the field optional
+    defaultValue: Sequelize.NOW // Sets the default value to the current date
+  },
   rating: Sequelize.INTEGER,
 
   coverImageUrl: Sequelize.STRING,
@@ -55,6 +60,14 @@ const Book = sequelize.define("book", {
       key: "id",
     },
   },
+  summary: {
+    type: Sequelize.TEXT,
+    allowNull: true,
+  },
+  comments: {
+    type: Sequelize.TEXT,
+    allowNull: true,
+  }
 });
 
 module.exports = Book;

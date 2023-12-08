@@ -78,7 +78,34 @@
               </select>
           </div>
 
-        
+          <!-- Summary -->
+          <div class="form-group">
+            <label for="summary">Summary:</label>
+            <textarea class="form-control" id="summary" name="summary" rows="3"><%= book.summary %></textarea>
+        </div>
+
+     
+      <div class="form-group">
+        <label for="releaseDate">Release Date:</label>
+        <input
+          type="date"
+          class="form-control"
+          id="releaseDate"
+          name="releaseDate"
+          <%
+          let releaseDateValue = '';
+          if (book.releaseDate) {
+            const tempDate = new Date(book.releaseDate);
+            if (!isNaN(tempDate.getTime())) { // Check if tempDate is a valid date
+              releaseDateValue = tempDate.toISOString().split('T')[0];
+            }
+          }
+        %>
+        value="<%= releaseDateValue %>"
+          />
+      </div>
+
+
         <div class="form-group">
           <label for="startReadingDate">Start Reading Date:</label>
           <input
@@ -86,7 +113,17 @@
             class="form-control"
             id="startReadingDate"
             name="startReadingDate"
-            value="<%= book.startReadingDate ? book.startReadingDate.toISOString().split('T')[0] : '' %>"
+            <%
+              let startDateValue = '';
+              if (book.startReadingDate) {
+                const tempDate = new Date(book.startReadingDate);
+                if (!isNaN(tempDate.getTime())) { // Check if tempDate is a valid date
+                  startDateValue = tempDate.toISOString().split('T')[0];
+                }
+              }
+            %>
+            value="<%= startDateValue %>"
+
           />
         </div>
         <div class="form-group">
@@ -96,8 +133,17 @@
             class="form-control"
             id="completedDate"
             name="completedDate"
-            value="<%= book.completedDate ? book.completedDate.toISOString().split('T')[0] : '' %>"
-          />
+            <%
+            let completedDateValue = '';
+            if (book.completedDate) {
+              const tempDate = new Date(book.completedDate);
+              if (!isNaN(tempDate.getTime())) { // Check if tempDate is a valid date
+                completedDateValue = tempDate.toISOString().split('T')[0];
+              }
+            }
+          %>
+          value="<%= completedDateValue %>"
+            />
         </div>
         <div class="form-group">
           <label for="rating">Rating:</label>

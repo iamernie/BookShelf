@@ -65,6 +65,12 @@ router.post("/", async (req, res) => {
       coverImageUrl,
       formatId,
       statusId,
+      summary,
+      startReadingDate,
+      completedDate,
+      rating,
+      bookNum
+
     } = req.body;
     const newBook = await Book.create({
       title,
@@ -74,6 +80,11 @@ router.post("/", async (req, res) => {
       coverImageUrl,
       formatId: formatId || null,
       statusId: statusId || null,
+      summary,
+      startReadingDate,
+      completedDate,
+      rating,
+      bookNum
     });
 
     res.redirect("/books");
@@ -129,6 +140,11 @@ router.put("/:id", async (req, res) => {
       coverImageUrl,
       formatId,
       statusId,
+      summary,
+      startReadingDate,
+      completedDate,
+      rating,
+      bookNum
     } = req.body;
     const book = await Book.findByPk(req.params.id);
 
@@ -140,6 +156,11 @@ router.put("/:id", async (req, res) => {
       coverImageUrl,
       formatId: formatId || null,
       statusId: statusId || null,
+      summary,
+      startReadingDate,
+      completedDate,
+      rating,
+      bookNum
     });
 
     res.redirect("/books");
