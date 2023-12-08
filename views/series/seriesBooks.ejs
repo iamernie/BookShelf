@@ -59,6 +59,19 @@
         color: rgb(163, 243, 163); /* Green color for the check mark */
         font-size: 24px; /* Adjust size as needed */
       }
+      .series-title {
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    .series-description {
+        background-color: #f8f9fa; /* Light grey background */
+        border-radius: 10px; /* Rounded corners */
+        padding: 1rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+        text-align: center;
+    }
     </style>
   </head>
   <body>
@@ -66,7 +79,10 @@
     <!-- Include the navbar partial -->
 
     <div class="container mt-4">
-      <h2 class="mb-3">Books in Series</h2>
+      <h2 class="series-title"><%= series.title %></h2>
+      <div class="series-description">
+          <p><%= series.description ? series.description : 'No description available.' %></p>
+      </div>
 
       <div class="row">
         <% books.forEach(function(book) { %>

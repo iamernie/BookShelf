@@ -4,6 +4,8 @@ const Book = require("./app/models/Book");
 const Narrator = require("./app/models/Narrator");
 const Format = require("./app/models/Format");
 const Status = require("./app/models/Status");
+const SeriesStatus = require("./app/models/SeriesStatus");
+
 
 // Define associations
 function setAssociations() {
@@ -21,6 +23,9 @@ function setAssociations() {
 
   Status.hasMany(Book, { foreignKey: "statusId", allowNull: true });
   Book.belongsTo(Status, { foreignKey: "statusId", allowNull: true });
+
+  SeriesStatus.hasMany(Series, { foreignKey: "statusId", allowNull: true });
+  Series.belongsTo(SeriesStatus, { foreignKey: "statusId", allowNull: true });
 }
 
 module.exports = setAssociations;
