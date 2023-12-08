@@ -42,8 +42,8 @@
             <% }) %>
           </select>
         </div>
-            <!-- Series Dropdown -->
 
+        <!-- Series Dropdown -->
             <div class="form-group">
               <label for="seriesId">Series:</label>
               <select class="form-control" id="seriesId" name="seriesId">
@@ -111,15 +111,18 @@
             value="<%= book.rating %>"
           />
         </div>
+<!-- Status Drop Down -->
+        <!-- Series Dropdown -->
         <div class="form-group">
-          <label for="currentStatus">Current Status:</label>
-          <input
-            type="text"
-            class="form-control"
-            id="currentStatus"
-            name="currentStatus"
-            value="<%= book.currentStatus %>"
-          />
+          <label for="statusId">Status:</label>
+          <select class="form-control" id="statusId" name="statusId">
+              <% statuses.forEach(function(status) { %>
+                  <option value="<%= status.id %>" <%= book.statusId === status.id ? 'selected' : '' %>><%= status.name %></option>
+              <% }) %>
+          </select>
+      </div>
+        
+
         </div>
         <button type="submit" class="btn btn-primary">Update Book</button>
       </form>

@@ -9,6 +9,10 @@
       rel="stylesheet"
       href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    />
 
     <script>
       function showBookDetails(element) {
@@ -72,12 +76,23 @@
       .edit-btn {
         position: absolute;
         top: 10px; /* Position from the top of the card */
-        right: 10px; /* Position from the right of the card */
+        left: 10px; /* Position from the right of the card */
         opacity: 0; /* Initially hidden */
         transition: opacity 0.3s ease; /* Smooth transition for the opacity */
       }
       .book-card:hover .edit-btn {
         opacity: 1; /* Show the button on hover */
+      }
+      .book-image-container {
+        position: relative;
+      }
+
+      .checkmark-container {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: rgb(163, 243, 163); /* Green color for the check mark */
+        font-size: 24px; /* Adjust size as needed */
       }
     </style>
   </head>
@@ -137,6 +152,14 @@
               src="<%= book.coverImageUrl %>"
               alt="Book Cover"
             />
+            <% if (book.status.name === 'Done') { %>
+            <div class="checkmark-container">
+              <i class="fas fa-check-circle"></i>
+              <!-- Using Font Awesome -->
+              <!-- Or use a Unicode character: <span>&#10004;</span> -->
+            </div>
+            <% } %>
+
             <div class="card-body book-info">
               <h5 class="card-title book-title"><%= book.title %></h5>
               <p class="book-author">
@@ -146,8 +169,8 @@
                 Series: <%= book.series ? book.series.title : 'N/A' %>
               </p>
               <p class="book-status">
-                Status: <%= book.currentStatus %><%= book.currentStatus ===
-                'Done' ? ' ✓' : '' %>
+                Status: <%= book.status.name %><%= book.status.name === 'Done' ?
+                ' ✓' : '' %>
               </p>
               <!-- ... other book details and actions ... -->
               <!-- Hover-activated Edit Button -->
