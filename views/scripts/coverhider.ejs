@@ -1,0 +1,14 @@
+<script>
+  document
+    .getElementById("coverImageUrl")
+    .addEventListener("input", function () {
+      document.getElementById("coverImageFile").disabled =
+        this.value.trim() !== "";
+    });
+
+  document
+    .getElementById("coverImageFile")
+    .addEventListener("change", function () {
+      document.getElementById("coverImageUrl").disabled = this.files.length > 0;
+    });
+</script>

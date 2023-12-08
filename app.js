@@ -5,6 +5,7 @@ const setAssociations = require("./associations");
 const methodOverride = require("method-override");
 
 // Importing routes
+const appRouter = require("./app/routes/main");
 const booksRouter = require("./app/routes/books");
 const authorsRouter = require("./app/routes/authors");
 const seriesRouter = require("./app/routes/series");
@@ -32,6 +33,7 @@ sequelize
   .catch((err) => console.error("Error initializing database", err));
 
 // Routes
+app.use("/", appRouter);
 app.use("/books", booksRouter);
 app.use("/authors", authorsRouter);
 app.use("/series", seriesRouter);
@@ -39,11 +41,6 @@ app.use("/narrators", narratorsRouter);
 app.use("/formats", formatsRouter);
 app.use("/status", statusRouter);
 app.use("/uploads", express.static("uploads"));
-
-// Route for the landing page
-app.get("/", (req, res) => {
-  res.render("index"); // Use res.sendFile if you are using plain HTML
-});
 
 // Starting the server
 const PORT = process.env.PORT || 3000;

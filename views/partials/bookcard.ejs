@@ -1,0 +1,19 @@
+<div class="card-body book-info">
+  <h5 class="card-title book-title"><%= book.title %></h5>
+  <p class="book-series">
+    <% if (book.series) { %>
+    <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
+    Book #<%= book.bookNum %> <% } else { %> No Series <% } %>
+  </p>
+  <p class="book-author">
+    Author: <%= book.author ? book.author.name : 'Unknown' %>
+  </p>
+
+  <p class="book-status">
+    Status: <%= book.status ? book.status.name : 'N/A' %><%= book.status &&
+    book.status.name === 'Done' ? ' ✓' : '' %>
+  </p>
+  <!-- ... other book details and actions ... -->
+  <!-- Hover-activated Edit Button -->
+  <a href="/books/edit/<%= book.id %>" class="btn btn-primary edit-btn">Edit</a>
+</div>
