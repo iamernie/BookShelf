@@ -38,6 +38,7 @@ app.use("/series", seriesRouter);
 app.use("/narrators", narratorsRouter);
 app.use("/formats", formatsRouter);
 app.use("/status", statusRouter);
+app.use("/uploads", express.static("uploads"));
 
 // Route for the landing page
 app.get("/", (req, res) => {

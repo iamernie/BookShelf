@@ -1,11 +1,31 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const slugify = require("slugify");
+
 const Book = require("../models/Book");
 const Author = require("../models/Author");
 const Series = require("../models/Series");
 const Narrator = require("../models/Narrator");
 const Format = require("../models/Format");
 const Status = require("../models/Status");
+
+// Custom storage engine
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
+    const { title, seriesId, bookNum } = req.body;
+    const fileExtension = file.originalname.split(".").pop();
+    const slugTitle = slugify(title || "", { lower: true, strict: true });
+    const slugSeriesId = slugify(seriesId || "", { lower: true, strict: true });
+
+    cb(null, `${slugTitle}_${slugSeriesId}_${bookNum}.${fileExtension}`);
+  },
+});
+
+const upload = multer({ storage: storage });
 
 // GET all books with related data
 router.get("/", async (req, res) => {
@@ -54,24 +74,30 @@ router.get("/add", async (req, res) => {
   }
 });
 
-// POST a new book
-router.post("/", async (req, res) => {
+// POST a new book, with upload.single() middleware to handle the file upload
+router.post("/", upload.single("coverImageFile"), async (req, res) => {
   try {
     const {
       title,
       authorId,
       seriesId,
       narratorId,
-      coverImageUrl,
       formatId,
       statusId,
       summary,
       startReadingDate,
       completedDate,
       rating,
-      bookNum
-
+      bookNum,
     } = req.body;
+
+    let coverImageUrl = req.body.coverImageUrl;
+
+    // If a file is uploaded, use the file's path instead of the cover image URL
+    if (req.file) {
+      coverImageUrl = `/uploads/${req.file.filename}`; // Adjust the path based on your static files configuration
+    }
+
     const newBook = await Book.create({
       title,
       authorId: authorId || null,
@@ -84,7 +110,7 @@ router.post("/", async (req, res) => {
       startReadingDate,
       completedDate,
       rating,
-      bookNum
+      bookNum,
     });
 
     res.redirect("/books");
@@ -93,7 +119,6 @@ router.post("/", async (req, res) => {
     res.status(500).send("Error occurred while creating a book");
   }
 });
-
 // GET the form for editing a book
 router.get("/edit/:id", async (req, res) => {
   try {
@@ -130,7 +155,7 @@ router.get("/edit/:id", async (req, res) => {
 });
 
 // PUT (update) a book
-router.put("/:id", async (req, res) => {
+router.put("/:id", upload.single("coverImageFile"), async (req, res) => {
   try {
     const {
       title,
@@ -144,8 +169,16 @@ router.put("/:id", async (req, res) => {
       startReadingDate,
       completedDate,
       rating,
-      bookNum
+      bookNum,
     } = req.body;
+
+    let coverImageUrl2 = req.body.coverImageUrl;
+
+    // If a file is uploaded, use the file's path instead of the cover image URL
+    if (req.file) {
+      coverImageUrl2 = `/uploads/${req.file.filename}`; // Adjust the path based on your static files configuration
+    }
+
     const book = await Book.findByPk(req.params.id);
 
     await book.update({
@@ -153,14 +186,14 @@ router.put("/:id", async (req, res) => {
       authorId: authorId || null,
       seriesId: seriesId || null,
       narratorId: narratorId || null,
-      coverImageUrl,
+      coverImageUrl: coverImageUrl2,
       formatId: formatId || null,
       statusId: statusId || null,
       summary,
       startReadingDate,
       completedDate,
       rating,
-      bookNum
+      bookNum,
     });
 
     res.redirect("/books");

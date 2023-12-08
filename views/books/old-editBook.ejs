@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Book - Book Tracker</title>
+    <!-- Bootstrap CSS CDN -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <!-- Include Navbar Here -->
+    <%- include('../navbar') %>
+    <!-- Include the navbar partial -->
+    <!-- This line includes the navbar partial -->
+
+
+    
+    <div class="container mt-4">
+      <h2 class="mb-3">Edit Book</h2>
+      
+      <form action="/books/<%= book.id %>?_method=PUT" method="post">
+        <div class="form-group">
+          <label for="title">Title:</label>
+          <input
+            type="text"
+            class="form-control"
+            id="title"
+            name="title"
+            value="<%= book.title %>"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="authorId">Author:</label>
+          <select class="form-control" id="authorId" name="authorId">
+            <!-- Dynamically populate authors with selected option -->
+            <% authors.forEach(function(author) { %>
+              <option value="<%= author.id %>" <%= author.id === book.authorId ? 'selected' : '' %>><%= author.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Series Dropdown -->
+            <div class="form-group">
+              <label for="seriesId">Series:</label>
+              <select class="form-control" id="seriesId" name="seriesId">
+                  <option value="">Select a Series (Optional)</option>
+                  <% series.forEach(function(serie) { %>
+                      <option value="<%= serie.id %>" <%= book.seriesId === serie.id ? 'selected' : '' %>><%= serie.title %></option>
+                  <% }) %>
+              </select>
+          </div>
+
+          <div class="form-group">
+            <label for="rating">Book #:</label>
+            <input
+              type="number"
+              class="form-control"
+              id="bookNun"
+              name="bookNum"
+              min="1"
+              max="100"
+              value="<%= book.bookNum %>"
+            />
+          </div>
+
+
+        <div class="form-group">
+          <label for="coverImageUrl">Cover Image URL:</label>
+          <input
+            type="text"
+            class="form-control"
+            id="coverImageUrl"
+            name="coverImageUrl"
+            value="<%= book.coverImageUrl %>"
+          />
+        </div>
+
+            <!-- Format Dropdown -->
+            <div class="form-group">
+              <label for="formatId">Format:</label>
+              <select class="form-control" id="formatId" name="formatId">
+                  <option value="">Select a Format</option>
+                  <% formats.forEach(function(format) { %>
+                      <option value="<%= format.id %>" <%= book.formatId === format.id ? 'selected' : '' %>>
+                          <%= format.name %>
+                      </option>
+                  <% }) %>
+              </select>
+          </div>
+
+          <!-- Summary -->
+          <div class="form-group">
+            <label for="summary">Summary:</label>
+            <textarea class="form-control" id="summary" name="summary" rows="3"><%= book.summary %></textarea>
+        </div>
+
+     
+      <div class="form-group">
+        <label for="releaseDate">Release Date:</label>
+        <input
+          type="date"
+          class="form-control"
+          id="releaseDate"
+          name="releaseDate"
+          <%
+          let releaseDateValue = '';
+          if (book.releaseDate) {
+            const tempDate = new Date(book.releaseDate);
+            if (!isNaN(tempDate.getTime())) { // Check if tempDate is a valid date
+              releaseDateValue = tempDate.toISOString().split('T')[0];
+            }
+          }
+        %>
+        value="<%= releaseDateValue %>"
+          />
+      </div>
+
+
+        <div class="form-group">
+          <label for="startReadingDate">Start Reading Date:</label>
+          <input
+            type="date"
+            class="form-control"
+            id="startReadingDate"
+            name="startReadingDate"
+            <%
+              let startDateValue = '';
+              if (book.startReadingDate) {
+                const tempDate = new Date(book.startReadingDate);
+                if (!isNaN(tempDate.getTime())) { // Check if tempDate is a valid date
+                  startDateValue = tempDate.toISOString().split('T')[0];
+                }
+              }
+            %>
+            value="<%= startDateValue %>"
+
+          />
+        </div>
+        <div class="form-group">
+          <label for="completedDate">Completed Date:</label>
+          <input
+            type="date"
+            class="form-control"
+            id="completedDate"
+            name="completedDate"
+            <%
+            let completedDateValue = '';
+            if (book.completedDate) {
+              const tempDate = new Date(book.completedDate);
+              if (!isNaN(tempDate.getTime())) { // Check if tempDate is a valid date
+                completedDateValue = tempDate.toISOString().split('T')[0];
+              }
+            }
+          %>
+          value="<%= completedDateValue %>"
+            />
+        </div>
+        <div class="form-group">
+          <label for="rating">Rating:</label>
+          <input
+            type="number"
+            class="form-control"
+            id="rating"
+            name="rating"
+            min="1"
+            max="5"
+            value="<%= book.rating %>"
+          />
+        </div>
+<!-- Status Drop Down -->
+        <!-- Series Dropdown -->
+        <div class="form-group">
+          <label for="statusId">Status:</label>
+          <select class="form-control" id="statusId" name="statusId">
+              <% statuses.forEach(function(status) { %>
+                  <option value="<%= status.id %>" <%= book.statusId === status.id ? 'selected' : '' %>><%= status.name %></option>
+              <% }) %>
+          </select>
+      </div>
+        
+
+        </div>
+        <button type="submit" class="btn btn-primary">Update Book</button>
+      </form>
+    </div>
+
+    <!-- Bootstrap JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  </body>
+</html>

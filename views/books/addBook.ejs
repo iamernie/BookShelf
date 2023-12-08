@@ -9,6 +9,22 @@
       rel="stylesheet"
       href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
     />
+    <script>
+      document
+        .getElementById("coverImageUrl")
+        .addEventListener("input", function () {
+          document.getElementById("coverImageFile").disabled =
+            this.value.trim() !== "";
+        });
+
+      document
+        .getElementById("coverImageFile")
+        .addEventListener("change", function () {
+          document.getElementById("coverImageUrl").disabled =
+            this.files.length > 0;
+        });
+    </script>
+
     <style>
       body {
         background-color: #f7f7f7;
@@ -47,7 +63,7 @@
 
     <div class="container">
       <h2 class="form-title">Add New Book</h2>
-      <form action="/books" method="post">
+      <form action="/books" method="post" enctype="multipart/form-data">
         <div class="form-group">
           <label for="title">Title:</label>
           <input
@@ -90,17 +106,24 @@
             max="100"
           />
         </div>
-
         <div class="form-group">
           <label for="coverImageUrl">Cover Image URL:</label>
           <input
             type="text"
-            class="form-control"
             id="coverImageUrl"
             name="coverImageUrl"
+            placeholder="http://example.com/image.jpg"
+          />
+
+          <!-- Input for Uploading Cover Image -->
+          <label for="coverImageFile">Upload Cover Image:</label>
+          <input
+            type="file"
+            id="coverImageFile"
+            name="coverImageFile"
+            accept="image/*"
           />
         </div>
-
         <div class="form-group">
           <label for="formatIds">Formats:</label>
           <select class="form-control" id="formatIds" name="formatIds">
