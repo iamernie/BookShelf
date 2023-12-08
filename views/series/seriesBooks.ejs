@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Series Books - Book Tracker</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    />
+    <!-- Add any other custom styles or scripts here -->
+  </head>
+  <body>
+    <%- include('../navbar') %>
+    <!-- Include the navbar partial -->
+
+    <div class="container mt-4">
+      <h2 class="mb-3">Books in Series</h2>
+
+      <div class="row">
+        <% books.forEach(function(book) { %>
+        <div class="col-md-4 mb-4">
+          <div class="card">
+            <img
+              class="card-img-top"
+              src="<%= book.coverImageUrl %>"
+              alt="Book Cover"
+            />
+            <div class="card-body">
+              <h5 class="card-title"><%= book.title %></h5>
+              <p class="card-text">
+                Author: <%= book.Author ? book.Author.name : 'Unknown' %>
+              </p>
+              <!-- You can add more book details here -->
+            </div>
+            <div class="card-footer">
+              <a
+                href="/books/edit/<%= book.id %>"
+                class="btn btn-primary btn-sm"
+                >Edit</a
+              >
+              <form
+                action="/books/<%= book.id %>?_method=DELETE"
+                method="post"
+                style="display: inline"
+              >
+                <button type="submit" class="btn btn-danger btn-sm">
+                  Delete
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+
+      <% if (books.length === 0) { %>
+      <p>No books found in this series.</p>
+      <% } %>
+    </div>
+
+    <!-- Bootstrap JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  </body>
+</html>

@@ -152,7 +152,7 @@
               src="<%= book.coverImageUrl %>"
               alt="Book Cover"
             />
-            <% if (book.status.name === 'DDDone') { %>
+            <% if (book.status && book.status.name === 'Done') { %>
             <div class="checkmark-container">
               <i class="fas fa-check-circle"></i>
               <!-- Using Font Awesome -->
@@ -162,20 +162,20 @@
 
             <div class="card-body book-info">
               <h5 class="card-title book-title"><%= book.title %></h5>
+              <p class="book-series">
+                <% if (book.series) { %>
+                <a href="/series/<%= book.series.id %>/books"
+                  ><%= book.series.title %></a
+                >
+                Book #<%= book.bookNum %> <% } else { %> No Series <% } %>
+              </p>
               <p class="book-author">
                 Author: <%= book.author ? book.author.name : 'Unknown' %>
               </p>
-              <p class="book-series">
-                Series: 
-                <% if (book.series) { %>
-                  <a href="/series/<%= book.series.id %>"><%= book.series.title %></a>
-              <% } else { %>
-                  N/A
-              <% } %>
-              </p>
+
               <p class="book-status">
-                Status: <%= book.status.name %><%= book.status.name === 'Done' ?
-                ' ✓' : '' %>
+                Status: <%= book.status ? book.status.name : 'N/A' %><%=
+                book.status && book.status.name === 'Done' ? ' ✓' : '' %>
               </p>
               <!-- ... other book details and actions ... -->
               <!-- Hover-activated Edit Button -->

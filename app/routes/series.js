@@ -1,6 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const Series = require("../models/Series"); // Adjust the path as necessary
+const Book = require("../models/Book");
+const Author = require("../models/Author");
+const Narrator = require("../models/Narrator");
+const Format = require("../models/Format");
+const Status = require("../models/Status");
 
 // GET all series
 router.get("/", async (req, res) => {
@@ -18,12 +23,12 @@ router.get("/:id/books", async (req, res) => {
     const seriesId = req.params.id;
     const books = await Book.findAll({
       where: { seriesId: seriesId },
-      include: [Series, Author] // Include other related models as needed
+      include: [Series, Author], // Include other related models as needed
     });
-    res.render('series/seriesBooks', { books, seriesId }); // Render a view with the books in the series
+    res.render("series/seriesBooks", { books, seriesId }); // Render a view with the books in the series
   } catch (error) {
-    console.error('Error fetching books by series:', error);
-    res.status(500).send('Error occurred while fetching books');
+    console.error("Error fetching books by series:", error);
+    res.status(500).send("Error occurred while fetching books");
   }
 });
 
