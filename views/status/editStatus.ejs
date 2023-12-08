@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('../partials/header') %>
+  </head>
+  <body>
+    <%- include('../navbar') %>
+    <!-- Adjust the path to your navbar partial -->
+
+    <div class="container mt-4">
+      <h2 class="mb-3">Edit Status</h2>
+      <form action="/status/<%= status.id %>?_method=PUT" method="post">
+        <div class="form-group">
+          <label for="name">Status Name:</label>
+          <input
+            type="text"
+            class="form-control"
+            id="name"
+            name="name"
+            value="<%= status.name %>"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Update Status</button>
+      </form>
+    </div>
+
+    <%- include('../partials/footer') %>
+  </body>
+</html>

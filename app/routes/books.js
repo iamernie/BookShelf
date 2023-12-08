@@ -5,12 +5,13 @@ const Author = require("../models/Author");
 const Series = require("../models/Series");
 const Narrator = require("../models/Narrator");
 const Format = require("../models/Format");
+const Status = require("../models/Status");
 
 // GET all books with related data
 router.get("/", async (req, res) => {
   try {
     const books = await Book.findAll({
-      include: [Author, Series, Narrator, Format],
+      include: [Author, Series, Narrator, Format, Status],
     });
     res.render("books/books", { books });
   } catch (error) {
@@ -23,7 +24,7 @@ router.get("/", async (req, res) => {
 router.get("/debug", async (req, res) => {
   try {
     const books = await Book.findAll({
-      include: [Author, Series, Narrator, Format],
+      include: [Author, Series, Narrator, Format, Status],
     });
     res.render("books/debug", { books });
   } catch (error) {
@@ -39,7 +40,14 @@ router.get("/add", async (req, res) => {
     const series = await Series.findAll();
     const narrators = await Narrator.findAll();
     const formats = await Format.findAll();
-    res.render("books/addBook", { authors, series, narrators, formats });
+    const statuses = await Status.findAll();
+    res.render("books/addBook", {
+      authors,
+      series,
+      narrators,
+      formats,
+      statuses,
+    });
   } catch (error) {
     console.error("Error fetching data for adding book:", error);
     res.status(500).send("Error occurred while preparing to add a book");
@@ -49,8 +57,15 @@ router.get("/add", async (req, res) => {
 // POST a new book
 router.post("/", async (req, res) => {
   try {
-    const { title, authorId, seriesId, narratorId, coverImageUrl, formatId } =
-      req.body;
+    const {
+      title,
+      authorId,
+      seriesId,
+      narratorId,
+      coverImageUrl,
+      formatId,
+      statusId,
+    } = req.body;
     const newBook = await Book.create({
       title,
       authorId: authorId || null,
@@ -58,6 +73,7 @@ router.post("/", async (req, res) => {
       narratorId: narratorId || null,
       coverImageUrl,
       formatId: formatId || null,
+      statusId: statusId || null,
     });
 
     res.redirect("/books");
@@ -76,12 +92,14 @@ router.get("/edit/:id", async (req, res) => {
         { model: Series },
         { model: Narrator },
         { model: Format },
+        { model: Status },
       ],
     });
     const authors = await Author.findAll();
     const series = await Series.findAll();
     const narrators = await Narrator.findAll();
     const formats = await Format.findAll();
+    const statuses = await Status.findAll();
     if (book) {
       res.render("books/editBook", {
         book,
@@ -89,6 +107,7 @@ router.get("/edit/:id", async (req, res) => {
         series,
         narrators,
         formats,
+        statuses,
       });
     } else {
       res.status(404).send("Book not found");
@@ -99,40 +118,18 @@ router.get("/edit/:id", async (req, res) => {
   }
 });
 
-// Old Code
-// GET the form for editing a book
-// router.get("/edit/:id", async (req, res) => {
-//   try {
-//     const book = await Book.findByPk(req.params.id, {
-//       include: [Author, Series, Narrator, Format],
-//     });
-//     const authors = await Author.findAll();
-//     const series = await Series.findAll();
-//     const narrators = await Narrator.findAll();
-//     const formats = await Format.findAll();
-
-//     if (book) {
-//       res.render("books/debug", {
-//         book,
-//         authors,
-//         series,
-//         narrators,
-//         formats,
-//       });
-//     } else {
-//       res.status(404).send("Book not found");
-//     }
-//   } catch (error) {
-//     console.error("Error fetching book for edit:", error);
-//     res.status(500).send("Server error");
-//   }
-// });
-
 // PUT (update) a book
 router.put("/:id", async (req, res) => {
   try {
-    const { title, authorId, seriesId, narratorId, coverImageUrl, formatId } =
-      req.body;
+    const {
+      title,
+      authorId,
+      seriesId,
+      narratorId,
+      coverImageUrl,
+      formatId,
+      statusId,
+    } = req.body;
     const book = await Book.findByPk(req.params.id);
 
     await book.update({
@@ -142,6 +139,7 @@ router.put("/:id", async (req, res) => {
       narratorId: narratorId || null,
       coverImageUrl,
       formatId: formatId || null,
+      statusId: statusId || null,
     });
 
     res.redirect("/books");

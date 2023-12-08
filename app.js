@@ -10,6 +10,7 @@ const authorsRouter = require("./app/routes/authors");
 const seriesRouter = require("./app/routes/series");
 const narratorsRouter = require("./app/routes/narrators");
 const formatsRouter = require("./app/routes/format");
+const statusRouter = require("./app/routes/status");
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use("/authors", authorsRouter);
 app.use("/series", seriesRouter);
 app.use("/narrators", narratorsRouter);
 app.use("/formats", formatsRouter);
+app.use("/status", statusRouter);
 
 // Route for the landing page
 app.get("/", (req, res) => {

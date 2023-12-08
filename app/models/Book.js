@@ -31,10 +31,20 @@ const Book = sequelize.define("book", {
     },
     allowNull: true,
   },
+  statusId: {
+    type: Sequelize.INTEGER,
+    allowNull: true,
+    references: {
+      model: "statuses", // 'series' refers to table name
+      key: "id", // 'id' refers to column name in series table
+    },
+    allowNull: true,
+  },
+
   startReadingDate: Sequelize.DATE,
   completedDate: Sequelize.DATE,
   rating: Sequelize.INTEGER,
-  currentStatus: Sequelize.STRING,
+
   coverImageUrl: Sequelize.STRING,
   bookNum: Sequelize.INTEGER,
   formatId: {

@@ -106,15 +106,14 @@
           />
         </div>
 
-        <!-- Status -->
+        <!-- Status Dropdown -->
         <div class="form-group">
-          <label for="currentStatus">Current Status:</label>
-          <input
-            type="text"
-            class="form-control"
-            id="currentStatus"
-            name="currentStatus"
-          />
+          <label for="statusId">Status:</label>
+          <select class="form-control" id="statusId" name="statusId">
+            <% statuses.forEach(function(status) { %>
+            <option value="<%= status.id %>"><%= status.name %></option>
+            <% }) %>
+          </select>
         </div>
         <button type="submit" class="btn btn-primary">Add Book</button>
       </form>
