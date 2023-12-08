@@ -64,7 +64,7 @@
         <!-- Formats Dropdown -->
         <div class="form-group">
           <label for="formatIds">Formats:</label>
-          <select multiple class="form-control" id="formatIds" name="formatIds">
+          <select class="form-control" id="formatIds" name="formatIds">
             <% formats.forEach(function(format) { %>
             <option value="<%= format.id %>"><%= format.name %></option>
             <% }) %>
