@@ -11,7 +11,10 @@
     />
 
     <script>
-      function showBookDetails(book) {
+      function showBookDetails(element) {
+        var bookData = element.getAttribute("data-book");
+        var book = JSON.parse(bookData);
+
         var modalBody = document.querySelector("#bookDetailsModal .modal-body");
         var modalFooter = document.querySelector(
           "#bookDetailsModal .modal-footer"
@@ -34,8 +37,6 @@
             <button type="submit" class="btn btn-danger">Delete</button>
           </form>
         `;
-
-        $("#bookDetailsModal").modal("show");
       }
     </script>
 
@@ -128,7 +129,8 @@
             style="cursor: pointer"
             data-toggle="modal"
             data-target="#bookDetailsModal"
-            onclick="showBookDetails(<%= JSON.stringify(book) %>)"
+            data-book="<%= JSON.stringify(book) %>"
+            onclick="showBookDetails(this)"
           >
             <img
               class="card-img-top book-image"
