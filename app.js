@@ -23,6 +23,9 @@ app.use(bodyParser.json());
 // Setting up the view engine, if you're using one (like ejs)
 app.set("view engine", "ejs");
 
+// Serve static files from the "public" directory
+app.use(express.static("public"));
+
 // Database Associations
 setAssociations();
 

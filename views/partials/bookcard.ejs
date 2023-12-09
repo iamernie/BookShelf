@@ -1,19 +1,59 @@
-<div class="card-body book-info">
-  <h5 class="card-title book-title"><%= book.title %></h5>
-  <p class="book-series">
-    <% if (book.series) { %>
-    <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
-    Book #<%= book.bookNum %> <% } else { %> No Series <% } %>
-  </p>
-  <p class="book-author">
-    Author: <%= book.author ? book.author.name : 'Unknown' %>
-  </p>
+<div class="col-md-3 col-sm-4 col-6 mb-4">
+  <!-- Updated classes for six cards per row -->
+  <div
+    class="card book-card"
+    style="cursor: pointer"
+    data-toggle="modal"
+    data-target="#bookDetailsModal"
+    data-book="<%= JSON.stringify(book) %>"
+    onclick="showBookDetails(this)"
+  >
+    <img
+      class="card-img-top book-image"
+      src="<%= book.coverImageUrl %>"
+      alt="Book Cover"
+    />
+    <% if (new Date(book.releaseDate) > new Date()) { %>
+    <div class="unreleased-banner">Unreleased</div>
+    <% } %> 
+    <% if (book.status && book.status.name === 'Current') { %>
+      <div class="current-banner">Current</div>
+      <% } %> 
+    <% if (book.status && book.status.name === 'Read') { %>
+    <div class="checkmark-container">
+      <i class="fas fa-check-circle"></i>
+      <!-- Using Font Awesome -->
+      <!-- Or use a Unicode character: <span>&#10004;</span> -->
+    </div>
+    <% } %>
 
-  <p class="book-status">
-    Status: <%= book.status ? book.status.name : 'N/A' %><%= book.status &&
-    book.status.name === 'Done' ? ' ✓' : '' %>
-  </p>
-  <!-- ... other book details and actions ... -->
-  <!-- Hover-activated Edit Button -->
-  <a href="/books/edit/<%= book.id %>" class="btn btn-primary edit-btn">Edit</a>
+    <div class="card-body book-info">
+      <h5 class="card-title book-title"><%= book.title %></h5>
+      <p class="book-series">
+        <% if (book.series) { %>
+          <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
+          <% if (book.bookNum > 0) { %>
+            Book #<%= book.bookNum %>
+          <% } %>
+        <% } else { %>
+          No Series
+        <% } %>
+      </p>
+      <p class="book-author">
+        Author: <%= book.author ? book.author.name : 'Unknown' %>
+      </p>
+
+      <p class="book-status">
+        Status: <%= book.status ? book.status.name : 'N/A' %><%=
+        book.status && book.status.name === 'Done' ? ' ✓' : '' %>
+      </p>
+      <!-- ... other book details and actions ... -->
+      <!-- Hover-activated Edit Button -->
+      <a
+        href="/books/edit/<%= book.id %>"
+        class="btn btn-primary edit-btn"
+        >Edit</a
+      >
+    </div>
+  </div>
 </div>

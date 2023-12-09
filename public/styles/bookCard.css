@@ -1,0 +1,76 @@
+.card-container {
+  padding: 10px;
+}
+.book-card {
+  position: relative; /* Needed for absolute positioning of the edit button */
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+  transition: 0.3s;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.book-card:hover {
+  box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+}
+.book-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+.book-info {
+  padding: 10px;
+}
+.book-title,
+.book-author,
+.book-series,
+.book-status {
+  margin-bottom: 5px; /* Reduced bottom margin */
+  line-height: 1.2; /* Adjust line height for tighter text */
+}
+.edit-btn {
+  position: absolute;
+  top: 10px; /* Position from the top of the card */
+  left: 10px; /* Position from the right of the card */
+  opacity: 0; /* Initially hidden */
+  transition: opacity 0.3s ease; /* Smooth transition for the opacity */
+}
+.book-card:hover .edit-btn {
+  opacity: 1; /* Show the button on hover */
+}
+.book-image-container {
+  position: relative;
+}
+
+.checkmark-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: rgb(163, 243, 163); /* Green color for the check mark */
+  font-size: 24px; /* Adjust size as needed */
+}
+.book-card {
+  position: relative;
+  /* ... existing styles ... */
+}
+
+.unreleased-banner {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: red;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 0 0 15px 15px;
+  font-weight: bold;
+}
+.current-banner {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: blue;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 0 0 15px 15px;
+  font-weight: bold;
+}

@@ -3,6 +3,8 @@ const router = express.Router();
 const Series = require("../models/Series"); // Adjust the path as necessary
 const Book = require("../models/Book"); // Make sure this path is correct
 const Author = require("../models/Author"); // Import if you're using the Author model
+const Status = require("../models/Status"); //
+const Narrator = require("../models/Narrator");
 
 // GET all series
 router.get("/", async (req, res) => {
@@ -22,7 +24,7 @@ router.get("/:id/books", async (req, res) => {
     const seriesId = req.params.id;
     const books = await Book.findAll({
       where: { seriesId: seriesId },
-      include: [Series, Author], // Include other related models as needed
+      include: [Series, Author, Status, Narrator], // Include other related models as needed
       order: [["bookNum", "DESC"]],
     });
     const series = await Series.findByPk(seriesId);
