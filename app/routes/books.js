@@ -170,6 +170,7 @@ router.put("/:id", upload.single("coverImageFile"), async (req, res) => {
       completedDate,
       rating,
       bookNum,
+      releaseDate,
     } = req.body;
 
     let coverImageUrl2 = req.body.coverImageUrl;
@@ -192,6 +193,7 @@ router.put("/:id", upload.single("coverImageFile"), async (req, res) => {
       summary,
       startReadingDate,
       completedDate,
+      releaseDate,
       rating,
       bookNum,
     });
