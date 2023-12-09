@@ -4,16 +4,14 @@ FROM node:16
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Install git
+RUN apt-get update && apt-get install -y git
+
+# Clone the latest code from GitHub
+RUN git clone https://github.com/iamernie/BookShelf.git .
 
 # Install dependencies
 RUN npm install
-
-# Copy the current directory contents into the container at /usr/src/app
-COPY . .
-
-#RUN npx sequelize-cli db:seed:all
 
 # Make port available to the world outside this container
 EXPOSE 3000
