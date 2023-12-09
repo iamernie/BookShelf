@@ -4,11 +4,12 @@ const Series = require("../models/Series"); // Adjust the path as necessary
 const Book = require("../models/Book"); // Make sure this path is correct
 const Author = require("../models/Author"); // Import if you're using the Author model
 
-
 // GET all series
 router.get("/", async (req, res) => {
   try {
-    const series = await Series.findAll();
+    const series = await Series.findAll({
+      order: [["title", "ASC"]],
+    });
     res.render("series/listSeries", { series });
   } catch (error) {
     res.status(500).send("Error occurred: " + error.message);
@@ -21,13 +22,13 @@ router.get("/:id/books", async (req, res) => {
     const seriesId = req.params.id;
     const books = await Book.findAll({
       where: { seriesId: seriesId },
-      include: [Series, Author] // Include other related models as needed
+      include: [Series, Author], // Include other related models as needed
     });
     const series = await Series.findByPk(seriesId);
-    res.render('series/seriesBooks', { books, seriesId, series }); // Render a view with the books in the series
+    res.render("series/seriesBooks", { books, seriesId, series }); // Render a view with the books in the series
   } catch (error) {
-    console.error('Error fetching books by series:', error);
-    res.status(500).send('Error occurred while fetching books');
+    console.error("Error fetching books by series:", error);
+    res.status(500).send("Error occurred while fetching books");
   }
 });
 

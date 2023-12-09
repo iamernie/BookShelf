@@ -56,9 +56,15 @@ router.get("/debug", async (req, res) => {
 // GET the form for adding a new book
 router.get("/add", async (req, res) => {
   try {
-    const authors = await Author.findAll();
-    const series = await Series.findAll();
-    const narrators = await Narrator.findAll();
+    const authors = await Author.findAll({
+      order: [["name", "ASC"]],
+    });
+    const series = await Series.findAll({
+      order: [["title", "ASC"]],
+    });
+    const narrators = await Narrator.findAll({
+      order: [["name", "ASC"]],
+    });
     const formats = await Format.findAll();
     const statuses = await Status.findAll();
     res.render("books/addBook", {
@@ -131,9 +137,15 @@ router.get("/edit/:id", async (req, res) => {
         { model: Status },
       ],
     });
-    const authors = await Author.findAll();
-    const series = await Series.findAll();
-    const narrators = await Narrator.findAll();
+    const authors = await Author.findAll({
+      order: [["name", "ASC"]],
+    });
+    const series = await Series.findAll({
+      order: [["title", "ASC"]],
+    });
+    const narrators = await Narrator.findAll({
+      order: [["name", "ASC"]],
+    });
     const formats = await Format.findAll();
     const statuses = await Status.findAll();
     if (book) {
