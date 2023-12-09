@@ -94,6 +94,33 @@
         color: rgb(163, 243, 163); /* Green color for the check mark */
         font-size: 24px; /* Adjust size as needed */
       }
+      .book-card {
+        position: relative;
+        /* ... existing styles ... */
+      }
+
+      .unreleased-banner {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: red;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 0 0 15px 15px;
+        font-weight: bold;
+      }
+      .current-banner {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: blue;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 0 0 15px 15px;
+        font-weight: bold;
+      }      
     </style>
   </head>
   <body>
@@ -153,7 +180,13 @@
               src="<%= book.coverImageUrl %>"
               alt="Book Cover"
             />
-            <% if (book.status && book.status.name === 'Done') { %>
+            <% if (new Date(book.releaseDate) > new Date()) { %>
+            <div class="unreleased-banner">Unreleased</div>
+            <% } %> 
+            <% if (book.status && book.status.name === 'Current') { %>
+              <div class="current-banner">Current</div>
+              <% } %> 
+            <% if (book.status && book.status.name === 'Read') { %>
             <div class="checkmark-container">
               <i class="fas fa-check-circle"></i>
               <!-- Using Font Awesome -->
@@ -165,10 +198,13 @@
               <h5 class="card-title book-title"><%= book.title %></h5>
               <p class="book-series">
                 <% if (book.series) { %>
-                <a href="/series/<%= book.series.id %>/books"
-                  ><%= book.series.title %></a
-                >
-                Book #<%= book.bookNum %> <% } else { %> No Series <% } %>
+                  <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
+                  <% if (book.bookNum > 0) { %>
+                    Book #<%= book.bookNum %>
+                  <% } %>
+                <% } else { %>
+                  No Series
+                <% } %>
               </p>
               <p class="book-author">
                 Author: <%= book.author ? book.author.name : 'Unknown' %>

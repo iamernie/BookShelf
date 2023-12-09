@@ -23,6 +23,7 @@ router.get("/:id/books", async (req, res) => {
     const books = await Book.findAll({
       where: { seriesId: seriesId },
       include: [Series, Author], // Include other related models as needed
+      order: [["bookNum", "DESC"]],
     });
     const series = await Series.findByPk(seriesId);
     res.render("series/seriesBooks", { books, seriesId, series }); // Render a view with the books in the series

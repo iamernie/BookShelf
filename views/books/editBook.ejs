@@ -137,6 +137,17 @@
                 </select>
             </div>
 
+            <!-- Series Dropdown -->
+            <div class="form-group">
+              <label for="narratorId">Narrator:</label>
+              <select class="form-control" id="narratorId" name="narratorId">
+                  <option value="">Narrated By (Optional)</option>
+                  <% narrators.forEach(function(narrator) { %>
+                      <option value="<%= narrator.id %>" <%= book.narratorId === narrator.id ? 'selected' : '' %>><%= narrator.name %></option>
+                  <% }) %>
+              </select>
+          </div>
+
             <!-- Summary -->
             <div class="form-group">
                 <label for="summary">Summary:</label>

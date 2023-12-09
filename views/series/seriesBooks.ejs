@@ -82,8 +82,7 @@
       <h2 class="series-title"><%= series.title %></h2>
       <div class="series-description">
         <p>
-          <%= series.description ? series.description : 'No description
-          available.' %>
+          <%= series.description ? series.description : 'No description available.' %>
         </p>
       </div>
 
@@ -104,21 +103,22 @@
               alt="Book Cover"
             />
             <% if (book.status && book.status.name === 'Done') { %>
-            <div class="checkmark-container">
-              <i class="fas fa-check-circle"></i>
-              <!-- Using Font Awesome -->
-              <!-- Or use a Unicode character: <span>&#10004;</span> -->
-            </div>
-            <% } %>
+              <div class="checkmark-container">
+                <i class="fas fa-check-circle"></i>
+                <!-- Using Font Awesome -->
+                <!-- Or use a Unicode character: <span>&#10004;</span> -->
+              </div>
+              <% } %>
 
             <div class="card-body book-info">
               <h5 class="card-title book-title"><%= book.title %></h5>
               <p class="book-series">
                 <% if (book.series) { %>
-                <a href="/series/<%= book.series.id %>/books"
-                  ><%= book.series.title %></a
-                >
-                Book #<%= book.bookNum %> <% } else { %> No Series <% } %>
+                  <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
+                  Book #<%= book.bookNum %>
+                <% } else { %>
+                  No Series
+                <% } %>
               </p>
               <p class="book-author">
                 Author: <%= book.author ? book.author.name : 'Unknown' %>

@@ -3,6 +3,7 @@ const Sequelize = require("sequelize");
 const sequelize = new Sequelize({
   dialect: "sqlite",
   storage: "thedatabase.sqlite", // Update this path as needed
+  logging: false,
 });
 
 // Sync all models with the database, and make changes if models are updated

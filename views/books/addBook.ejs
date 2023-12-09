@@ -88,6 +88,16 @@
         </div>
 
         <div class="form-group">
+          <label for="narratorId">Narrator:</label>
+          <select class="form-control" id="narratorId" name="narratorId">
+            <option value="">Narrated By (Optional)</option>
+            <% narrators.forEach(function(narrator) { %>
+            <option value="<%= narrator.id %>"><%= narrator.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label for="summary">Summary:</label>
           <textarea
             class="form-control"
