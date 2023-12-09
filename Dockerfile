@@ -13,6 +13,8 @@ RUN npm install
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
 
+RUN npx sequelize-cli db:seed:all
+
 # Make port available to the world outside this container
 EXPOSE 3000
 
