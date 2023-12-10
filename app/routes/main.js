@@ -24,6 +24,7 @@ router.get("/", async (req, res) => {
         Series,
       ],
     });
+    console.log("Current Book:", currentBook); // Log the current book
 
     // Fetch the next up books
     const nextUpBooks = await Book.findAll({
@@ -37,6 +38,7 @@ router.get("/", async (req, res) => {
       ],
       limit: 5, // Limit the number of next up books, adjust as needed
     });
+    console.log("Next Up Books:", nextUpBooks); // Log the next up books
 
     res.render("index", { currentBook, nextUpBooks });
   } catch (error) {

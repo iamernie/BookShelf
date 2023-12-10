@@ -11,6 +11,11 @@
 .book-card:hover {
   box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
 }
+.book-grid {
+  display: flex;
+  justify-content: center; /* Centers the card horizontally */
+  align-items: center; /* Optional: Use this if you also want to center vertically */
+}
 .status-change-options {
   position: absolute;
   top: 0;

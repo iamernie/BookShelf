@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('../partials/header', { title: 'Books - ' + series.title }) %>
+    <!-- Book Card Styles -->
+   <link rel="stylesheet" href="/styles/bookCard.css">
+    <!-- Add any other custom styles or scripts here -->
+    <style>
+      .series-title {
+        text-align: center;
+        margin-bottom: 1rem;
+      }
+      .series-description {
+        background-color: #f8f9fa; /* Light grey background */
+        border-radius: 10px; /* Rounded corners */
+        padding: 1rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('../navbar') %>
+    <!-- Include the navbar partial -->
+    <%- include('../partials/bookcardModal') %>
+
+    <div class="container mt-4">
+      <h2 class="series-title"><%= series.title %></h2>
+      <div class="series-description">
+        <p>
+          <%= series.description ? series.description : 'No description available.' %>
+        </p>
+      </div>
+
+      <div class="row">
+        <% books.forEach(function(book) { %>
+          <%- include('../partials/bookCard', { book: book }) %>
+          
+        <% }) %>
+      </div>
+
+      <% if (books.length === 0) { %>
+      <p>No books found in this series.</p>
+      <% } %>
+    </div>
+
+    <%- include('../partials/footer') %>
+  </body>
+</html>

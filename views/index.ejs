@@ -39,6 +39,7 @@
       </header>
 
       <!-- Current Book Section -->
+      <center>
       <section>
         <h2 class="section-title">Currently Reading</h2>
         <div class="book-grid">
@@ -49,8 +50,9 @@
           <% } %>
         </div>
       </section>
-
+    </center>
       <!-- Next Up Books Section -->
+      <center>
       <section>
         <h2 class="section-title">Next Up</h2>
         <div class="row">
@@ -58,6 +60,7 @@
             <%- include('partials/bookCard', { book: book }) %>          <% }) %>
         </div>
       </section>
+    </Center>
     </div>
     <%- include('partials/footer') %>
   </body>
