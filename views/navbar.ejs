@@ -18,43 +18,78 @@
         <a class="nav-link" href="/">Home</a>
       </li>
 
-      <!-- Books Dropdown -->
+      <% if (user) { %>
+        <!-- Books Dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownBooks" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Books
+          </a>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownBooks">
+            <a class="dropdown-item" href="/books/add">Add a Book</a>
+            <a class="dropdown-item" href="/books">List Books</a>
+          </div>
+        </li>
+
+        <!-- Authors Dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAuthors" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Authors
+          </a>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownAuthors">
+            <a class="dropdown-item" href="/authors/add">Add an Author</a>
+            <a class="dropdown-item" href="/authors">List Authors</a>
+          </div>
+        </li>
+
+        <!-- Series Dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownSeries" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Series
+          </a>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownSeries">
+            <a class="dropdown-item" href="/series/add">Add a Series</a>
+            <a class="dropdown-item" href="/series">List Series</a>
+          </div>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="/narrators">Narrators</a>
+        </li>
+
+        <% if (user.role === 'admin') { %>
+          <!-- Admin Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              Admin
+            </a>
+            <div class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
+              <a class="dropdown-item" href="/admin/users">Manage Users</a>
+              <!-- Add other admin links as needed -->
+            </div>
+          </li>
+        <% } %>
+      <% } %>
+    </ul>
+
+    <!-- User Dropdown -->
+    <ul class="navbar-nav ml-auto">
       <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownBooks" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-          Books
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownUser" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <% if (user) { %>
+            <%= user.username %>
+          <% } else { %>
+            Guest
+          <% } %>
         </a>
-        <div class="dropdown-menu" aria-labelledby="navbarDropdownBooks">
-          <a class="dropdown-item" href="/books/add">Add a Book</a>
-          <a class="dropdown-item" href="/books">List Books</a>
+        <div class="dropdown-menu" aria-labelledby="navbarDropdownUser">
+          <% if (user) { %>
+            <a class="dropdown-item" href="/logout">Logout</a>
+          <% } else { %>
+            <a class="dropdown-item" href="/login">Login</a>
+            <a class="dropdown-item" href="/register">Register</a>
+          <% } %>
         </div>
       </li>
-
-      <!-- Authors Dropdown -->
-      <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAuthors" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-          Authors
-        </a>
-        <div class="dropdown-menu" aria-labelledby="navbarDropdownAuthors">
-          <a class="dropdown-item" href="/authors/add">Add an Author</a>
-          <a class="dropdown-item" href="/authors">List Authors</a>
-        </div>
-      </li>
-
-      <!-- Series Dropdown -->
-      <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownSeries" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-          Series
-        </a>
-        <div class="dropdown-menu" aria-labelledby="navbarDropdownSeries">
-          <a class="dropdown-item" href="/series/add">Add a Series</a>
-          <a class="dropdown-item" href="/series">List Series</a>
-        </div>
-      </li>
-
-      <li class="nav-item">
-        <a class="nav-link" href="/narrators">Narrators</a>
-      </li>
-      <!-- Add other navigation links as needed -->
     </ul>
   </div>
 </nav>
