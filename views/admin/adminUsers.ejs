@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Manage Users</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
+</head>
+<body>
+  <%- include('../navbar') %>
+
+  <div class="container mt-4">
+    <h2 class="mb-3">User Management</h2>
+    
+    <!-- User Search and Filters (To be implemented) -->
+    <!-- <form>...</form> -->
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% users.forEach(function(user) { %>
+        <tr>
+          <td><%= user.username %></td>
+          <td><%= user.email %></td>
+          <td><%= user.role %></td>
+          <td>
+            <a href="/admin/users/edit/<%= user.id %>" class="btn btn-sm btn-primary">Edit</a>
+            <!-- Additional actions like delete can be added here -->
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <!-- Pagination (To be implemented) -->
+    <!-- <nav>...</nav> -->
+  </div>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

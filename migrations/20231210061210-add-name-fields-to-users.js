@@ -11,6 +11,9 @@ module.exports = {
       type: Sequelize.STRING,
       allowNull: true,
     });
+
+    await queryInterface.sequelize.query('DROP TABLE IF EXISTS "authors_backup";');
+
   },
 
   async down(queryInterface, Sequelize) {
