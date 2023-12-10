@@ -126,20 +126,6 @@ router.post("/", upload.single("coverImageFile"), async (req, res) => {
   }
 });
 
-// // POST route to update the status of a book
-// router.post("/:id/status", express.json(), async (req, res) => {
-//   try {
-//     const bookId = req.params.id;
-//     const newStatusId = req.body.statusId;
-//     console.log(`Updating Book ID: ${bookId} to Status ID: ${newStatusId}`);
-
-//     // Rest of the code...
-//   } catch (error) {
-//     console.error("Error updating status:", error);
-//     res.status(500).send("Error occurred while updating the status");
-//   }
-// });
-
 router.put("/update-status/:id", async (req, res) => {
   try {
     const bookId = req.params.id;
