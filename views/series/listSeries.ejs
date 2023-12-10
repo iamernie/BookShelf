@@ -30,7 +30,7 @@
           <% series.forEach(function(serie) { %>
           <tr>
             <td><%= serie.title %></td>
-            <td><%= serie.description %></td>
+            <td><%= serie.description.length > 90 ? serie.description.substring(0, 90) + '...' : serie.description %></td>
             <td>
               <a
                 href="/series/edit/<%= serie.id %>"
@@ -40,7 +40,7 @@
               <a
                 href="/series/<%= serie.id %>/books"
                 class="btn btn-sm btn-primary"
-                >View Books</a
+                >Books</a
               >
               <form
                 action="/series/<%= serie.id %>?_method=DELETE"

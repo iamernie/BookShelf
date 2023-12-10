@@ -20,6 +20,8 @@ router.get("/", async (req, res) => {
           model: Status,
           where: { name: "Current" },
         },
+        Author,
+        Series,
       ],
     });
 
@@ -30,6 +32,8 @@ router.get("/", async (req, res) => {
           model: Status,
           where: { name: "Next" },
         },
+        Author,
+        Series,
       ],
       limit: 5, // Limit the number of next up books, adjust as needed
     });

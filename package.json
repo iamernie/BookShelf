@@ -1,7 +1,7 @@
 {
   "name": "bookshelf",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.0.7",
+  "description": "BookShelf - Self hosted Book Manager",
   "main": "app.js",
   "scripts": {
     "dev": "nodemon app.js",
