@@ -14,6 +14,7 @@ const formatsRouter = require("./app/routes/format");
 const statusRouter = require("./app/routes/status");
 
 const app = express();
+app.use(express.json());
 
 // Middlewares
 app.use(methodOverride("_method"));

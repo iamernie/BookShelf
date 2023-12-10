@@ -26,6 +26,44 @@
         </form>
       `;
     }
+    let statusMap = {};
+
+    function fetchStatusMappings() {
+        fetch('/books/status-mappings')
+            .then(response => response.json())
+            .then(data => {
+                statusMap = data;
+            })
+            .catch(error => console.error('Error fetching status mappings:', error));
+    }
+    
+    function changeStatus(bookId, newStatusName) {
+      const newStatusId = statusMap[newStatusName];
+      if (newStatusId) {
+          fetch(`/books/update-status/${bookId}`, {
+              method: 'PUT',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ statusId: newStatusId }),
+          })
+          .then(response => {
+              if (response.ok) {
+                  // Reload the page or update the UI to reflect the status change
+                  location.reload(); // Simplest way to reflect changes
+              } else {
+                  console.error('Failed to update status. Server responded with:', response.status);
+              }
+          })
+          .catch(error => console.error('Error updating status:', error));
+      } else {
+          console.error('Status ID not found for:', newStatusName);
+      }
+  }
+    
+    // Call fetchStatusMappings when the page loads
+    document.addEventListener('DOMContentLoaded', fetchStatusMappings);  
+
   </script>
     
     <!-- Modal Structure -->

@@ -125,6 +125,55 @@ router.post("/", upload.single("coverImageFile"), async (req, res) => {
     res.status(500).send("Error occurred while creating a book");
   }
 });
+
+// POST route to update the status of a book
+router.post("/:id/status", express.json(), async (req, res) => {
+  try {
+    const bookId = req.params.id;
+    const newStatusId = req.body.statusId;
+    console.log(`Updating Book ID: ${bookId} to Status ID: ${newStatusId}`);
+
+    // Rest of the code...
+  } catch (error) {
+    console.error("Error updating status:", error);
+    res.status(500).send("Error occurred while updating the status");
+  }
+});
+
+router.put("/update-status/:id", async (req, res) => {
+  try {
+    const bookId = req.params.id;
+    const { statusId } = req.body;
+
+    const book = await Book.findByPk(bookId);
+    if (book) {
+      await book.update({ statusId });
+      res.status(200).send("Status updated successfully");
+    } else {
+      res.status(404).send("Book not found");
+    }
+  } catch (error) {
+    console.error("Error updating book status:", error);
+    res.status(500).send("Error occurred while updating book status");
+  }
+});
+
+// In your books.js routes file
+router.get("/status-mappings", async (req, res) => {
+  try {
+    const statuses = await Status.findAll();
+    const statusMap = statuses.reduce((map, status) => {
+      map[status.name] = status.id;
+      return map;
+    }, {});
+
+    res.json(statusMap);
+  } catch (error) {
+    console.error("Error fetching status mappings:", error);
+    res.status(500).send("Error occurred while fetching status mappings");
+  }
+});
+
 // GET the form for editing a book
 router.get("/edit/:id", async (req, res) => {
   try {
