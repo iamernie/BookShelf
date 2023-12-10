@@ -1,74 +1,109 @@
-const express = require('express');
-const bcrypt = require('bcrypt');
-const User = require('../models/User'); // Adjust the path as needed
+const express = require("express");
+const bcrypt = require("bcrypt");
+const User = require("../models/User"); // Update with the correct path
 const router = express.Router();
 
 // Middleware to check if the user is an admin
 function isAdmin(req, res, next) {
-  if (req.isAuthenticated() && req.user.role === 'admin') {
+  if (req.isAuthenticated() && req.user.role === "admin") {
     return next();
   }
-  res.redirect('/login');
+  res.redirect("/login");
 }
 
-// List users with pagination
-router.get('/users', async (req, res) => {
+// GET - Display all users (with basic pagination)
+router.get("/users", isAdmin, async (req, res) => {
   try {
-    const users = await User.findAll(); // Add pagination logic
-    res.render('adminUsers', { users });
-  } catch (err) {
-    console.error(err);
-    res.redirect('/admin/users');
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10; // Number of records per page
+    const offset = (page - 1) * limit;
+    const users = await User.findAndCountAll({ limit: limit, offset: offset });
+
+    res.render("admin/users", {
+      users: users.rows,
+      currentPage: page,
+      totalPages: Math.ceil(users.count / limit),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error retrieving users");
   }
 });
 
-// Add new user form
-router.get('/users/add', isAdmin, (req, res) => {
-  res.render('adminAddUser');
+// GET - Show form to add a new user
+router.get("/users/add", isAdmin, (req, res) => {
+  res.render("admin/addUser");
 });
 
-// Add new user logic
-router.post('/users/add', isAdmin, async (req, res) => {
+// POST - Add a new user
+router.post("/users/add", isAdmin, async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
-    await User.create({ /* user data from req.body */ });
-    res.redirect('/admin/users');
-  } catch (err) {
-    console.error(err);
-    res.redirect('/admin/users/add');
+    await User.create({
+      username: req.body.username,
+      email: req.body.email,
+      password: hashedPassword,
+      role: req.body.role,
+    });
+    res.redirect("/admin/users");
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error creating user");
   }
 });
 
-// Edit user form
-router.get('/users/edit/:id', isAdmin, async (req, res) => {
+// GET - Show form to edit a user
+router.get("/users/edit/:id", isAdmin, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
-    res.render('adminEditUser', { user });
-  } catch (err) {
-    console.error(err);
-    res.redirect('/admin/users');
+    if (user) {
+      res.render("admin/editUser", { user });
+    } else {
+      res.status(404).send("User not found");
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error fetching user");
   }
 });
 
-// Edit user logic
-router.post('/users/edit/:id', isAdmin, async (req, res) => {
+// POST - Update a user
+router.post("/users/edit/:id", isAdmin, async (req, res) => {
   try {
-    // Update user logic here
-    res.redirect('/admin/users');
-  } catch (err) {
-    console.error(err);
-    res.redirect('/admin/users');
+    const user = await User.findByPk(req.params.id);
+    if (user) {
+      const hashedPassword = req.body.password
+        ? await bcrypt.hash(req.body.password, 10)
+        : user.password;
+      await user.update({
+        username: req.body.username,
+        email: req.body.email,
+        password: hashedPassword,
+        role: req.body.role,
+      });
+      res.redirect("/admin/users");
+    } else {
+      res.status(404).send("User not found");
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error updating user");
   }
 });
 
-// Delete user
-router.post('/users/delete/:id', isAdmin, async (req, res) => {
+// POST - Delete a user
+router.post("/users/delete/:id", isAdmin, async (req, res) => {
   try {
-    await User.destroy({ where: { id: req.params.id } });
-    res.redirect('/admin/users');
-  } catch (err) {
-    console.error(err);
-    res.redirect('/admin/users');
+    const user = await User.findByPk(req.params.id);
+    if (user) {
+      await user.destroy();
+      res.redirect("/admin/users");
+    } else {
+      res.status(404).send("User not found");
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error deleting user");
   }
 });
 

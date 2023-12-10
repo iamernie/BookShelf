@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit User</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+</head>
+<body>
+    <%- include('../navbar') %> <!-- Update path to your navbar template -->
+
+    <div class="container mt-4">
+        <h2>Edit User</h2>
+        <form action="/admin/users/edit/<%= user.id %>" method="POST">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" class="form-control" id="username" name="username" value="<%= user.username %>" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" class="form-control" id="email" name="email" value="<%= user.email %>" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password (leave blank to keep the same)</label>
+                <input type="password" class="form-control" id="password" name="password">
+            </div>
+            <div class="form-group">
+                <label for="role">Role</label>
+                <select class="form-control" id="role" name="role">
+                    <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                    <option value="editor" <%= user.role === 'editor' ? 'selected' : '' %>>Editor</option>
+                    <option value="user" <%= user.role === 'user' ? 'selected' : '' %>>User</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Update User</button>
+            <a href="/admin/users" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+
+    <%- include('../partials/footer') %> <!-- Update path to your footer template -->
+</body>
+</html>

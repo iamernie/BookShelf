@@ -54,12 +54,11 @@ app.use((req, res, next) => {
 
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) {
-      return next();
+    return next();
   }
   // Redirect to login page if not authenticated
-  res.redirect('/login');
+  res.redirect("/login");
 }
-
 
 // Importing routes
 const appRouter = require("./app/routes/main");
@@ -75,16 +74,16 @@ const adminRouter = require("./app/routes/admin");
 // Routes
 app.use(authRoutes);
 app.use("/", appRouter);
+app.use("/uploads", express.static("uploads"));
 
 // Protected Routes
-app.use("/admin", ensureAuthenticated,adminRouter);
+app.use("/admin", ensureAuthenticated, adminRouter);
 app.use("/books", ensureAuthenticated, booksRouter);
-app.use("/authors", ensureAuthenticated,authorsRouter);
-app.use("/series", ensureAuthenticated,seriesRouter);
-app.use("/narrators", ensureAuthenticated,narratorsRouter);
-app.use("/formats", ensureAuthenticated,formatsRouter);
-app.use("/status", ensureAuthenticated,statusRouter);
-app.use("/uploads", ensureAuthenticated, express.static("uploads"));
+app.use("/authors", ensureAuthenticated, authorsRouter);
+app.use("/series", ensureAuthenticated, seriesRouter);
+app.use("/narrators", ensureAuthenticated, narratorsRouter);
+app.use("/formats", ensureAuthenticated, formatsRouter);
+app.use("/status", ensureAuthenticated, statusRouter);
 
 // Database Associations
 setAssociations();
