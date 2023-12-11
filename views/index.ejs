@@ -21,8 +21,8 @@
     </style>
   </head>
   <body>
-    <%- include('navbar') %>
-    <%- include('partials/bookcardModal') %>
+    <%- include("navbar") %>
+    <%- include("partials/bookcardModal") %>
 
     <div class="container my-4">
       <header class="jumbotron text-center">
@@ -44,7 +44,7 @@
         <h2 class="section-title">Currently Reading</h2>
         <div class="book-grid">
           <% if (currentBook) { %>
-            <%- include('partials/bookCard', { book: currentBook }) %>
+            <%- include("partials/bookCard", { book: currentBook }) %>
           <% } else { %>
           <p>No current book selected.</p>
           <% } %>
@@ -57,11 +57,11 @@
         <h2 class="section-title">Next Up</h2>
         <div class="row">
           <% nextUpBooks.forEach(function(book) { %>
-            <%- include('partials/bookCard', { book: book }) %>          <% }) %>
+            <%- include("partials/bookCard", { book: book }) %>          <% }) %>
         </div>
       </section>
     </Center>
     </div>
-    <%- include('partials/footer') %>
+    <%- include("partials/footer") %>
   </body>
 </html>
