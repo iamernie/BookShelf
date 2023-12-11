@@ -7,9 +7,8 @@ WORKDIR /usr/src/app
 # Install git
 RUN apt-get update && apt-get install -y git
 
-# Clone the latest code from GitHub
-RUN git clone https://github.com/iamernie/BookShelf.git .
-
+# Copy all files to the container
+COPY . .
 # Install dependencies
 RUN npm install
 

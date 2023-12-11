@@ -11,6 +11,13 @@
         background: #fff;
         border-radius: 10px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px; /* Reduced padding */
+      }
+      .jumbotron h1 {
+        font-size: 30px; /* Smaller title font size */
+      }
+      .jumbotron p {
+        font-size: 16px; /* Smaller paragraph font size */
       }
       .section-title {
         font-size: 24px;
@@ -26,41 +33,28 @@
 
     <div class="container my-4">
       <header class="jumbotron text-center">
-        <h1 class="display-4">Welcome to BookTracker!</h1>
+        <h1 class="display-4">BookTracker</h1>
         <p class="lead">Your personal library management system.</p>
-        <hr class="my-4" />
-        <p>
-          Track, organize, and discover your favorite books, authors, and
-          series.
-        </p>
-        <a class="btn btn-primary btn-lg" href="books" role="button"
-          >Explore Books</a
-        >
       </header>
 
       <!-- Current Book Section -->
-      <center>
-      <section>
-        <h2 class="section-title">Currently Reading</h2>
-        <div class="book-grid">
-          <% if (currentBook) { %>
-            <%- include("partials/bookCard", { book: currentBook }) %>
-          <% } else { %>
-          <p>No current book selected.</p>
-          <% } %>
-        </div>
-      </section>
-    </center>
+
       <!-- Next Up Books Section -->
       <center>
       <section>
         <h2 class="section-title">Next Up</h2>
         <div class="row">
+           <% if (currentBook) { %>
+            <%- include("partials/bookCard", { book: currentBook }) %>
+          <% } else { %>
+          <p>No current book selected.</p>
+          <% } %>
           <% nextUpBooks.forEach(function(book) { %>
-            <%- include("partials/bookCard", { book: book }) %>          <% }) %>
+            <%- include("partials/bookCard", { book: book }) %>
+          <% }) %>
         </div>
       </section>
-    </Center>
+      </center>
     </div>
     <%- include("partials/footer") %>
   </body>

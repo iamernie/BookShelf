@@ -1,14 +1,7 @@
 <div class="col-md-3 col-sm-4 col-6 mb-4">
-    <div class="card book-card" style="cursor: pointer">
+    <div class="card book-card" style="cursor: pointer" onclick="showBookDetails('<%= book.id %>')" data-book-id="<%= book.id %>">
         <div class="book-image-container">
-            <img class="card-img-top book-image" src="<%= book.coverImageUrl %>" alt="Book Cover">
-  
-            <!-- Status Change Options on Hover -->
-            <div class="status-change-options">
-                <button class="btn btn-success btn-sm" onclick="changeStatus('<%= book.id %>', 'Read')">Mark as Read</button>
-                <button class="btn btn-primary btn-sm" onclick="changeStatus('<%= book.id %>', 'Next')">Mark as Next</button>
-                <button class="btn btn-warning btn-sm" onclick="changeStatus('<%= book.id %>', 'Current')">Mark as Current</button>
-            </div>
+            <img class="card-img-top book-image" src="<%= book.coverImageUrl %>" alt="Book Cover"> 
   
             <% if (new Date(book.releaseDate) > new Date()) { %>
                 <div class="unreleased-banner">Unreleased</div>

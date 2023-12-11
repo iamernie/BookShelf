@@ -1,100 +1,145 @@
-<script>
-    function showBookDetails(element) {
-      var bookData = element.getAttribute("data-book");
-      var book = JSON.parse(bookData);
-
-      var modalBody = document.querySelector("#bookDetailsModal .modal-body");
-      var modalFooter = document.querySelector(
-        "#bookDetailsModal .modal-footer"
-      );
-
-      modalBody.innerHTML = `
-        <img src="${
-          book.coverImageUrl
-        }" alt="Book Cover" class="img-fluid mb-3">
-        <p><strong>Title:</strong> ${book.title}</p>
-        <p><strong>Author:</strong> ${
-          book.Author ? book.Author.name : "Unknown"
-        }</p>
-        <!-- Include other book properties here -->
-      `;
-
-      modalFooter.innerHTML = `
-        <a href="/books/edit/${book.id}" class="btn btn-primary">Edit</a>
-        <form action="/books/${book.id}?_method=DELETE" method="post" style="display: inline">
-          <button type="submit" class="btn btn-danger">Delete</button>
-        </form>
-      `;
-    }
-    let statusMap = {};
-
-    function fetchStatusMappings() {
-        fetch('/books/status-mappings')
-            .then(response => response.json())
-            .then(data => {
-                statusMap = data;
-            })
-            .catch(error => console.error('Error fetching status mappings:', error));
-    }
-    
-    function changeStatus(bookId, newStatusName) {
-      const newStatusId = statusMap[newStatusName];
-      if (newStatusId) {
-          fetch(`/books/update-status/${bookId}`, {
-              method: 'PUT',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ statusId: newStatusId }),
-          })
-          .then(response => {
-              if (response.ok) {
-                  // Reload the page or update the UI to reflect the status change
-                  location.reload(); // Simplest way to reflect changes
-              } else {
-                  console.error('Failed to update status. Server responded with:', response.status);
-              }
-          })
-          .catch(error => console.error('Error updating status:', error));
-      } else {
-          console.error('Status ID not found for:', newStatusName);
-      }
+<style>
+  #bookDetailsModal .img-fluid {
+    max-height: 400px; /* Adjust this height as needed */
+    object-fit: cover;
   }
-    
-    // Call fetchStatusMappings when the page loads
-    document.addEventListener('DOMContentLoaded', fetchStatusMappings);  
+  #bookDetailsModal .notes-textarea {
+    height: 250px; /* Match this height to the image's max-height */
+    overflow-y: auto; /* Allows scrolling inside the textarea */
+  }
+  #bookDetailsModal .well {
+    background-color: #f2f2f2;
+    padding: 10px;
+    border-radius: 5px;
+  }
+  #bookDetailsModal .modal-header {
+    background-color: #007bff;
+    color: white;
+  }
+  #bookDetailsModal h5 {
+    font-weight: bold;
+  }
+  #bookDetailsModal #bookModalDetails p {
+    margin-bottom: 5px;
+    color: #333;
+  }
 
-  </script>
-    
-    <!-- Modal Structure -->
-    <div
-      class="modal fade"
-      id="bookDetailsModal"
-      tabindex="-1"
-      role="dialog"
-      aria-labelledby="bookDetailsModalLabel"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="bookDetailsModalLabel">Book Details</h5>
-            <button
-              type="button"
-              class="close"
-              data-dismiss="modal"
-              aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+</style>
+<!-- bookcardModal.ejs -->
+<!-- bookcardModal.ejs -->
+<div class="modal fade" id="bookDetailsModal" tabindex="-1" role="dialog" aria-labelledby="bookDetailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header" style="background-color: #6c757d; color: white;">
+        <h5 class="modal-title" id="bookDetailsModalLabel">Book Details</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-4">
+            <img src="" alt="Book Cover" class="img-fluid" id="bookModalImage">
           </div>
-          <div class="modal-body">
-            <!-- Book details will be dynamically inserted here -->
-          </div>
-          <div class="modal-footer">
-            <!-- Edit and Delete buttons will be dynamically inserted here -->
+          <div class="col-md-8">
+            <!-- Tab Navigation -->
+            <ul class="nav nav-tabs" id="bookModalTabs" role="tablist">
+              <li class="nav-item">
+                <a class="nav-link active" id="book-info-tab" data-toggle="tab" href="#bookInfo" role="tab" aria-controls="bookInfo" aria-selected="true">Book Info</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" id="book-notes-tab" data-toggle="tab" href="#bookNotes" role="tab" aria-controls="bookNotes" aria-selected="false">Book Notes</a>
+              </li>
+              <li class="nav-item" id="series-notes-tab">
+                <a class="nav-link" data-toggle="tab" href="#seriesNotes" role="tab" aria-controls="seriesNotes" aria-selected="false">Series Notes</a>
+              </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="bookModalTabContent">
+              <!-- Book Info Tab -->
+              <div class="tab-pane fade show active" id="bookInfo" role="tabpanel" aria-labelledby="book-info-tab">
+                <h5 id="bookModalTitle" class="mt-2"></h5>
+                <p><a href="#" id="bookModalSeriesLink" style="display: none;"></a></p>
+                <p id="bookModalAuthor"></p>
+                <p id="bookModalNarrator"></p>
+                <p><strong>Release Date:</strong> <span id="bookModalReleaseDate"></span></p>
+                <p><strong>Rating:</strong> <span id="bookModalRating"></span></p>
+                <p><strong>Summary:</strong></p>
+                <div id="bookModalSummary" class="well"></div>
+              </div>
+
+              <!-- Book Notes Tab -->
+              <div class="tab-pane fade" id="bookNotes" role="tabpanel" aria-labelledby="book-notes-tab">
+                <textarea class="form-control" id="bookModalEditBookNotes" rows="4"></textarea>
+              </div>
+
+              <!-- Series Notes Tab -->
+              <div class="tab-pane fade" id="seriesNotes" role="tabpanel" aria-labelledby="series-notes-tab">
+                <textarea class="form-control" id="bookModalEditSeriesNotes" rows="4"></textarea>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" onclick="saveBookDetails()">Save Changes</button>
+      </div>
     </div>
-    <!--  End of Modal content -->
+  </div>
+</div>
+
+<script>
+  // Function to open the modal and populate its content
+  function showBookDetails(bookId) {
+    fetch('/books/details/' + bookId)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(book => {
+        // Populate the modal with book data
+        document.getElementById('bookModalImage').src = book.coverImageUrl || 'path/to/default/image.jpg'; // Add a default image path
+        document.getElementById('bookModalTitle').textContent = book.title;
+  
+        // Author and Narrator
+        document.getElementById('bookModalAuthor').textContent = 'Author: ' + (book.author ? book.author.name : 'Unknown');
+        document.getElementById('bookModalNarrator').textContent = 'Narrator: ' + (book.narrator ? book.narrator.name : 'Unknown');
+  
+        // Series Link and Notes
+        const seriesLinkElem = document.getElementById('bookModalSeriesLink');
+        const seriesNotesTab = document.getElementById('series-notes-tab');
+        const seriesNotesContent = document.getElementById('seriesNotes');
+        if (book.series) {
+          console.log('Part of a series');
+          seriesLinkElem.style.display = 'block';
+          seriesLinkElem.href = `/series/${book.seriesId}/books`;
+          seriesLinkElem.textContent = book.series.title;
+          seriesNotesTab.style.display = 'block';
+          seriesNotesContent.style.display = 'block';
+          document.getElementById('bookModalEditSeriesNotes').value = book.series.notes || '';
+        } else {
+          console.log('NOT Part of a series');
+          seriesLinkElem.style.display = 'none';
+          seriesNotesTab.style.display = 'none';
+          seriesNotesContent.style.display = 'none';
+        }
+  
+        // Additional Details
+        document.getElementById('bookModalReleaseDate').textContent = book.releaseDate ? new Date(book.releaseDate).toLocaleDateString() : 'N/A';
+        document.getElementById('bookModalRating').textContent = book.rating ? `${book.rating} / 5` : 'N/A';
+        document.getElementById('bookModalSummary').textContent = book.summary || 'No summary available';
+        document.getElementById('bookModalEditBookNotes').value = book.comments || '';
+  
+        $('#bookDetailsModal').modal('show');
+      })
+      .catch(error => console.error('Error fetching book details:', error));
+  }
+  
+  function saveBookDetails() {
+    // Implement the logic to save the book and series notes and status
+    // This might include AJAX requests to your server-side endpoints
+  }
+</script>

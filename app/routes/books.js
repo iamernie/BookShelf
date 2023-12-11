@@ -40,6 +40,25 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Add this new route for fetching detailed book data
+router.get("/details/:bookId", async (req, res) => {
+  try {
+    const bookId = req.params.bookId;
+    const book = await Book.findByPk(bookId, {
+      include: [Author, Series, Narrator, Format, Status],
+    });
+
+    if (book) {
+      res.json(book);
+    } else {
+      res.status(404).send("Book not found");
+    }
+  } catch (error) {
+    console.error("Error fetching book details:", error);
+    res.status(500).send("Error fetching book details");
+  }
+});
+
 // GET all books with related data
 router.get("/debug", async (req, res) => {
   try {
