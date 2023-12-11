@@ -1,0 +1,52 @@
+<div class="col-md-3 col-sm-4 col-6 mb-4">
+    <div class="card book-card" style="cursor: pointer">
+        <div class="book-image-container">
+            <img class="card-img-top book-image" src="<%= book.coverImageUrl %>" alt="Book Cover">
+  
+            <!-- Status Change Options on Hover -->
+            <div class="status-change-options">
+                <button class="btn btn-success btn-sm" onclick="changeStatus('<%= book.id %>', 'Read')">Mark as Read</button>
+                <button class="btn btn-primary btn-sm" onclick="changeStatus('<%= book.id %>', 'Next')">Mark as Next</button>
+                <button class="btn btn-warning btn-sm" onclick="changeStatus('<%= book.id %>', 'Current')">Mark as Current</button>
+            </div>
+  
+            <% if (new Date(book.releaseDate) > new Date()) { %>
+                <div class="unreleased-banner">Unreleased</div>
+            <% } %> 
+            <% if (book.status && book.status.name === 'Current') { %>
+                <div class="current-banner">Current</div>
+            <% } %> 
+            <% if (book.status && book.status.name === 'Read') { %>
+                <div class="checkmark-container">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            <% } %>
+        </div>
+  
+        <div class="card-body book-info">
+            <h5 class="card-title book-title"><%= book.title %></h5>
+            <p class="book-series">
+                <% if (book.series) { %>
+                    <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
+                    <% if (book.bookNum > 0) { %>
+                        Book #<%= book.bookNum %>
+                    <% } %>
+                <% } else { %>
+                    No Series
+                <% } %>
+            </p>
+            <p class="book-author">
+                Author: <%= book.author ? book.author.name : 'Unknown' %>
+            </p>
+  
+            <p class="book-status">
+                Status: <%= book.status ? book.status.name : 'N/A' %><%=
+                book.status && book.status.name === 'Done' ? ' ✓' : '' %>
+            </p>
+  
+            <!-- Hover-activated Edit Button -->
+            <a href="/books/edit/<%= book.id %>" class="btn btn-primary edit-btn">Edit</a>
+        </div>
+    </div>
+  </div>
+  
