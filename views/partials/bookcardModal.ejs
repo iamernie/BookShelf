@@ -93,6 +93,8 @@
         <div class="row">
           <div class="col-md-4">
             <img src="" alt="Book Cover" class="img-fluid" id="bookModalImage">
+            <!-- Save the seriesi ID -->
+              <input type="hidden" id="hiddenSeriesId" value="">
               <!-- New element for the book number -->
               <div id="bookModalBookNumber" style="display: none; font-size: 1.5em; text-align: center;"></div>
               <div id="bookModalRating" class="star-rating">
@@ -140,25 +142,83 @@
 
               <!-- Book Notes Tab -->
               <div class="tab-pane fade" id="bookNotes" role="tabpanel" aria-labelledby="book-notes-tab">
-                <textarea class="form-control" id="bookModalEditBookNotes" rows="4"></textarea>
+                <textarea class="form-control" id="bookModalEditBookNotes" rows="4" onchange="saveBookNotes()"></textarea>
               </div>
 
               <!-- Series Notes Tab -->
               <div class="tab-pane fade" id="seriesNotes" role="tabpanel" aria-labelledby="series-notes-tab">
-                <textarea class="form-control" id="bookModalEditSeriesNotes" rows="4"></textarea>
+                <textarea class="form-control" id="bookModalEditSeriesNotes" rows="4" onchange="saveSeriesNotes()"></textarea>
               </div>
+
             </div>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-success" onclick="saveBookDetails()">Save Changes</button>
+        <button type="button" class="btn btn-success" data-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
+  let currentSeriesId = null; // Global variable to store the current series ID
+
+
+function saveBookNotes() {
+  const bookId = document.getElementById('bookDetailsModal').getAttribute('data-book-id');
+  const notes = document.getElementById('bookModalEditBookNotes').value;
+
+  fetch(`/books/${bookId}/update-notes`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ notes: notes }),
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Failed to save book notes');
+    }
+    console.log('Book notes updated successfully');
+  })
+  .catch(error => console.error('Error updating book notes:', error));
+}
+
+function saveSeriesNotes() {
+  if (!currentSeriesId) {
+    console.error('Error: Series ID is null');
+    return; // Stop execution if seriesId is null
+  }
+
+  const notes = document.getElementById('bookModalEditSeriesNotes').value;
+  fetch(`/series/${currentSeriesId}/update-notes`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ comments: notes }),
+  })
+  .then(response => {
+    if (response.ok) {
+      console.log('Series notes updated successfully');
+    } else {
+      console.error('Failed to update series notes');
+    }
+  })
+  .catch(error => console.error('Error updating series notes:', error));
+}
+
+function getSeriesId() {
+  const seriesIdElement = document.getElementById('hiddenSeriesId');
+  return seriesIdElement ? seriesIdElement.value : null;
+}
+
+
+// Function to get series ID from the book ID
+function getSeriesIdFromBookId(bookId) {
+  // Implement logic to retrieve the series ID for the given book ID
+}
 
 
   function fillStars(rating) {
@@ -269,7 +329,7 @@
             bookNumberElem.style.display = 'none'; // Hide the book number
           }
 
-
+          fetchSeriesComments(book.seriesId);
         } else {
           console.log('NOT Part of a series');
           seriesLinkElem.style.display = 'none';
@@ -317,6 +377,18 @@
     .catch(error => console.error('Error updating book status:', error));
   }
   
+  // New function to fetch and populate series comments
+function fetchSeriesComments(seriesId) {
+  console.log("fSC - Series id:" + seriesId);
+  currentSeriesId = seriesId; // Set the global variable
+
+  fetch(`/series/details/${seriesId}`) // Adjust the endpoint as needed
+    .then(response => response.json())
+    .then(series => {
+      document.getElementById('bookModalEditSeriesNotes').value = series.comments || '';
+    })
+    .catch(error => console.error('Error fetching series details:', error));
+}
 
   function saveBookDetails() {
     // Implement the logic to save the book and series notes and status

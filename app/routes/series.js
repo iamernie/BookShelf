@@ -18,6 +18,18 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/details/:id", async (req, res) => {
+  try {
+    const series = await Series.findByPk(req.params.id);
+    if (!series) {
+      return res.status(404).send("Series not found");
+    }
+    res.json(series);
+  } catch (error) {
+    res.status(500).send("Server error");
+  }
+});
+
 // GET all books in a series
 router.get("/:id/books", async (req, res) => {
   try {
@@ -78,6 +90,26 @@ router.put("/:id", async (req, res) => {
     res.redirect("/series");
   } catch (error) {
     res.status(500).send("Error occurred: " + error.message);
+  }
+});
+
+// Update Series notes
+// In your series routes file
+router.put("/:seriesId/update-notes", async (req, res) => {
+  try {
+    const seriesId = req.params.seriesId;
+    const { comments } = req.body;
+
+    const series = await Series.findByPk(seriesId);
+    if (!series) {
+      return res.status(404).send("Series not found");
+    }
+
+    await series.update({ comments });
+    res.send("Series notes updated successfully");
+  } catch (error) {
+    console.error("Error updating series notes:", error);
+    res.status(500).send("Error updating series notes");
   }
 });
 

@@ -80,6 +80,24 @@ router.put("/:bookId/update-status", async (req, res) => {
   }
 });
 
+router.put("/:bookId/update-notes", async (req, res) => {
+  try {
+    const bookId = req.params.bookId;
+    const { notes } = req.body;
+
+    const book = await Book.findByPk(bookId);
+    if (book) {
+      await book.update({ comments: notes });
+      res.send("Book notes updated successfully");
+    } else {
+      res.status(404).send("Book not found");
+    }
+  } catch (error) {
+    console.error("Error updating book notes:", error);
+    res.status(500).send("Error occurred while updating book notes");
+  }
+});
+
 // Add this new route for fetching detailed book data
 router.get("/details/:bookId", async (req, res) => {
   try {

@@ -24,7 +24,10 @@ const Series = sequelize.define("series", {
     },
     allowNull: true,
   },
-  // Additional fields can be added here
+  comments: {
+    type: Sequelize.TEXT,
+    allowNull: true,
+  },
 });
 
 module.exports = Series;
