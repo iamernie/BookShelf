@@ -2,8 +2,21 @@ const express = require("express");
 const router = express.Router();
 const Status = require("../models/Status"); // Adjust the path as necessary
 
-// GET all status
+// GET all status as JSON
 router.get("/", async (req, res) => {
+  try {
+    const statuses = await Status.findAll({
+      order: [["name", "ASC"]],
+    });
+    res.json(statuses); // Send the statuses as JSON
+  } catch (error) {
+    console.error("Error fetching statuses:", error);
+    res.status(500).send("Error occurred while fetching statuses");
+  }
+});
+
+// GET all status in a view
+router.get("/list", async (req, res) => {
   try {
     const status = await Status.findAll();
     res.render("status/listStatuses", { status });

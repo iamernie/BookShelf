@@ -40,6 +40,46 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.put("/:bookId/update-rating", async (req, res) => {
+  try {
+    const bookId = req.params.bookId;
+    const { rating } = req.body; // Make sure the rating is passed in the request body
+
+    // Find the book by ID
+    const book = await Book.findByPk(bookId);
+    if (!book) {
+      return res.status(404).send("Book not found");
+    }
+
+    // Update the book's rating
+    await book.update({ rating });
+
+    // Send a success response
+    res.json({ message: "Rating updated successfully" });
+  } catch (error) {
+    console.error("Error updating book rating:", error);
+    res.status(500).send("Error occurred while updating the book rating");
+  }
+});
+
+router.put("/:bookId/update-status", async (req, res) => {
+  try {
+    const bookId = req.params.bookId;
+    const { statusId } = req.body;
+
+    const book = await Book.findByPk(bookId);
+    if (book) {
+      await book.update({ statusId: statusId });
+      res.send("Status updated successfully");
+    } else {
+      res.status(404).send("Book not found");
+    }
+  } catch (error) {
+    console.error("Error updating book status:", error);
+    res.status(500).send("Error occurred while updating book status");
+  }
+});
+
 // Add this new route for fetching detailed book data
 router.get("/details/:bookId", async (req, res) => {
   try {

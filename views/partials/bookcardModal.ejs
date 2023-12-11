@@ -1,3 +1,6 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+
 <style>
   #bookDetailsModal .img-fluid {
     max-height: 400px; /* Adjust this height as needed */
@@ -24,8 +27,58 @@
     color: #333;
   }
 
+  #bookInfo p {
+    line-height: 2; /* Adjust line height for vertical alignment */
+  }
+  #bookInfo strong {
+    margin-right: 10px; /* Space between label and dropdown */
+  }
+  #bookStatusDropdown {
+    display: inline-block; /* Make dropdown inline */
+    vertical-align: middle; /* Align dropdown vertically with the label */
+    width: auto; /* Adjust as needed */
+    min-width: 150px; /* Example width, adjust based on your content */
+    max-width: 200px; /* Maximum width */
+  }
+
+  #bookModalSeriesLink, #bookModalBookNumber {
+    display: inline; /* Ensures inline display */
+    margin-right: 5px; /* Optional: Adds a small margin for spacing */
+    white-space: nowrap; /* Prevents wrapping to a new line */
+  }
+
+  #bookModalBookNumber {
+    font-size: 1.5em; /* Larger font size */
+    text-align: center; /* Center-align the text */
+    margin-top: 10px; /* Spacing between the image and the book number */
+    /* Other styles as needed */
+  }
+  #bookModalBookNumber {
+    font-size: 1.5em; /* Larger font size */
+    text-align: center; /* Center-align the text */
+    margin-top: 10px; /* Spacing between the image and the book number */
+  }
+  
+  #bookModalRating {
+    text-align: center; /* Center-align the stars */
+    font-size: 2em; /* Even larger font size for stars */
+    color: #ffc107; /* Bootstrap yellow color for filled stars */
+    margin-top: 10px; /* Spacing between the book number and the rating */
+  }
+  
+/* Style for clickable stars and 'no rating' icon */
+.star {
+  cursor: pointer;
+  margin-right: 5px; /* Spacing between icons */
+  color: #e4e5e9; /* Light grey color, or any color of your choice */
+}
+
+/* Style for filled stars */
+.fas.fa-star {
+  color: #ffc107; /* Yellow color for filled stars */
+}
+  
 </style>
-<!-- bookcardModal.ejs -->
 <!-- bookcardModal.ejs -->
 <div class="modal fade" id="bookDetailsModal" tabindex="-1" role="dialog" aria-labelledby="bookDetailsModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-xl" role="document">
@@ -40,7 +93,14 @@
         <div class="row">
           <div class="col-md-4">
             <img src="" alt="Book Cover" class="img-fluid" id="bookModalImage">
+              <!-- New element for the book number -->
+              <div id="bookModalBookNumber" style="display: none; font-size: 1.5em; text-align: center;"></div>
+              <div id="bookModalRating" class="star-rating">
+                 <!-- Add a clickable element for 0 stars -->
+                <i class="far fa-star star" onclick="setRating(0)"></i>
+              </div>
           </div>
+          
           <div class="col-md-8">
             <!-- Tab Navigation -->
             <ul class="nav nav-tabs" id="bookModalTabs" role="tablist">
@@ -60,11 +120,20 @@
               <!-- Book Info Tab -->
               <div class="tab-pane fade show active" id="bookInfo" role="tabpanel" aria-labelledby="book-info-tab">
                 <h5 id="bookModalTitle" class="mt-2"></h5>
-                <p><a href="#" id="bookModalSeriesLink" style="display: none;"></a></p>
-                <p id="bookModalAuthor"></p>
-                <p id="bookModalNarrator"></p>
+                <p>
+                  <a href="#" id="bookModalSeriesLink" style="display: none;"></a>
+
+                </p>
+                <p><strong>Author:</strong> <span id="bookModalAuthor"></span></p>
+                <p><strong>Narrator:</strong> <span id="bookModalNarrator"></span></p>
+                <!-- Inside the Book Info Tab -->
+                <p><strong>Status:</strong><select id="bookStatusDropdown" class="form-control d-inline-block" onchange="updateBookStatus(this.value)"></select></p>
                 <p><strong>Release Date:</strong> <span id="bookModalReleaseDate"></span></p>
-                <p><strong>Rating:</strong> <span id="bookModalRating"></span></p>
+                <!-- Rating Section -->
+                <p><strong>Rating:</strong></p>
+                <div id="bookModalRating">
+                  <!-- Star icons will go here -->
+                </div>
                 <p><strong>Summary:</strong></p>
                 <div id="bookModalSummary" class="well"></div>
               </div>
@@ -90,6 +159,78 @@
 </div>
 
 <script>
+
+
+  function fillStars(rating) {
+    const starsContainer = document.getElementById('bookModalRating');
+    starsContainer.innerHTML = ''; // Clear out the current stars
+  
+    // Create the 'no rating' icon
+    const noRatingIcon = document.createElement('i');
+    noRatingIcon.className = 'far fa-times-circle star';
+    noRatingIcon.onclick = function() { setRating(0); };
+    noRatingIcon.title = 'No rating'; // Tooltip on hover
+    starsContainer.appendChild(noRatingIcon);
+  
+    // Generate the star icons for ratings 1 to 4
+    for (let i = 1; i <= 4; i++) {
+      const starIcon = document.createElement('i');
+      starIcon.className = i <= rating ? 'fas fa-star star' : 'far fa-star star';
+      starIcon.onclick = function() { setRating(i); };
+      starsContainer.appendChild(starIcon);
+    }
+  }
+  
+  
+  function updateBookRating(newRating) {
+    const bookId = document.getElementById('bookDetailsModal').getAttribute('data-book-id');
+  
+    // Add your fetch or AJAX call here to update the rating on the server
+    fetch(`/books/${bookId}/update-rating`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ rating: newRating }),
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Rating update failed');
+      }
+      console.log('Rating updated successfully');
+    })
+    .catch(error => console.error('Error updating book rating:', error));
+  }
+  
+
+  function setRating(newRating) {
+    // Update the rating in the modal
+    fillStars(newRating);
+    
+    // You would also need to implement the logic to update the rating on the server
+    updateBookRating(newRating);
+  }
+
+
+
+  function populateStatusDropdown(selectedStatusId) {
+    fetch('/status')
+      .then(response => response.json())
+      .then(statuses => {
+        const statusDropdown = document.getElementById('bookStatusDropdown');
+        statusDropdown.innerHTML = ''; // Clear existing options
+  
+        statuses.forEach(status => {
+          const option = document.createElement('option');
+          option.value = status.id;
+          option.textContent = status.name;
+          option.selected = status.id === selectedStatusId;
+          statusDropdown.appendChild(option);
+        });
+      })
+      .catch(error => console.error('Error fetching statuses:', error));
+  }
+
   // Function to open the modal and populate its content
   function showBookDetails(bookId) {
     fetch('/books/details/' + bookId)
@@ -105,9 +246,9 @@
         document.getElementById('bookModalTitle').textContent = book.title;
   
         // Author and Narrator
-        document.getElementById('bookModalAuthor').textContent = 'Author: ' + (book.author ? book.author.name : 'Unknown');
-        document.getElementById('bookModalNarrator').textContent = 'Narrator: ' + (book.narrator ? book.narrator.name : 'Unknown');
-  
+        document.getElementById('bookModalAuthor').textContent = (book.author ? book.author.name : 'Unknown');
+        document.getElementById('bookModalNarrator').textContent = (book.narrator ? book.narrator.name : 'Unknown');
+
         // Series Link and Notes
         const seriesLinkElem = document.getElementById('bookModalSeriesLink');
         const seriesNotesTab = document.getElementById('series-notes-tab');
@@ -119,25 +260,64 @@
           seriesLinkElem.textContent = book.series.title;
           seriesNotesTab.style.display = 'block';
           seriesNotesContent.style.display = 'block';
-          document.getElementById('bookModalEditSeriesNotes').value = book.series.notes || '';
+
+          const bookNumberElem = document.getElementById('bookModalBookNumber');
+          if (book.bookNum !== undefined && book.bookNum !== null) {
+            bookNumberElem.textContent = `Book #${book.bookNum}`;
+            bookNumberElem.style.display = 'block'; // Show the book number
+          } else {
+            bookNumberElem.style.display = 'none'; // Hide the book number
+          }
+
+
         } else {
           console.log('NOT Part of a series');
           seriesLinkElem.style.display = 'none';
           seriesNotesTab.style.display = 'none';
           seriesNotesContent.style.display = 'none';
         }
-  
+
+        // Store the book ID in the modal's data attribute
+        document.getElementById('bookDetailsModal').setAttribute('data-book-id', bookId);
+
+        // Populate status dropdown
+        populateStatusDropdown(book.statusId);
+
         // Additional Details
         document.getElementById('bookModalReleaseDate').textContent = book.releaseDate ? new Date(book.releaseDate).toLocaleDateString() : 'N/A';
-        document.getElementById('bookModalRating').textContent = book.rating ? `${book.rating} / 5` : 'N/A';
+        // Call this with the current rating of the book
+        fillStars(book.rating);
         document.getElementById('bookModalSummary').textContent = book.summary || 'No summary available';
         document.getElementById('bookModalEditBookNotes').value = book.comments || '';
   
+
         $('#bookDetailsModal').modal('show');
       })
       .catch(error => console.error('Error fetching book details:', error));
   }
   
+
+  function updateBookStatus(newStatusId) {
+    const modalElem = document.getElementById('bookDetailsModal');
+    const bookId = modalElem.getAttribute('data-book-id');
+    
+    fetch(`/books/${bookId}/update-status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ statusId: newStatusId }),
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Status update failed');
+      }
+      console.log('Status updated successfully');
+    })
+    .catch(error => console.error('Error updating book status:', error));
+  }
+  
+
   function saveBookDetails() {
     // Implement the logic to save the book and series notes and status
     // This might include AJAX requests to your server-side endpoints

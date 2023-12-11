@@ -28,7 +28,7 @@ function initialize(passport) {
   passport.deserializeUser((id, done) => {
     User.findByPk(id)
       .then((user) => {
-        console.log("Deserialized user:", user); // Log the user object
+        //console.log("Deserialized user:", user); // Log the user object
 
         done(null, user);
       })
