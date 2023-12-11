@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -28,6 +29,8 @@ app.use(
     },
   })
 );
+// Set the default views directory
+app.set("views", path.join(__dirname, "views"));
 
 // Initialize Passport and its session
 app.use(passport.initialize());
