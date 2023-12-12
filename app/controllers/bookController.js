@@ -37,7 +37,7 @@ exports.searchBooks = async (req, res) => {
       ],
     });
 
-    res.render("books/Books", { books, searchQuery });
+    res.render("books/books", { books, searchQuery });
   } catch (error) {
     console.error("Error fetching books:", error);
     res.status(500).send("Error occurred while fetching books");
