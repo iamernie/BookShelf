@@ -16,6 +16,11 @@ initializePassport(passport);
 
 const app = express();
 
+const packageJson = require("./package.json"); // Adjust the path as necessary
+
+// Set the version as a local variable accessible in all views
+app.locals.version = packageJson.version;
+
 // Session configuration
 app.use(
   session({
@@ -73,11 +78,13 @@ const formatsRouter = require("./app/routes/format");
 const statusRouter = require("./app/routes/status");
 const authRoutes = require("./app/routes/auth");
 const adminRouter = require("./app/routes/admin");
+const statsRouter = require("./app/routes/stats");
 
 // Routes
 app.use(authRoutes);
 app.use("/", appRouter);
 app.use("/uploads", express.static("uploads"));
+app.use("/stats", statsRouter);
 
 // Protected Routes
 app.use("/admin", ensureAuthenticated, adminRouter);
@@ -100,6 +107,6 @@ sequelize
 // Starting the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-console.log("Version: 0.5 - Dec 11 2023");
+console.log("Version: " + packageJson.version);
 
 module.exports = app;

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const slugify = require("slugify");
+const bookController = require("../controllers/bookController");
 
 const Book = require("../models/Book");
 const Author = require("../models/Author");
@@ -27,18 +28,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// GET all books with related data
-router.get("/", async (req, res) => {
-  try {
-    const books = await Book.findAll({
-      include: [Author, Series, Narrator, Format, Status],
-    });
-    res.render("books/books", { books });
-  } catch (error) {
-    console.error("Error fetching books:", error);
-    res.status(500).send("Error occurred while fetching books");
-  }
-});
+router.get("/", bookController.searchBooks);
+router.get("/fancy", bookController.searchBooks);
+router.get("/filter", bookController.filterBooksByStatus);
 
 router.put("/:bookId/update-rating", async (req, res) => {
   try {

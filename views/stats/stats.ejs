@@ -1,0 +1,9 @@
+<div class="stats-container">
+    <h1>Statistics</h1>
+    <div>Total Number of Books: <%= totalBooks %></div>
+    <div>Total Number of Read Books: <%= readBooks %></div>
+    <div>Total Number of Series: <%= totalSeries %></div>
+    <div>Most Popular Author: <%= popularAuthor ? popularAuthor['name'] : 'N/A' %> (<%= popularAuthor ? popularAuthor['numberOfBooks'] : 0 %>)</div>
+    <div>Most Popular Narrator: <%= popularNarrator ? popularNarrator['name'] : 'N/A' %> (<%= popularNarrator ? popularNarrator['numberOfBooks'] : 0 %>)</div>
+  </div>
+  

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Books List</title>
+<link rel="stylesheet" href="/styles/bookCardFancy.css"> <!-- Link to your CSS file -->
+<!-- Add links to any additional CSS files or frameworks here -->
+</head>
+<body>
+
+<!-- Navigation Here -->
+
+<div class="container">
+  <% books.forEach(book => { %>
+    <div class="card">
+      <img src="<%= book.coverImageUrl %>" alt="<%= book.title %>" class="card-img-top">
+      <div class="card-body">
+        <h5 class="card-title"><%= book.title %></h5>
+        <p class="card-text">
+          <strong>Author:</strong> <%= book.author.name %><br>
+          <strong>Series:</strong> <%= book.series ? book.series.title : 'N/A' %><br>
+          <strong>Status:</strong> <%= book.status.name %>
+        </p>
+        <div class="card-footer">
+          <% if(book.status.name === 'Current') { %>
+            <span class="badge badge-current">Current</span>
+          <% } else if(book.status.name === 'Next') { %>
+            <span class="badge badge-next">Next</span>
+          <% } else { %>
+            <span class="badge badge-other"><%= book.status.name %></span>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  <% }); %>
+</div>
+
+<!-- Add any additional scripts here -->
+
+</body>
+</html>

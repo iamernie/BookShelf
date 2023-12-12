@@ -1,0 +1,63 @@
+/* Color Variables */
+:root {
+  --primary-color: #123456; /* Primary color for your theme */
+  --secondary-color: #abcdef; /* Secondary color for your theme */
+  --text-color: #ffffff; /* Text color that contrasts well with your primary color */
+  --card-background: #1a1a1a; /* Card background color */
+  --hover-color: #f1c40f; /* Color for hover effects */
+}
+
+body {
+  background-color: var(--primary-color);
+  color: var(--text-color);
+}
+
+/* Container for the grid */
+.container {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(200px, 1fr)
+  ); /* Adjust minmax for your preferred size */
+  gap: 20px; /* Space between cards */
+  padding: 20px; /* Padding around the entire grid */
+}
+
+/* Individual Cards */
+.card {
+  background-color: var(--card-background);
+  border-radius: 10px; /* Rounded corners for cards */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Shadow for depth */
+  overflow: hidden; /* Ensure no child elements leak outside the border-radius */
+  transition: transform 0.2s ease; /* Smooth transition for hover effect */
+}
+
+.card:hover {
+  transform: translateY(-5px); /* Slight lift effect on hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Deeper shadow on hover */
+}
+
+.card-img-top {
+  width: 100%; /* Full width of card */
+  height: auto; /* Keep aspect ratio */
+}
+
+.card-body {
+  padding: 15px; /* Padding inside the card */
+}
+
+.card-title {
+  margin-bottom: 15px; /* Space below the title */
+}
+
+.card-text {
+  margin-bottom: 15px; /* Space above the footer */
+}
+
+.card-footer {
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
+  padding: 10px 15px;
+  text-align: center;
+  font-weight: bold;
+}
