@@ -8,6 +8,39 @@
     body {
       background-color: #f4f4f4;
     }
+    .fab {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #007bff;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 60px;
+      text-decoration: none;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 0; /* Hide the text */
+    }
+    
+    .fab::before {
+      content: "+";
+      font-size: 55px; /* Adjust the size of the plus sign */
+      font-weight: bold;
+      color: white; /* Color of the plus sign */
+    }
+    
+    .fab:hover {
+      background-color: #0056b3;
+      text-decoration: none;
+    }
+    
+    
+    
     .stats-container {
       display: flex;
       align-items: center;
@@ -237,5 +270,7 @@
     // Initial state update
     updateCollapseHeaders();
   </script>
+  <a href="/books/add" class="fab" id="addBookButton">+</a>
+
 </body>
 </html>
