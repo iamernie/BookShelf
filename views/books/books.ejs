@@ -150,6 +150,10 @@
             <div class="stats-title">Last Read</div>
             <div class="stats-number"><%= stats.latestReadBook ? stats.latestReadBook.title : 'N/A' %></div>
           </div>
+          <div class="stats-item">
+            <div class="stats-title">Most Read Author</div>
+            <div class="stats-number"><%= stats.mostReadAuthor ? stats.mostReadAuthor : 'N/A' %> (<%= stats.mostReadAuthorCount %>)</div>
+          </div>
         </div>
     </div>
 

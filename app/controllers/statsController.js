@@ -78,6 +78,10 @@ const getStats = async () => {
     // Get the latest read book
     const latestReadBook = await getLatestReadBook();
 
+    // Get the most read author
+    // Get the most read author and the count of their read books
+    const mostReadAuthorStats = await getMostReadAuthor();
+
     // Most popular author query
     const popularAuthorQuery = `
       SELECT "Author"."name", COUNT("Book"."authorId") AS "numberOfBooks"
@@ -129,6 +133,10 @@ const getStats = async () => {
       popularAuthor,
       popularNarrator,
       latestReadBook: latestBookData,
+      mostReadAuthor: mostReadAuthorStats ? mostReadAuthorStats.name : "N/A",
+      mostReadAuthorCount: mostReadAuthorStats
+        ? mostReadAuthorStats.readBooksCount
+        : 0,
     };
   } catch (error) {
     console.error("Error getting stats:", error);
@@ -158,6 +166,33 @@ const getLatestReadBook = async () => {
     return latestReadBook;
   } catch (error) {
     console.error("Error finding the latest read book:", error);
+    throw error;
+  }
+};
+
+const getMostReadAuthor = async () => {
+  try {
+    const mostReadAuthor = await Book.findAll({
+      attributes: [
+        [Sequelize.literal(`"Author"."name"`), "name"],
+        [Sequelize.fn("COUNT", Sequelize.col("Book.id")), "readBooksCount"],
+      ],
+      include: [
+        {
+          model: Author,
+          attributes: [],
+        },
+      ],
+      where: { statusId: 2 }, // Filter for books with 'read' status
+      group: ["Author.id", "Author.name"], // Group by author with their name
+      order: [[Sequelize.literal("readBooksCount"), "DESC"]], // Order by count of read books
+      limit: 1, // Limit to the most read author
+      raw: true,
+    });
+
+    return mostReadAuthor[0]; // Return the first (and only) author in the list
+  } catch (error) {
+    console.error("Error finding the most read author:", error);
     throw error;
   }
 };

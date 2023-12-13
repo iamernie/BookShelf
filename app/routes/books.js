@@ -28,7 +28,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// Main books function call
 router.get("/", bookController.searchBooks);
+// Grid Call for troubleshooting DB issues
 router.get("/grid", bookController.getBooksGrid);
 router.get("/filter", bookController.filterBooksByStatus);
 

@@ -7,6 +7,7 @@ const Status = require("../models/Status");
 const { Op } = require("sequelize");
 const { getStats } = require("./statsController"); // If in the same directory
 
+// Main Books function call that includes search
 exports.searchBooks = async (req, res) => {
   try {
     const searchQuery = req.query.search || "";

@@ -117,7 +117,20 @@
 }
 
 .unreleased-status {
-  background-color: #6c757d;
+  position: absolute;
+  top: 0px; /* Adjust as needed */
+  left: 50%; /* Center horizontally */
+  transform: translateX(-50%); /* Adjust horizontal position */
+  background-color: #6c757d; /* Example color */
+  color: white;
+  padding: 5px 10px; /* Padding around the text */
+  border-bottom-left-radius: 15px; /* Rounded bottom-left corner */
+  border-bottom-right-radius: 15px; /* Rounded bottom-right corner */
+  font-size: 0.75em;
+  z-index: 10;
+  display: inline-block; /* Allows the element to size according to its content */
+  font-weight: bold;
+  font-size: 0.75em;
 }
 
 @media (max-width: 768px) {
@@ -127,5 +140,54 @@
 
   .book-image {
     height: 150px; /* Adjust the height to match the container's height */
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    max-width: 100%;
+  }
+}
+@media (max-width: 768px) {
+  .col-md-3 {
+    padding-right: 2px;
+    padding-left: 2px;
+  }
+}
+@media (max-width: 768px) {
+  .container,
+  .container-fluid {
+    padding-right: 0;
+    padding-left: 0;
+    margin-right: auto;
+    margin-left: auto;
+  }
+  .row {
+    margin-right: -15px;
+    margin-left: -15px;
+  }
+  .col-xl-2,
+  .col-lg-3,
+  .col-md-4,
+  .col-sm-6,
+  .col-12 {
+    padding-right: 0;
+    padding-left: 0;
+  }
+}
+/* Adjust for mobile screens */
+@media (max-width: 768px) {
+  .stats-container {
+    flex-direction: column;
+    align-items: stretch; /* Align items to stretch to the container width */
+  }
+
+  .stats-item {
+    flex-basis: 100%; /* Each item takes full width */
+    border-right: none; /* Remove border when stacking */
+  }
+
+  .stats-title {
+    font-size: smaller; /* Adjust font size for small screens */
   }
 }

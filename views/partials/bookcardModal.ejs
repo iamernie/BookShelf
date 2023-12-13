@@ -425,5 +425,12 @@ function fetchSeriesComments(seriesId) {
     .catch(error => console.error('Error fetching series details:', error));
 }
 
-
+document.addEventListener('DOMContentLoaded', function () {
+  // Assuming you're using Bootstrap 5, if it's Bootstrap 4, it would be 'hidden.bs.modal'
+  var bookDetailsModal = document.getElementById('bookDetailsModal');
+  bookDetailsModal.addEventListener('hidden.bs.modal', function (event) {
+    // This will refresh the page, you can also use more complex logic here if needed
+    window.location.reload();
+  });
+});
 </script>
