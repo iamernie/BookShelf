@@ -85,7 +85,7 @@
     <div class="modal-content">
       <div class="modal-header" style="background-color: #6c757d; color: white;">
         <h5 class="modal-title" id="bookDetailsModalLabel">Book Details</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -129,7 +129,7 @@
                 <p><strong>Author:</strong> <span id="bookModalAuthor"></span></p>
                 <p><strong>Narrator:</strong> <span id="bookModalNarrator"></span></p>
                 <!-- Inside the Book Info Tab -->
-                <p><strong>Status:</strong><select id="bookStatusDropdown" class="form-control d-inline-block" onchange="updateBookStatus(this.value)"></select></p>
+                <p><strong>Status:</strong><select id="bookStatusDropdown" class="form-control d-inline-block" onchange="updateBookStatusAndDate(this.value)"></select></p>
                 <p><strong>Release Date:</strong> <span id="bookModalReleaseDate"></span></p>
                 <!-- Rating Section -->
                 <p><strong>Rating:</strong></p>
@@ -157,7 +157,7 @@
       <div class="modal-footer">
         <!-- New Edit button -->
         <button type="button" class="btn btn-primary" id="editBookButton">Edit</button> 
-        <button type="button" class="btn btn-success" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-success" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
@@ -185,6 +185,34 @@ function saveBookNotes() {
     console.log('Book notes updated successfully');
   })
   .catch(error => console.error('Error updating book notes:', error));
+}
+
+function updateBookStatusAndDate(newStatusId) {
+  const modalElem = document.getElementById('bookDetailsModal');
+  const bookId = modalElem.getAttribute('data-book-id');
+  
+  const completedDate = newStatusId == '2' ? new Date().toISOString() : null; // Assuming '2' is the ID for 'Read'
+
+  fetch(`/books/${bookId}/update-status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ 
+      statusId: newStatusId,
+      ...(completedDate && { completedDate }) // Spread operator to conditionally add completedDate
+    }),
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Status update failed');
+    }
+    console.log('Status updated successfully');
+    if (completedDate) {
+      console.log(`Completed date set to ${completedDate}`);
+    }
+  })
+  .catch(error => console.error('Error updating book status:', error));
 }
 
 function saveSeriesNotes() {

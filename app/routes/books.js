@@ -54,18 +54,26 @@ router.put("/:bookId/update-rating", async (req, res) => {
   }
 });
 
+// Update the status and potentially the completedDate of a book
 router.put("/:bookId/update-status", async (req, res) => {
   try {
-    const bookId = req.params.bookId;
     const { statusId } = req.body;
+    const bookId = req.params.bookId;
 
     const book = await Book.findByPk(bookId);
-    if (book) {
-      await book.update({ statusId: statusId });
-      res.send("Status updated successfully");
-    } else {
-      res.status(404).send("Book not found");
+    if (!book) {
+      return res.status(404).send("Book not found");
     }
+
+    // Assuming '2' is the ID for the 'Read' status
+    const completedDate = statusId === "2" ? new Date() : null;
+
+    await book.update({
+      statusId: statusId,
+      ...(completedDate ? { completedDate: completedDate } : {}),
+    });
+
+    res.send("Status and completion date updated successfully");
   } catch (error) {
     console.error("Error updating book status:", error);
     res.status(500).send("Error occurred while updating book status");
