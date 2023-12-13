@@ -150,3 +150,28 @@ exports.getNextUpBooks = async () => {
     return [];
   }
 };
+
+exports.getBooksGrid = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10; // Adjust the number of items per page as needed
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Book.findAndCountAll({
+      limit,
+      offset,
+      include: [Author, Series, Narrator, Format, Status],
+    });
+
+    const totalPages = Math.ceil(count / limit);
+
+    res.render("books/booksGrid", {
+      books: rows,
+      currentPage: page,
+      totalPages,
+    });
+  } catch (error) {
+    console.error("Error fetching books for grid:", error);
+    res.status(500).send("Error occurred while fetching books");
+  }
+};

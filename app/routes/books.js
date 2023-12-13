@@ -29,7 +29,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 router.get("/", bookController.searchBooks);
-router.get("/fancy", bookController.searchBooks);
+router.get("/grid", bookController.getBooksGrid);
 router.get("/filter", bookController.filterBooksByStatus);
 
 router.put("/:bookId/update-rating", async (req, res) => {
