@@ -1,91 +1,131 @@
 .card-container {
-  padding: 10px;
+  padding: 0.5rem;
 }
+
+.container {
+  max-width: 70%; /* This will allow the container to use the full width of the viewport */
+}
+
+.col-md-3 {
+  padding-right: 5px;
+  padding-left: 5px;
+}
+
 .book-card {
-  position: relative;
-  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-  transition: 0.3s;
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
 }
+
 .book-card:hover {
-  box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+  transform: scale(1.03);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
 }
-.book-grid {
-  display: flex;
-  justify-content: center; /* Centers the card horizontally */
-  align-items: center; /* Optional: Use this if you also want to center vertically */
-}
-.status-change-options {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: none;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 10;
-}
-.book-card:hover .status-change-options {
-  display: flex;
-}
-.edit-btn {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 10;
-}
-.book-card:hover .edit-btn {
-  opacity: 1;
-}
+
 .book-image-container {
   position: relative;
+  width: 100%;
+  height: 179px;
+  overflow: hidden;
 }
+
 .book-image {
   width: 100%;
-  height: auto;
+  height: 179px;
   object-fit: cover;
+  display: block;
 }
+
 .book-info {
-  padding: 10px;
+  padding: 1rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
+
+.book-card .card-body {
+  padding: 15px;
+  background: #f8f9fa;
+  color: #333;
+}
+
+.book-card .book-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #0056b3;
+}
+
+.book-card .book-series,
+.book-card .book-author {
+  font-size: 0.95em;
+  color: #555;
+  margin-bottom: 2px;
+}
+
+.book-card .book-status {
+  font-size: 0.9em;
+  color: #28a745;
+  font-weight: bold;
+}
+
+.book-card .fa {
+  margin-right: 5px;
+}
+
 .book-title,
 .book-author,
 .book-series,
 .book-status {
-  margin-bottom: 5px;
-  line-height: 1.2;
+  text-align: center;
+  margin-bottom: 0.5rem;
 }
-.checkmark-container {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  color: rgb(163, 243, 163);
-  font-size: 24px;
-}
-.unreleased-banner {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: red;
+
+.status-banner {
+  text-align: center;
+  width: 100%;
+  padding: 2px 0;
   color: white;
-  padding: 5px 10px;
-  border-radius: 0 0 15px 15px;
   font-weight: bold;
+  font-size: 0.75em;
 }
-.current-banner {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: blue;
-  color: white;
-  padding: 5px 10px;
-  border-radius: 0 0 15px 15px;
-  font-weight: bold;
+
+.current-status {
+  background-color: #007bff;
+}
+
+.parked-status {
+  background-color: #ffc107;
+}
+
+.read-status {
+  background-color: #28a745;
+}
+
+.unread-status {
+  background-color: #dc3545;
+}
+
+.next-status {
+  background-color: #ffc107;
+}
+
+.unreleased-status {
+  background-color: #6c757d;
+}
+
+@media (max-width: 768px) {
+  .book-image-container {
+    height: 150px; /* Adjust the height as per your requirement */
+  }
+
+  .book-image {
+    height: 150px; /* Adjust the height to match the container's height */
+  }
 }

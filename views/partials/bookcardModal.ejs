@@ -155,6 +155,8 @@
         </div>
       </div>
       <div class="modal-footer">
+        <!-- New Edit button -->
+        <button type="button" class="btn btn-primary" id="editBookButton">Edit</button> 
         <button type="button" class="btn btn-success" data-dismiss="modal">Close</button>
       </div>
     </div>
@@ -350,6 +352,11 @@ function getSeriesIdFromBookId(bookId) {
         document.getElementById('bookModalSummary').textContent = book.summary || 'No summary available';
         document.getElementById('bookModalEditBookNotes').value = book.comments || '';
   
+         // Add an event listener to the Edit button to navigate to the edit page
+    const editButton = document.getElementById('editBookButton');
+    editButton.onclick = function() {
+      window.location.href = `/books/edit/${bookId}`; // Navigate to the edit screen
+    };
 
         $('#bookDetailsModal').modal('show');
       })
@@ -390,8 +397,5 @@ function fetchSeriesComments(seriesId) {
     .catch(error => console.error('Error fetching series details:', error));
 }
 
-  function saveBookDetails() {
-    // Implement the logic to save the book and series notes and status
-    // This might include AJAX requests to your server-side endpoints
-  }
+
 </script>

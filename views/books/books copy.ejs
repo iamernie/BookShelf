@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%- include('../partials/header', { title: 'Books - Book Tracker'}) %>
+    <!-- Book Card Styles -->
+    <link rel="stylesheet" href="/styles/bookCard.css">
+   
+  </head>
+  <body>
+    <script src="/scripts/searchBooks.js"></script>
+    <script src="/scripts/filterBooks.js"></script>
+
+
+    <%- include('../navbar') %><!-- Include the navbar partial -->
+    
+    <%- include('../partials/bookcardModal') %>
+    <div class="container mt-4">
+      <h2 class="mb-3">Books List</h2>
+
+    <!-- Filter Options -->
+<form id="statusFilterForm">
+  <select name="status" onchange="filterBooksByStatus()">
+    <option value="">Select Status</option>
+    <!-- Populate these options with all available statuses -->
+    <option value="1">Read</option>
+    <option value="2">Currently Reading</option>
+    <!-- Add other statuses here -->
+  </select>
+</form>
+      <a href="/books/add" class="btn btn-success mb-4">Add New Book</a>
+
+      <div id="booksContainer" class="row">
+        <% books.forEach(function(book) { %>
+          <%- include('../partials/bookCard', { book: book }) %>
+        <% }) %>
+      </div>
+    </div>
+    <%- include('../partials/footer') %>
+  </body>
+</html>

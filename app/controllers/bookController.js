@@ -11,6 +11,16 @@ exports.searchBooks = async (req, res) => {
     const searchQuery = req.query.search || "";
     const whereConditions = {};
 
+    // Fetch the current and next up books asynchronously
+    const currentBookPromise = exports.getCurrentBook(); // Note the usage of exports. to refer to the function
+    const nextUpBooksPromise = exports.getNextUpBooks();
+
+    // Wait for both promises to resolve
+    const [currentBook, nextUpBooks] = await Promise.all([
+      currentBookPromise,
+      nextUpBooksPromise,
+    ]);
+
     if (searchQuery) {
       // Search in book title, author name, and series title
       whereConditions[Op.or] = [
@@ -25,11 +35,11 @@ exports.searchBooks = async (req, res) => {
       include: [
         {
           model: Author,
-          required: false, // Required false ensures books without authors are also returned
+          required: false,
         },
         {
           model: Series,
-          required: false, // Required false ensures books without series are also returned
+          required: false,
         },
         Narrator,
         Format,
@@ -37,7 +47,7 @@ exports.searchBooks = async (req, res) => {
       ],
     });
 
-    res.render("books/books", { books, searchQuery });
+    res.render("books/books", { books, searchQuery, currentBook, nextUpBooks });
   } catch (error) {
     console.error("Error fetching books:", error);
     res.status(500).send("Error occurred while fetching books");
@@ -64,5 +74,47 @@ exports.filterBooksByStatus = async (req, res) => {
   } catch (error) {
     console.error("Error fetching books by status:", error);
     res.status(500).send("Error occurred while fetching books");
+  }
+};
+
+exports.getCurrentBook = async () => {
+  try {
+    const currentBook = await Book.findOne({
+      include: [
+        {
+          model: Status,
+          where: { name: "Current" },
+        },
+        Author,
+        Series,
+      ],
+    });
+    // Log the current book or handle it as needed
+    console.log("Current Book:", currentBook);
+    return currentBook;
+  } catch (error) {
+    console.error("Error fetching current book:", error);
+    return null;
+  }
+};
+
+// Fetch the next up books - make it a function that can be called
+exports.getNextUpBooks = async () => {
+  try {
+    const nextUpBooks = await Book.findAll({
+      include: [
+        {
+          model: Status,
+          where: { name: "Next" },
+        },
+        Author,
+        Series,
+      ],
+      limit: 5, // Limit the number of next up books, adjust as needed
+    });
+    return nextUpBooks;
+  } catch (error) {
+    console.error("Error fetching next up books:", error);
+    return [];
   }
 };
