@@ -141,7 +141,9 @@ const getLatestReadBook = async () => {
     const latestReadBook = await Book.findOne({
       where: {
         completedDate: {
-          [Sequelize.Op.ne]: null, // This checks for non-null completedDate
+          [Sequelize.Op.ne]: null, // Checks for non-null completedDate
+          [Sequelize.Op.not]: "", // Add this to exclude empty strings if they are considered invalid
+          // You can add additional checks here for any other 'invalid' date formats
         },
       },
       order: [["completedDate", "DESC"]], // Orders by the completedDate in descending order
