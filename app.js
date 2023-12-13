@@ -88,12 +88,12 @@ app.use("/stats", statsRouter);
 
 // Protected Routes
 app.use("/admin", ensureAuthenticated, adminRouter);
-app.use("/books", ensureAuthenticated, booksRouter);
-app.use("/authors", ensureAuthenticated, authorsRouter);
-app.use("/series", ensureAuthenticated, seriesRouter);
-app.use("/narrators", ensureAuthenticated, narratorsRouter);
-app.use("/formats", ensureAuthenticated, formatsRouter);
-app.use("/status", ensureAuthenticated, statusRouter);
+app.use("/books", booksRouter);
+app.use("/authors", authorsRouter);
+app.use("/series", seriesRouter);
+app.use("/narrators", narratorsRouter);
+app.use("/formats", formatsRouter);
+app.use("/status", statusRouter);
 
 // Database Associations
 setAssociations();

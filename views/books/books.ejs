@@ -5,84 +5,233 @@
   <link rel="stylesheet" href="/styles/bookCard.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
   <style>
-    /* ... Your existing styles ... */
+    body {
+      background-color: #f4f4f4;
+    }
+    .stats-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 10px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
     
-    .collapse-header {
-      cursor: pointer;
-      background-color: #007bff;
-      color: white;
-      padding: 0.5rem 1rem;
-      margin-bottom: 1rem;
-      border-radius: 0.25rem;
+    .stats-item {
+      text-align: center;
+      flex-grow: 1;
+    }
+    
+    .stats-item:not(:last-child) {
+      border-right: 1px solid #eaeaea;
+    }
+    
+    .stats-title {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .stats-number {
+      font-size: 20px;
+      font-weight: bold;
+      color: #17a2b8; /* Bootstrap's info color */
+    }
+    
+    /* Other styles remain unchanged */
+    
+    .jumbotron {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      text-align: center;
+    }
+    .section-container {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      margin-top: 20px;
     }
-
-    .collapse-header .title {
+    .collapse-header {
+      cursor: pointer;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 20px;
       font-weight: bold;
-      user-select: none;
+      width: 44%;
+      text-align: center;
+      transition: background-color 0.3s;
+    }
+    .next-up-header {
+      background-color: #6f42c1; /* Light purple */
+    }
+    .all-books-header {
+      background-color: #28a745; /* Green */
+    }
+    .inactive-header {
+      opacity: 0.5;
+    }
+    .collapse-content {
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin-top: 10px;
+      width: 100%;
+    }
+    .next-up-content {
+      background-color: rgba(111, 66, 193, 0.1); /* Very transparent purple */
+    }
+    .all-books-content {
+      background-color: rgba(40, 167, 69, 0.1); /* Very transparent green */
     }
 
-    .collapse-header .toggle-icon {
-      font-size: 1.25rem;
+    /* Styles for the Search Results Header */
+    .search-results-header {
+      background-color: #17a2b8; /* Bootstrap's info color (light blue) */
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 20px;
+      transition: background-color 0.3s;
     }
 
-    .collapse.show .toggle-icon:before {
-      content: '\f077'; /* FontAwesome arrow up */
+    /* Styles for the Search Results Content */
+    .search-results-content {
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin-top: 10px;
+      background-color: rgba(23, 162, 184, 0.1); /* Very transparent light blue */
     }
 
-    .collapse:not(.show) .toggle-icon:before {
-      content: '\f078'; /* FontAwesome arrow down */
+    /* Style adjustments when section is collapsed */
+    .search-results-header.collapsed {
+      background-color: rgba(23, 162, 184, 0.5); /* Semi-transparent light blue */
     }
   </style>
 </head>
 <body>
   <%- include('../navbar') %>
-  <%- include('../partials/bookcardModal') %>
 
   <div class="container mt-4">
-    <h2 class="mb-3">Books List</h2>
-
-    <!-- Collapsible section for "Next Up" -->
-    <div class="collapse-header" data-bs-toggle="collapse" data-bs-target="#nextUpSection">
-      <span class="title">Next Up</span>
-      <span class="toggle-icon fas fa-chevron-down"></span>
+    <div class="jumbotron">
+      <h1 class="display-4">Book Stats</h1>
+      <div class="container mt-4">
+        <div class="stats-container">
+          <div class="stats-item">
+            <div class="stats-title">Total Books</div>
+            <div class="stats-number"><%= stats.totalBooks %></div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-title">Books Read</div>
+            <div class="stats-number"><%= stats.readBooks %></div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-title">Total Series</div>
+            <div class="stats-number"><%= stats.totalSeries %></div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-title">Popular Author</div>
+            <div class="stats-number"><%= stats.popularAuthor ? stats.popularAuthor.name : 'N/A' %></div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-title">Popular Narrator</div>
+            <div class="stats-number"><%= stats.popularNarrator ? stats.popularNarrator.name : 'N/A' %></div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-title">Last Read</div>
+            <div class="stats-number"><%= stats.latestReadBook ? stats.latestReadBook.title : 'N/A' %></div>
+          </div>
+        </div>
     </div>
-    <div id="nextUpSection" class="collapse show">
-      <!-- Content for "Next Up" books -->
+
+    <!-- Search Results Section -->
+    <% if (searchPerformed) { %>
+      <div class="collapse-header search-results-header" data-bs-toggle="collapse" data-bs-target="#searchResultsSection">Search Results</div>
+      <div id="searchResultsSection" class="collapse collapse-content search-results-content show">
+        <div class="row">
+          <% books.forEach(function(book) { %>
+            <%- include('../partials/bookCard', { book: book }) %>
+          <% }) %>
+          <% if (books.length === 0) { %>
+            <p>No results found for "<%= searchQuery %>".</p>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="section-container">
+      <div class="collapse-header next-up-header" data-bs-toggle="collapse" data-bs-target="#nextUpSection">Next Up</div>
+      <div class="collapse-header all-books-header" data-bs-toggle="collapse" data-bs-target="#allBooksSection">All Books</div>
+    </div>
+
+    <!-- Next Up Section -->
+    <div id="nextUpSection" class="collapse collapse-content next-up-content show">
       <div class="row">
+        <% if (currentBook) { %>
+          <%- include("../partials/bookCard", { book: currentBook }) %>
+        <% } else { %>
+          <p>No current book selected.</p>
+        <% } %>
         <% nextUpBooks.forEach(function(book) { %>
           <%- include('../partials/bookCard', { book: book }) %>
         <% }) %>
       </div>
     </div>
 
-    <!-- Collapsible section for "All Books" -->
-    <div class="collapse-header" data-bs-toggle="collapse" data-bs-target="#allBooksSection">
-      <span class="title">All Books</span>
-      <span class="toggle-icon fas fa-chevron-down"></span>
-    </div>
-    <div id="allBooksSection" class="collapse show">
-      <!-- Content for "All Books" -->
-      <div id="booksContainer" class="row">
-        <% books.forEach(function(book) { %>
+    <!-- All Books Section -->
+    <div id="allBooksSection" class="collapse collapse-content all-books-content show">
+      <div class="row">
+        <% allBooks.forEach(function(book) { %>
           <%- include('../partials/bookCard', { book: book }) %>
         <% }) %>
       </div>
     </div>
-
   </div>
+
   <%- include('../partials/footer') %>
+  <%- include('../partials/bookcardModal') %>
 
   <script>
-    // Optional JavaScript to toggle the chevron icon on collapse
+    const updateCollapseHeaders = () => {
+      const nextUpHeader = document.querySelector('.next-up-header');
+      const allBooksHeader = document.querySelector('.all-books-header');
+      const nextUpSection = document.getElementById('nextUpSection');
+      const allBooksSection = document.getElementById('allBooksSection');
+
+      nextUpHeader.classList.toggle('inactive-header', !nextUpSection.classList.contains('show'));
+      allBooksHeader.classList.toggle('inactive-header', !allBooksSection.classList.contains('show'));
+    };
+
+    const clearSearchResults = () => {
+      const searchResultsSection = document.getElementById('searchResultsSection');
+      if (!searchResultsSection.classList.contains('show')) {
+        window.location.href = '/books';
+      }
+    };
+
+    if (document.querySelector('.search-results-header')) {
+      document.querySelector('.search-results-header').addEventListener('click', () => {
+        setTimeout(clearSearchResults, 350);
+      });
+    }
+
     document.querySelectorAll('.collapse-header').forEach(header => {
-      header.addEventListener('click', function() {
-        this.querySelector('.toggle-icon').classList.toggle('fa-chevron-down');
-        this.querySelector('.toggle-icon').classList.toggle('fa-chevron-up');
+      header.addEventListener('click', () => {
+        setTimeout(updateCollapseHeaders, 350);
       });
     });
+
+    // Initial state update
+    updateCollapseHeaders();
   </script>
 </body>
 </html>

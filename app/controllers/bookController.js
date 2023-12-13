@@ -5,20 +5,26 @@ const Narrator = require("../models/Narrator");
 const Format = require("../models/Format");
 const Status = require("../models/Status");
 const { Op } = require("sequelize");
+const { getStats } = require("./statsController"); // If in the same directory
 
 exports.searchBooks = async (req, res) => {
   try {
     const searchQuery = req.query.search || "";
     const whereConditions = {};
+    const searchPerformed = !!searchQuery; // Check if a search query exists
 
     // Fetch the current and next up books asynchronously
     const currentBookPromise = exports.getCurrentBook(); // Note the usage of exports. to refer to the function
     const nextUpBooksPromise = exports.getNextUpBooks();
+    const allBooksPromise = exports.getAllBooks();
+    const statsPromise = getStats(); // Fetch stats
 
     // Wait for both promises to resolve
-    const [currentBook, nextUpBooks] = await Promise.all([
+    const [currentBook, nextUpBooks, allBooks, stats] = await Promise.all([
       currentBookPromise,
       nextUpBooksPromise,
+      allBooksPromise,
+      statsPromise,
     ]);
 
     if (searchQuery) {
@@ -47,7 +53,15 @@ exports.searchBooks = async (req, res) => {
       ],
     });
 
-    res.render("books/books", { books, searchQuery, currentBook, nextUpBooks });
+    res.render("books/books", {
+      books,
+      searchQuery,
+      currentBook,
+      nextUpBooks,
+      allBooks,
+      searchPerformed,
+      stats,
+    });
   } catch (error) {
     console.error("Error fetching books:", error);
     res.status(500).send("Error occurred while fetching books");
@@ -90,11 +104,29 @@ exports.getCurrentBook = async () => {
       ],
     });
     // Log the current book or handle it as needed
-    console.log("Current Book:", currentBook);
+    //console.log("Current Book:", currentBook);
     return currentBook;
   } catch (error) {
     console.error("Error fetching current book:", error);
     return null;
+  }
+};
+
+exports.getAllBooks = async () => {
+  try {
+    const books = await Book.findAll({
+      include: [
+        { model: Author },
+        { model: Series },
+        { model: Narrator },
+        { model: Format },
+        { model: Status },
+      ],
+    });
+    return books;
+  } catch (error) {
+    console.error("Error fetching all books:", error);
+    throw error; // Rethrow the error to handle it in the calling function
   }
 };
 
