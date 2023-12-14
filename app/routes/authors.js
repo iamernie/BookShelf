@@ -32,6 +32,10 @@ router.get("/:id/books", async (req, res) => {
       order: [["title", "ASC"]],
     });
     const author = await Author.findByPk(authorId);
+    books.forEach((book) => {
+      book.fromAuthor = true; // Add this line
+    });
+
     res.render("authors/authorBooks", { books, authorId, author }); // Render a view with the books in the series
   } catch (error) {
     console.error("Error fetching books by author:", error);

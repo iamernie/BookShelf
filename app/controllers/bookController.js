@@ -285,7 +285,7 @@ exports.postAddBook = async (req, res) => {
       authorId,
       seriesId,
       narratorId,
-      formatId,
+      formatIds,
       statusId,
       summary,
       startReadingDate,
@@ -307,7 +307,7 @@ exports.postAddBook = async (req, res) => {
       seriesId: seriesId || null,
       narratorId: narratorId || null,
       coverImageUrl,
-      formatId: formatId || null,
+      formatId: formatIds || null,
       statusId: statusId || null,
       summary,
       startReadingDate,
@@ -315,6 +315,7 @@ exports.postAddBook = async (req, res) => {
       rating,
       bookNum,
     });
+    console.log("Received formatId:", formatIds);
 
     res.redirect("/books");
   } catch (error) {

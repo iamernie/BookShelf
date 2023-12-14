@@ -6,7 +6,10 @@ const Author = sequelize.define("author", {
     type: Sequelize.STRING,
     allowNull: false,
   },
-  // Add additional fields as needed
+  // comments: {
+  //   type: Sequelize.STRING,
+  //   allowedNull: true,
+  // },
 });
 
 module.exports = Author;

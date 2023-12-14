@@ -196,9 +196,78 @@ const getMostReadAuthor = async () => {
     throw error;
   }
 };
+const getStatsSeries = async (seriesId) => {
+  try {
+    // Convert seriesId to an integer
+    const seriesIdInt = parseInt(seriesId, 10);
+
+    // Check if conversion was successful; if not, handle the error
+    if (isNaN(seriesIdInt)) {
+      throw new Error("Invalid seriesId");
+    }
+    // Count total number of books in the series
+    const totalBooksInSeries = await Book.count({
+      where: { seriesId: seriesId },
+    });
+
+    // Count the number of books read in the series
+    const readBooksInSeries = await Book.count({
+      where: {
+        seriesId: seriesId,
+        statusId: 2, // Assuming statusId 2 indicates 'read'
+      },
+    });
+
+    // Find the last book read in the series with valid completed date
+    const lastReadBookInSeries = await Book.findOne({
+      where: {
+        seriesId: seriesIdInt,
+        statusId: 2,
+        completedDate: {
+          [Sequelize.Op.ne]: null, // Excludes null
+          [Sequelize.Op.not]: "", // Excludes empty string
+        },
+      },
+      order: [["completedDate", "DESC"]],
+      attributes: ["title", "completedDate"],
+    });
+
+    // console.log("Last Read Book Query Parameters:", {
+    //   seriesIdInt,
+    //   statusId: 2,
+    // });
+    // console.log("Last Read Book in Series:", lastReadBookInSeries);
+
+    // Calculate the average rating of the series
+    const averageRating = await Book.findAll({
+      where: { seriesId: seriesId },
+      attributes: [
+        [Sequelize.fn("AVG", Sequelize.col("rating")), "averageRating"],
+      ],
+      raw: true,
+    });
+
+    const averageRatingValue = averageRating[0].averageRating
+      ? parseFloat(averageRating[0].averageRating).toFixed(2)
+      : "Not rated";
+
+    return {
+      totalBooksInSeries,
+      readBooksInSeries,
+      lastReadBookInSeries: lastReadBookInSeries
+        ? lastReadBookInSeries.title
+        : "None",
+      averageRating: averageRatingValue,
+    };
+  } catch (error) {
+    console.error("Error getting series stats:", error);
+    throw error;
+  }
+};
 
 module.exports = {
   getStats,
   showStats,
   getLatestReadBook,
+  getStatsSeries,
 };

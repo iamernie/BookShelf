@@ -5,6 +5,7 @@ const Book = require("../models/Book"); // Make sure this path is correct
 const Author = require("../models/Author"); // Import if you're using the Author model
 const Status = require("../models/Status"); //
 const Narrator = require("../models/Narrator");
+const { getStatsSeries } = require("../controllers/statsController"); // Adjust the path
 
 // GET all series
 router.get("/", async (req, res) => {
@@ -34,13 +35,18 @@ router.get("/details/:id", async (req, res) => {
 router.get("/:id/books", async (req, res) => {
   try {
     const seriesId = req.params.id;
+    const stats = await getStatsSeries(seriesId);
     const books = await Book.findAll({
       where: { seriesId: seriesId },
       include: [Series, Author, Status, Narrator], // Include other related models as needed
       order: [["bookNum", "DESC"]],
     });
     const series = await Series.findByPk(seriesId);
-    res.render("series/seriesBooks", { books, seriesId, series }); // Render a view with the books in the series
+
+    books.forEach((book) => {
+      book.fromSeries = true; // Add this line
+    });
+    res.render("series/seriesBooks", { books, seriesId, series, stats }); // Render a view with the books in the series
   } catch (error) {
     console.error("Error fetching books by series:", error);
     res.status(500).send("Error occurred while fetching books");
@@ -109,6 +115,26 @@ router.put("/:seriesId/update-notes", async (req, res) => {
     res.send("Series notes updated successfully");
   } catch (error) {
     console.error("Error updating series notes:", error);
+    res.status(500).send("Error updating series notes");
+  }
+});
+
+// Update Series description
+// In your series routes file
+router.put("/:seriesId/update-Description", async (req, res) => {
+  try {
+    const seriesId = req.params.seriesId;
+    const { description } = req.body;
+
+    const series = await Series.findByPk(seriesId);
+    if (!series) {
+      return res.status(404).send("Series not found");
+    }
+
+    await series.update({ description });
+    res.send("Series description updated successfully");
+  } catch (error) {
+    console.error("Error updating series description:", error);
     res.status(500).send("Error updating series notes");
   }
 });

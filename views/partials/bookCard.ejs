@@ -8,26 +8,37 @@
             <img class="card-img-top book-image" src="<%= book.coverImageUrl %>" alt="Book Cover"> 
  
         </div>
-                        <!-- Status banner -->
-                        <% if (book.status) { %>
-                            <div class="status-banner <%= book.status.name.toLowerCase() %>-status">
-                                <%= book.status.name %>
-                            </div>
-                        <% } %>
+            <!-- Status banner -->
+            <% if (book.status) { %>
+                <div class="status-banner <%= book.status.name.toLowerCase() %>-status">
+                    <%= book.status.name %>
+                </div>
+            <% } %>
+                <!-- Title -->
             <h5 class="card-title book-title"><%= book.title %></h5>
+            
+            <!-- Series OR Book Number -->
             <p class="book-series">
-                <% if (book.series) { %>
-                    <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
+                <% if(book.fromSeries) { %>
+                       <strong> Book <%= book.bookNum %> </strong>
                 <% } else { %>
-                    No Series
+                        <% if (book.series) { %>
+                            <a href="/series/<%= book.series.id %>/books"><%= book.series.title %></a>
+                        <% } else { %>
+                            No Series
+                        <% } %>
                 <% } %>
             </p>
             <p class="book-author">
-                By: 
-                <% if (book.author && book.author.id) { %>
-                  <a href="/authors/<%= book.author.id %>/books"><%= book.author.name %></a>
-                <% } else { %>
-                  Unknown
+                <% if(book.fromAuthor) { %>
+                    <strong> Book <%= book.bookNum %> </strong>
+             <% } else { %>
+                        By: 
+                        <% if (book.author && book.author.id) { %>
+                            <a href="/authors/<%= book.author.id %>/books"><%= book.author.name %></a>
+                        <% } else { %>
+                            Unknown
+                        <% } %>
                 <% } %>
     </div>
   </div>

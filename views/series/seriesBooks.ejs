@@ -3,6 +3,7 @@
 <head>
   <%- include('../partials/header', { title: 'Books - ' + series.title }) %>
   <link rel="stylesheet" href="/styles/bookCard.css">
+  <link rel="stylesheet" href="/styles/statsheader.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
   <style>
     body {
@@ -12,14 +13,30 @@
       text-align: center;
       margin-bottom: 1rem;
     }
-    .series-description {
-      background-color: #f8f9fa; 
-      border-radius: 10px;
-      padding: 1rem;
-      margin-bottom: 2rem;
+    #seriesDescription {
+      position: relative;
+      cursor: pointer; /* Change cursor to indicate clickability */
+  }
+  
+  #seriesDescription:hover:after {
+      content: attr(title); /* Display the title attribute content */
+      position: absolute;
+      left: 0;
+      top: 100%;
+      white-space: nowrap;
+      z-index: 1;
+      background-color: #f8f9fa;
+      padding: 5px;
+      border-radius: 4px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      text-align: center;
-    }
+      font-size: 12px;
+  }
+    #seriesDescription[contenteditable="true"] {
+      border: 1px solid #ddd; /* Dotted border to indicate editable */
+      padding: 5px; /* Padding for better appearance */
+      background-color: white; /* White background to stand out */
+      cursor: text; /* Cursor indicates text can be edited */
+  }
     .jumbotron {
       background: #fff;
       border-radius: 10px;
@@ -36,7 +53,29 @@
   <div class="container mt-4">
     <div class="jumbotron">
       <h1 class="display-4"><%= series.title %></h1>
-      <p class="lead"><%= series.description ? series.description : 'No description available.' %></p>
+    <!-- Series Stats Section -->
+    <div class="stats-container">
+      <div class="stats-item">
+        <div class="stats-title">Total Books</div>
+        <div class="stats-number"><%= stats.totalBooksInSeries %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Books Read</div>
+        <div class="stats-number"><%= stats.readBooksInSeries %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Last Book Read</div>
+        <div class="stats-number"><%= stats.lastReadBookInSeries %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Average Rating</div>
+        <div class="stats-number"><%= stats.averageRating %></div>
+      </div>
+    </div>
+
+      <div id="seriesDescription" contenteditable="false" title="Click to edit" onblur="saveDescription('<%= series.id %>')">
+        <%= series.description %>
+    </div>
     </div>
 
     <div class="row">
@@ -53,5 +92,35 @@
 
    <!-- Modal -->
    <%- include('../partials/bookcardModal') %>
+<script>
+   document.getElementById('seriesDescription').addEventListener('click', function() {
+    this.setAttribute('contenteditable', 'true');
+    this.style.border = '1px solid blue'; // Optional: Change border color when editing
+    this.focus(); // Set focus to the element
+});
+
+function saveDescription(seriesId) {
+  var description = document.getElementById('seriesDescription').innerText;
+  document.getElementById('seriesDescription').setAttribute('contenteditable', 'false');
+  document.getElementById('seriesDescription').style.border = '1px solid #ddd';
+
+  fetch(`/series/${seriesId}/update-description`, {
+      method: 'PUT',
+      headers: {
+          'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ description: description }),
+  })
+  .then(response => {
+      if (response.ok) {
+          console.log('Description updated successfully');
+      } else {
+          throw new Error('Failed to update description');
+      }
+  })
+  .catch((error) => console.error('Error:', error));
+}
+
+</script>
 </body>
 </html>
