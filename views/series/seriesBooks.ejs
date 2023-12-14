@@ -74,7 +74,8 @@
     </div>
 
       <div id="seriesDescription" contenteditable="false" title="Click to edit" onblur="saveDescription('<%= series.id %>')">
-        <%= series.description %>
+        <%= series.description || 'Click Here to Add Description' %>
+
     </div>
     </div>
 
@@ -93,16 +94,22 @@
    <!-- Modal -->
    <%- include('../partials/bookcardModal') %>
 <script>
-   document.getElementById('seriesDescription').addEventListener('click', function() {
+  document.getElementById('seriesDescription').addEventListener('click', function() {
     this.setAttribute('contenteditable', 'true');
     this.style.border = '1px solid blue'; // Optional: Change border color when editing
+    if (this.innerText === 'Click Here to Add Description') {
+        this.innerText = ''; // Clear placeholder text
+    }
     this.focus(); // Set focus to the element
 });
 
 function saveDescription(seriesId) {
-  var description = document.getElementById('seriesDescription').innerText;
-  document.getElementById('seriesDescription').setAttribute('contenteditable', 'false');
-  document.getElementById('seriesDescription').style.border = '1px solid #ddd';
+    var description = document.getElementById('seriesDescription').innerText;
+    if (!description.trim()) {
+        description = 'Click Here to Add Description'; // Restore placeholder if empty
+    }
+    document.getElementById('seriesDescription').setAttribute('contenteditable', 'false');
+    document.getElementById('seriesDescription').style.border = '1px solid #ddd';
 
   fetch(`/series/${seriesId}/update-description`, {
       method: 'PUT',
