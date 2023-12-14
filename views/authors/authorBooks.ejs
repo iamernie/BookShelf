@@ -1,50 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <%- include('../partials/header', { title: 'Books - ' + series.title }) %>
-    <!-- Book Card Styles -->
-   <link rel="stylesheet" href="/styles/bookCard.css">
-    <!-- Add any other custom styles or scripts here -->
-    <style>
-      .series-title {
-        text-align: center;
-        margin-bottom: 1rem;
-      }
-      .series-description {
-        background-color: #f8f9fa; /* Light grey background */
-        border-radius: 10px; /* Rounded corners */
-        padding: 1rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-        text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <%- include('../navbar') %>
-    <!-- Include the navbar partial -->
-    <%- include('../partials/bookcardModal') %>
+<head>
+  <%- include('../partials/header', { title: 'Books - ' +author.name }) %>
+  <link rel="stylesheet" href="/styles/bookCard.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+  <style>
+    body {
+      background-color: #f4f4f4;
+    }
+    .author-title {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .author-description {
+      background-color: #f8f9fa; 
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    .jumbotron {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      text-align: center;
+    }
+    /* Other styles from books.ejs can be added here as needed */
+  </style>
+</head>
+<body>
+  <%- include('../navbar') %>
 
-    <div class="container mt-4">
-      <h2 class="series-title"><%= series.title %></h2>
-      <div class="series-description">
-        <p>
-          <%= series.description ? series.description : 'No description available.' %>
-        </p>
-      </div>
-
-      <div class="row">
-        <% books.forEach(function(book) { %>
-          <%- include('../partials/bookCard', { book: book }) %>
-          
-        <% }) %>
-      </div>
-
-      <% if (books.length === 0) { %>
-      <p>No books found in this series.</p>
-      <% } %>
+  <div class="container mt-4">
+    <div class="jumbotron">
+      <h1 class="display-4"><%= author.name %></h1>
+      <p class="lead"><%= author.description ? author.description : 'No description available.' %></p>
     </div>
 
-    <%- include('../partials/footer') %>
-  </body>
+    <div class="row">
+      <% books.forEach(function(book) { %>
+        <%- include('../partials/bookCard', { book: book }) %>
+      <% }) %>
+      <% if (books.length === 0) { %>
+      <p>No books found by this author.</p>
+      <% } %>
+    </div>
+  </div>
+
+  <%- include('../partials/footer') %>
+
+   <!-- Modal -->
+   <%- include('../partials/bookcardModal') %>
+</body>
 </html>

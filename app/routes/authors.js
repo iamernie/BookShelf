@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const Author = require("../models/Author"); // Adjust the path as necessary
+const Status = require("../models/Status"); //
+const Narrator = require("../models/Narrator");
+const Series = require("../models/Series"); // Adjust the path as necessary
+const Book = require("../models/Book"); // Make sure this path is correct
 
 // GET all authors
 router.get("/", async (req, res) => {
@@ -16,6 +20,23 @@ router.get("/", async (req, res) => {
 // GET the form for adding a new author
 router.get("/add", (req, res) => {
   res.render("authors/addAuthor");
+});
+
+// GET all books by an author
+router.get("/:id/books", async (req, res) => {
+  try {
+    const authorId = req.params.id;
+    const books = await Book.findAll({
+      where: { authorId: authorId },
+      include: [Series, Author, Status, Narrator], // Include other related models as needed
+      order: [["title", "ASC"]],
+    });
+    const author = await Author.findByPk(authorId);
+    res.render("authors/authorBooks", { books, authorId, author }); // Render a view with the books in the series
+  } catch (error) {
+    console.error("Error fetching books by author:", error);
+    res.status(500).send("Error occurred while fetching books");
+  }
 });
 
 // POST a new author

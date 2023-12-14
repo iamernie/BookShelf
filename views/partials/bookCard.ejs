@@ -23,10 +23,12 @@
                 <% } %>
             </p>
             <p class="book-author">
-                By: <%= book.author ? book.author.name : 'Unknown' %>
-            </p> 
- 
-
+                By: 
+                <% if (book.author && book.author.id) { %>
+                  <a href="/authors/<%= book.author.id %>/books"><%= book.author.name %></a>
+                <% } else { %>
+                  Unknown
+                <% } %>
     </div>
   </div>
   
