@@ -99,6 +99,25 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// Update Author description
+router.put("/:authorId/update-description", async (req, res) => {
+  try {
+    const authorId = req.params.authorId;
+    const { comments } = req.body;
+
+    const author = await Author.findByPk(authorId);
+    if (!author) {
+      return res.status(404).send("Author not found");
+    }
+
+    await author.update({ comments });
+    res.send("Author comments updated successfully");
+  } catch (error) {
+    console.error("Error updating Author comments:", error);
+    res.status(500).send("Error updating Author comments");
+  }
+});
+
 // DELETE an author
 router.delete("/:id", async (req, res) => {
   try {
