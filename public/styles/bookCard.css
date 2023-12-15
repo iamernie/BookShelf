@@ -1,3 +1,7 @@
+.bookrow {
+  padding-left: 25px;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;

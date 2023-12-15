@@ -81,7 +81,9 @@
 
     <div class="row">
       <% books.forEach(function(book) { %>
+        <div class="bookrow">
         <%- include('../partials/bookCard', { book: book }) %>
+        </div>
       <% }) %>
       <% if (books.length === 0) { %>
       <p>No books found in this series.</p>
