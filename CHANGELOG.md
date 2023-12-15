@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.7.0:
+## 0.1.7.0: December 15
 
 - Added a place holder
 
