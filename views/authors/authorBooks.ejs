@@ -36,6 +36,34 @@
   <div class="container mt-4">
     <div class="jumbotron">
       <h1 class="display-4"><%= author.name %></h1>
+      
+    <!-- Author Stats Section -->
+    <div class="stats-container">
+      <div class="stats-item">
+        <div class="stats-title">Total Books</div>
+        <div class="stats-number"><%= stats.totalBooksByAuthor %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Total Read</div>
+        <div class="stats-number"><%= stats.readBooksByAuthor %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Average Rating</div>
+        <div class="stats-number"><%= stats.averageRating %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Last Book Read</div>
+        <div class="stats-number"><%= stats.lastReadBookByAuthor %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Books Released this Year</div>
+        <div class="stats-number"><%= stats.booksInYearByAuthor %></div>
+      </div>
+      <div class="stats-item">
+        <div class="stats-title">Last Series Read</div>
+        <div class="stats-number"><%= stats.lastSeriesTitle %></div>
+      </div>
+    </div>
       <p class="lead"><%= author.description ? author.description : 'No description available.' %></p>
     </div>
 

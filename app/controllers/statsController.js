@@ -265,9 +265,212 @@ const getStatsSeries = async (seriesId) => {
   }
 };
 
+const getStatsAuthor = async (authorId) => {
+  try {
+    // Convert seriesId to an integer
+    const authorIdInt = parseInt(authorId, 10);
+
+    // Check if conversion was successful; if not, handle the error
+    if (isNaN(authorIdInt)) {
+      throw new Error("Invalid authorId");
+    }
+    // Count total number of books in the series
+    const totalBooksByAuthor = await Book.count({
+      where: { authorId: authorId },
+    });
+
+    // Count the number of books read by Author
+    const readBooksByAuthor = await Book.count({
+      where: {
+        authorId: authorId,
+        statusId: 2, // Assuming statusId 2 indicates 'read'
+      },
+    });
+
+    // Find the last book read in the series with valid completed date
+    const lastReadBookByAuthor = await Book.findOne({
+      where: {
+        authorId: authorIdInt,
+        statusId: 2,
+        completedDate: {
+          [Sequelize.Op.ne]: null, // Excludes null
+          [Sequelize.Op.not]: "", // Excludes empty string
+        },
+      },
+      order: [["completedDate", "DESC"]],
+      attributes: ["title", "completedDate"],
+    });
+
+    // console.log("Last Read Book Query Parameters:", {
+    //   seriesIdInt,
+    //   statusId: 2,
+    // });
+    // console.log("Last Read Book in Series:", lastReadBookInSeries);
+
+    // Author's Books Released in a Given Year (Example: 2023)
+    const currentYear = new Date().getFullYear(); // Dynamically get the current year
+    const startDate = new Date(currentYear, 0, 1);
+    const endDate = new Date(currentYear + 1, 0, 1);
+    const booksInYearByAuthor = await Book.count({
+      where: {
+        authorId: authorId,
+        releaseDate: {
+          [Sequelize.Op.between]: [startDate, endDate],
+        },
+      },
+    });
+
+    const lastSeriesRead = await Book.findOne({
+      where: {
+        authorId: authorId,
+        seriesId: {
+          [Sequelize.Op.ne]: null,
+        },
+        completedDate: {
+          [Sequelize.Op.ne]: null,
+        },
+      },
+      order: [["completedDate", "DESC"]],
+      include: [
+        {
+          model: Series,
+          attributes: ["title"],
+        },
+      ],
+    });
+
+    // Format the series title for rendering
+    const lastSeriesTitle =
+      lastSeriesRead && lastSeriesRead.series
+        ? lastSeriesRead.series.title
+        : "None";
+
+    // Calculate the average rating of the series
+    const averageRating = await Book.findAll({
+      where: {
+        authorId: authorId,
+        statusId: 2, // Adding the condition to check for 'read' status
+      },
+      attributes: [
+        [Sequelize.fn("AVG", Sequelize.col("rating")), "averageRating"],
+      ],
+      raw: true,
+    });
+
+    const averageRatingValue = averageRating[0].averageRating
+      ? parseFloat(averageRating[0].averageRating).toFixed(2)
+      : "Not rated";
+
+    return {
+      totalBooksByAuthor,
+      readBooksByAuthor,
+      lastReadBookByAuthor: lastReadBookByAuthor
+        ? lastReadBookByAuthor.title
+        : "None",
+      averageRating: averageRatingValue,
+      booksInYearByAuthor,
+      lastSeriesTitle,
+    };
+  } catch (error) {
+    console.error("Error getting Author stats:", error);
+    throw error;
+  }
+};
+
+const getAuthorStatistics = async (authorId) => {
+  try {
+    // Total Number of Books by the Author
+    const totalBooksByAuthor = await Book.count({
+      where: { authorId: authorId },
+    });
+
+    // Author's Books Released in a Given Year (Example: 2023)
+    const year = 2023;
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year + 1, 0, 1);
+    const booksInYearByAuthor = await Book.count({
+      where: {
+        authorId: authorId,
+        releaseDate: {
+          [Sequelize.Op.between]: [startDate, endDate],
+        },
+      },
+    });
+
+    // Average Rating for the Author's Books
+    const averageRatingResult = await Book.findOne({
+      attributes: [
+        [Sequelize.fn("AVG", Sequelize.col("rating")), "averageRating"],
+      ],
+      where: { authorId: authorId },
+      raw: true,
+    });
+    const averageRating = averageRatingResult
+      ? parseFloat(averageRatingResult.averageRating).toFixed(2)
+      : "Not rated";
+
+    // Last Book Read by the Author
+    const lastBookRead = await Book.findOne({
+      where: {
+        authorId: authorId,
+        completedDate: {
+          [Sequelize.Op.ne]: null,
+        },
+      },
+      order: [["completedDate", "DESC"]],
+      attributes: ["title", "completedDate"],
+      raw: true,
+    });
+
+    // Last Series Read by the Author
+    // Assuming a book belongs to a series and an author
+    const lastSeriesRead = await Book.findOne({
+      where: {
+        authorId: authorId,
+        seriesId: {
+          [Sequelize.Op.ne]: null,
+        },
+        completedDate: {
+          [Sequelize.Op.ne]: null,
+        },
+      },
+      order: [["completedDate", "DESC"]],
+      include: [
+        {
+          model: Series,
+          attributes: ["title"],
+        },
+      ],
+      raw: true,
+    });
+
+    // Format the series title for rendering
+    const lastSeriesTitle = lastSeriesRead
+      ? lastSeriesRead["Series.title"]
+      : "None";
+
+    return {
+      totalBooks: totalBooksByAuthor,
+      booksInYear: booksInYearByAuthor,
+      averageRating: averageRating,
+      lastBookRead: lastBookRead
+        ? {
+            title: lastBookRead.title,
+            completedDate: lastBookRead.completedDate,
+          }
+        : null,
+      lastSeriesRead: lastSeriesTitle,
+    };
+  } catch (error) {
+    console.error("Error getting author statistics:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   getStats,
   showStats,
   getLatestReadBook,
   getStatsSeries,
+  getStatsAuthor,
 };

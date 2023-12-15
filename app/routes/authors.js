@@ -5,6 +5,7 @@ const Status = require("../models/Status"); //
 const Narrator = require("../models/Narrator");
 const Series = require("../models/Series"); // Adjust the path as necessary
 const Book = require("../models/Book"); // Make sure this path is correct
+const { getStatsAuthor } = require("../controllers/statsController"); // Adjust the path
 
 // GET all authors
 router.get("/", async (req, res) => {
@@ -26,6 +27,7 @@ router.get("/add", (req, res) => {
 router.get("/:id/books", async (req, res) => {
   try {
     const authorId = req.params.id;
+    const stats = await getStatsAuthor(authorId);
     const books = await Book.findAll({
       where: { authorId: authorId },
       include: [Series, Author, Status, Narrator], // Include other related models as needed
@@ -36,7 +38,12 @@ router.get("/:id/books", async (req, res) => {
       book.fromAuthor = true; // Add this line
     });
 
-    res.render("authors/authorBooks", { books, authorId, author }); // Render a view with the books in the series
+    res.render("authors/authorBooks", {
+      books,
+      authorId,
+      author,
+      stats: stats,
+    }); // Render a view with the books in the series
   } catch (error) {
     console.error("Error fetching books by author:", error);
     res.status(500).send("Error occurred while fetching books");

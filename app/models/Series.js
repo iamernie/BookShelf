@@ -24,6 +24,14 @@ const Series = sequelize.define("series", {
     },
     allowNull: true,
   },
+  genreId: {
+    type: Sequelize.INTEGER,
+    allowNull: true, // allowNull based on your business logic
+    references: {
+      model: "genres", // 'genres' refers to table name
+      key: "id", // 'id' refers to column name in genres table
+    },
+  },
   comments: {
     type: Sequelize.TEXT,
     allowNull: true,

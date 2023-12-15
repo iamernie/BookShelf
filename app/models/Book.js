@@ -46,7 +46,7 @@ const Book = sequelize.define("book", {
   releaseDate: {
     type: Sequelize.DATE,
     allowNull: true, // Allow null if you want to make the field optional
-    defaultValue: Sequelize.NOW // Sets the default value to the current date
+    defaultValue: Sequelize.NOW, // Sets the default value to the current date
   },
   rating: Sequelize.INTEGER,
 
@@ -67,7 +67,15 @@ const Book = sequelize.define("book", {
   comments: {
     type: Sequelize.TEXT,
     allowNull: true,
-  }
+  },
+  genreId: {
+    type: Sequelize.INTEGER,
+    allowNull: true, // allowNull based on your business logic
+    references: {
+      model: "genres", // 'genres' refers to table name
+      key: "id", // 'id' refers to column name in genres table
+    },
+  },
 });
 
 module.exports = Book;

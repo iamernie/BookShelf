@@ -296,11 +296,13 @@ exports.postAddBook = async (req, res) => {
 
     let coverImageUrl = req.body.coverImageUrl;
 
-    // If a file is uploaded, use the file's path instead of the cover image URL
+    // If a file is uploaded, use the file's path
     if (req.file) {
-      coverImageUrl = `/uploads/${req.file.filename}`; // Adjust the path based on your static files configuration
+      coverImageUrl = `/uploads/${req.file.filename}`;
+    } else if (!coverImageUrl) {
+      // If no image URL is provided, use the placeholder image
+      coverImageUrl = "/static/placeholder.png";
     }
-
     const newBook = await Book.create({
       title,
       authorId: authorId || null,
@@ -416,9 +418,12 @@ exports.putEditId = async (req, res) => {
 
     let coverImageUrl2 = req.body.coverImageUrl;
 
-    // If a file is uploaded, use the file's path instead of the cover image URL
+    // If a file is uploaded, use the file's path
     if (req.file) {
-      coverImageUrl2 = `/uploads/${req.file.filename}`; // Adjust the path based on your static files configuration
+      coverImageUrl2 = `/uploads/${req.file.filename}`;
+    } else if (!coverImageUrl2) {
+      // If no image URL is provided, use the placeholder image
+      coverImageUrl2 = "/static/placeholder.png";
     }
 
     const book = await Book.findByPk(req.params.id);

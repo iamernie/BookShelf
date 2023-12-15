@@ -5,7 +5,7 @@ const Narrator = require("./app/models/Narrator");
 const Format = require("./app/models/Format");
 const Status = require("./app/models/Status");
 const SeriesStatus = require("./app/models/SeriesStatus");
-
+const Genre = require("./app/models/Genre"); // Include the Genre model
 
 // Define associations
 function setAssociations() {
@@ -26,6 +26,13 @@ function setAssociations() {
 
   SeriesStatus.hasMany(Series, { foreignKey: "statusId", allowNull: true });
   Series.belongsTo(SeriesStatus, { foreignKey: "statusId", allowNull: true });
+
+  // New associations with Genre
+  Genre.hasMany(Book, { foreignKey: "genreId", allowNull: true });
+  Book.belongsTo(Genre, { foreignKey: "genreId", allowNull: true });
+
+  Genre.hasMany(Series, { foreignKey: "genreId", allowNull: true });
+  Series.belongsTo(Genre, { foreignKey: "genreId", allowNull: true });
 }
 
 module.exports = setAssociations;
