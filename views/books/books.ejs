@@ -8,6 +8,10 @@
     body {
       background-color: #f4f4f4;
     }
+    .bookrow {
+      padding-left: 25px;
+    
+    }
     .fab {
       position: fixed;
       bottom: 20px;
@@ -194,7 +198,7 @@
     <% if (searchPerformed) { %>
       <div class="collapse-header search-results-header" data-bs-toggle="collapse" data-bs-target="#searchResultsSection">Search Results</div>
       <div id="searchResultsSection" class="collapse collapse-content search-results-content show">
-        <div class="row">
+        <div class="row bookrow">
           <% books.forEach(function(book) { %>
             <%- include('../partials/bookCard', { book: book }) %>
           <% }) %>
@@ -214,12 +218,16 @@
     <div id="nextUpSection" class="collapse collapse-content next-up-content show">
       <div class="row">
         <% if (currentBook) { %>
+          <div class="bookrow">
           <%- include("../partials/bookCard", { book: currentBook }) %>
+          </div>
         <% } else { %>
           <p>No current book selected.</p>
         <% } %>
         <% nextUpBooks.forEach(function(book) { %>
+          <div class="bookrow">
           <%- include('../partials/bookCard', { book: book }) %>
+          </div>
         <% }) %>
       </div>
     </div>
@@ -228,7 +236,9 @@
     <div id="allBooksSection" class="collapse collapse-content all-books-content show">
       <div class="row">
         <% allBooks.forEach(function(book) { %>
+          <div class="bookrow">
           <%- include('../partials/bookCard', { book: book }) %>
+        </div>
         <% }) %>
       </div>
     </div>

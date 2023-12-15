@@ -1,9 +1,27 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -5px;
+  margin-left: -5px;
+}
+.col-xl-2,
+.col-lg-3,
+.col-md-4,
+.col-sm-6,
+.col-12 {
+  padding-right: 5px;
+  padding-left: 5px;
+  flex: 1; /* This allows the card to grow */
+  min-width: 180px; /* This ensures that the card does not go below 180px */
+  max-width: 180px; /* This ensures that the card does not grow beyond 180px */
+}
+
 .card-container {
-  padding: 0.5rem;
+  padding: 0.5em;
 }
 
 .container {
-  max-width: 70%; /* This will allow the container to use the full width of the viewport */
+  max-width: 95%; /* This will allow the container to use the full width of the viewport */
 }
 
 .col-md-3 {
@@ -13,8 +31,10 @@
 
 .book-card {
   display: flex;
+  min-width: 190px;
+  min-width: 190px;
   flex-direction: column;
-  height: 100%;
+  height: 300px;
   background: #fff;
   border-radius: 0.5rem;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -36,7 +56,7 @@
 
 .book-image {
   width: 100%;
-  height: 179px;
+  height: 195px;
   object-fit: cover;
   display: block;
 }
@@ -163,6 +183,8 @@
     margin-left: auto;
   }
   .row {
+    display: flex;
+    flex-wrap: wrap;
     margin-right: -15px;
     margin-left: -15px;
   }
@@ -177,17 +199,66 @@
 }
 /* Adjust for mobile screens */
 @media (max-width: 768px) {
+  /* ...other styles... */
+
+  /* Make the book cards take full width on mobile */
+  .col-xl-1,
+  .col-lg-3,
+  .col-md-4,
+  .col-sm-6,
+  .col-12 {
+    width: 100%;
+    max-width: none; /* This ensures that the max-width doesn't limit the card size */
+    min-width: 0; /* This overrides the min-width set for larger screens */
+    padding-right: 15px; /* Adjust as needed */
+    padding-left: 15px; /* Adjust as needed */
+    flex: none; /* This disables the flex grow/shrink/basis properties */
+  }
+
+  /* Ensure the book card itself takes full width */
+  .book-card {
+    width: 100%; /* Full width for the card */
+    height: auto; /* Adjust height as needed, or remove for automatic height */
+    min-height: 300px; /* Optional: if you want a minimum height */
+  }
+
+  .book-image-container {
+    height: auto; /* Set height to auto or adjust as needed */
+  }
+
+  .book-image {
+    height: auto; /* Set height to auto or adjust as needed */
+  }
+
+  /* Reset margins for the row on mobile */
+  .row {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  /* Optional: Adjust padding and margins for container and stats on mobile */
+  .container,
+  .container-fluid {
+    padding-right: 0;
+    padding-left: 0;
+    margin-right: auto;
+    margin-left: auto;
+  }
+  /* For mobile devices */
   .stats-container {
     flex-direction: column;
-    align-items: stretch; /* Align items to stretch to the container width */
+    align-items: stretch; /* Stretch items to full width */
   }
 
   .stats-item {
     flex-basis: 100%; /* Each item takes full width */
-    border-right: none; /* Remove border when stacking */
+    border-right: none; /* Remove border */
+    margin-bottom: 10px; /* Add space between items */
   }
 
-  .stats-title {
+  .stats-title,
+  .stats-number {
     font-size: smaller; /* Adjust font size for small screens */
   }
 }
+/* Add any additional mobile-specific styles here */

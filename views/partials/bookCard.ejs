@@ -1,5 +1,5 @@
-<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 col-12 mb-4">
-    <div class="card book-card" style="cursor: pointer" onclick="showBookDetails('<%= book.id %>')" data-book-id="<%= book.id %>">
+<div class="col-xl-1 col-lg-3 col-md-4 col-sm-6 col-12 mb-4">
+    <div class="card book-card " style="cursor: pointer" onclick="showBookDetails('<%= book.id %>')" data-book-id="<%= book.id %>">
                 <!-- Unreleased banner -->
                 <% if (new Date(book.releaseDate) > new Date()) { %>
                     <div class="unreleased-status">Unreleased</div>
