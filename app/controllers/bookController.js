@@ -131,20 +131,34 @@ exports.getAllBooks = async () => {
   }
 };
 
-exports.JSONgetAllBooks = async (req, res) => {
+exports.JSONgetBooks = async (req, res) => {
   try {
-    const books = await Book.findAll({
-      include: [
-        { model: Author },
-        { model: Series },
-        { model: Narrator },
-        { model: Format },
-        { model: Status },
-      ],
-    });
+    let books;
+    if (req.params.id) {
+      books = await Book.findOne({
+        where: { id: req.params.id },
+        include: [
+          { model: Author },
+          { model: Series },
+          { model: Narrator },
+          { model: Format },
+          { model: Status },
+        ],
+      });
+    } else {
+      books = await Book.findAll({
+        include: [
+          { model: Author },
+          { model: Series },
+          { model: Narrator },
+          { model: Format },
+          { model: Status },
+        ],
+      });
+    }
     res.json(books);
   } catch (error) {
-    console.error("Error fetching all books:", error);
+    console.error("Error fetching books:", error);
     throw error; // Rethrow the error to handle it in the calling function
   }
 };
