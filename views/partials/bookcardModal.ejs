@@ -322,6 +322,25 @@ function getSeriesIdFromBookId(bookId) {
       .catch(error => console.error('Error fetching statuses:', error));
   }
 
+  function populateStatusDropdown(selectedStatusId) {
+    fetch('/status')
+      .then(response => response.json())
+      .then(statuses => {
+        const statusDropdown = document.getElementById('bookStatusDropdown');
+        statusDropdown.innerHTML = ''; // Clear existing options
+  
+        statuses.forEach(status => {
+          const option = document.createElement('option');
+          option.value = status.id;
+          option.textContent = status.name;
+          option.selected = status.id === selectedStatusId;
+          statusDropdown.appendChild(option);
+        });
+      })
+      .catch(error => console.error('Error fetching statuses:', error));
+  }
+
+
   // Function to open the modal and populate its content
   function showBookDetails(bookId) {
     fetch('/books/details/' + bookId)

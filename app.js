@@ -79,6 +79,8 @@ const statusRouter = require("./app/routes/status");
 const authRoutes = require("./app/routes/auth");
 const adminRouter = require("./app/routes/admin");
 const statsRouter = require("./app/routes/stats");
+const genresRouter = require("./app/routes/genre");
+const apiRouter = require("./app/routes/api");
 
 // Routes
 app.use(authRoutes);
@@ -93,7 +95,9 @@ app.use("/authors", authorsRouter);
 app.use("/series", seriesRouter);
 app.use("/narrators", narratorsRouter);
 app.use("/formats", formatsRouter);
+app.use("/genres", genresRouter);
 app.use("/status", statusRouter);
+app.use("/api", apiRouter);
 
 // Database Associations
 setAssociations();

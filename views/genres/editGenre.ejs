@@ -1,27 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <%- include('../partials/header',{ title: 'Books - Formats'}) %>
+    <%- include('../partials/header',{ title: 'Books - Genres'}) %>
   </head>
   <body>
     <%- include('../navbar') %>
     <!-- Adjust the path to your navbar partial -->
 
     <div class="container mt-4">
-      <h2 class="mb-3">Edit Format</h2>
-      <form action="/formats/<%= format.id %>?_method=PUT" method="post">
+      <h2 class="mb-3">Edit Genre</h2>
+      <form action="/genres/<%= genre.id %>?_method=PUT" method="post">
         <div class="form-group">
-          <label for="name">Format Name:</label>
+          <label for="name">Genres Name:</label>
           <input
             type="text"
             class="form-control"
             id="name"
             name="name"
-            value="<%= format.name %>"
+            value="<%= genre.name %>"
             required
           />
         </div>
-        <button type="submit" class="btn btn-primary">Update Format</button>
+        <button type="submit" class="btn btn-primary">Update Genre</button>
       </form>
     </div>
 

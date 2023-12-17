@@ -131,6 +131,24 @@ exports.getAllBooks = async () => {
   }
 };
 
+exports.JSONgetAllBooks = async (req, res) => {
+  try {
+    const books = await Book.findAll({
+      include: [
+        { model: Author },
+        { model: Series },
+        { model: Narrator },
+        { model: Format },
+        { model: Status },
+      ],
+    });
+    res.json(books);
+  } catch (error) {
+    console.error("Error fetching all books:", error);
+    throw error; // Rethrow the error to handle it in the calling function
+  }
+};
+
 // Fetch the next up books - make it a function that can be called
 exports.getNextUpBooks = async () => {
   try {
