@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const Genre = require("../models/Genre"); // Adjust the path as necessary
 
 const GenreController = require("../controllers/genreController");
 

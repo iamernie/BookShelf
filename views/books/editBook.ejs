@@ -148,6 +148,17 @@
               </select>
           </div>
 
+                  <!-- Genre Dropdown -->
+        <div class="form-group">
+          <label for="genreId">Genre:</label>
+          <select class="form-control" id="genreId" name="genreId">
+              <option value="">Select a Genre</option>
+              <% genres.forEach(function(genre) { %>
+                  <option value="<%= genre.id %>" <%= book.genreId === genre.id ? 'selected' : '' %>><%= genre.name %></option>
+              <% }) %>
+          </select>
+        </div>
+
             <!-- Summary -->
             <div class="form-group">
                 <label for="summary">Summary:</label>

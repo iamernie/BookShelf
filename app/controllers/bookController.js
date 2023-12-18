@@ -3,6 +3,7 @@ const Author = require("../models/Author");
 const Series = require("../models/Series");
 const Narrator = require("../models/Narrator");
 const Format = require("../models/Format");
+const Genre = require("../models/Genre");
 const Status = require("../models/Status");
 const { Op } = require("sequelize");
 const { getStats } = require("./statsController"); // If in the same directory
@@ -122,6 +123,7 @@ exports.getAllBooks = async () => {
         { model: Narrator },
         { model: Format },
         { model: Status },
+        { model: Genre },
       ],
     });
     return books;
@@ -270,7 +272,7 @@ exports.getBookDetails = async (req, res) => {
   try {
     const bookId = req.params.bookId;
     const book = await Book.findByPk(bookId, {
-      include: [Author, Series, Narrator, Format, Status],
+      include: [Author, Series, Narrator, Format, Status, Genre],
     });
 
     if (book) {
@@ -297,12 +299,14 @@ exports.addBook = async (req, res) => {
     });
     const formats = await Format.findAll();
     const statuses = await Status.findAll();
+    const genres = await Genre.findAll();
     res.render("books/addBook", {
       authors,
       series,
       narrators,
       formats,
       statuses,
+      genres,
     });
   } catch (error) {
     console.error("Error fetching data for adding book:", error);
@@ -324,6 +328,7 @@ exports.postAddBook = async (req, res) => {
       completedDate,
       rating,
       bookNum,
+      genreId,
     } = req.body;
 
     let coverImageUrl = req.body.coverImageUrl;
@@ -348,6 +353,7 @@ exports.postAddBook = async (req, res) => {
       completedDate,
       rating,
       bookNum,
+      genreId: genreId || null,
     });
     console.log("Received formatId:", formatIds);
 
@@ -400,6 +406,7 @@ exports.getEditId = async (req, res) => {
         { model: Narrator },
         { model: Format },
         { model: Status },
+        { model: Genre },
       ],
     });
     const authors = await Author.findAll({
@@ -412,6 +419,7 @@ exports.getEditId = async (req, res) => {
       order: [["name", "ASC"]],
     });
     const formats = await Format.findAll();
+    const genres = await Genre.findAll();
     const statuses = await Status.findAll();
     if (book) {
       res.render("books/editBook", {
@@ -421,6 +429,7 @@ exports.getEditId = async (req, res) => {
         narrators,
         formats,
         statuses,
+        genres,
       });
     } else {
       res.status(404).send("Book not found");
@@ -437,7 +446,6 @@ exports.putEditId = async (req, res) => {
       authorId,
       seriesId,
       narratorId,
-      coverImageUrl,
       formatId,
       statusId,
       summary,
@@ -446,6 +454,7 @@ exports.putEditId = async (req, res) => {
       rating,
       bookNum,
       releaseDate,
+      genreId,
     } = req.body;
 
     let coverImageUrl2 = req.body.coverImageUrl;
@@ -474,6 +483,7 @@ exports.putEditId = async (req, res) => {
       releaseDate,
       rating,
       bookNum,
+      genreId: genreId || null,
     });
 
     res.redirect("/books");
@@ -485,7 +495,8 @@ exports.putEditId = async (req, res) => {
 exports.deleteBook = async (req, res) => {
   try {
     await Book.destroy({ where: { id: req.params.id } });
-    res.redirect("/books");
+    res.status(200).json({ message: "Book deleted successfully" });
+    req.flash("success_msg", "Book deleted successfully"); // Set a flash message
   } catch (error) {
     console.error("Error deleting book:", error);
     res.status(500).send("Error occurred while deleting the book");
