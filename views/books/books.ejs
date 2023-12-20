@@ -8,9 +8,27 @@
     body {
       background-color: #f4f4f4;
     }
+    .books-container {
+      display: flex;
+      flex-wrap: wrap;
+      padding-left: 25px;
+    }
+    .book-card {
+      margin-right: 10px; /* Adjust as needed for spacing */
+      margin-bottom: 10px;
+    }
+    .all-books-container {
+      display: flex;
+      flex-wrap: wrap;
+      padding-left: 25px;
+    }
     .bookrow {
       padding-left: 25px;
-    
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .book-section {
+      width: 100%;
     }
     .fab {
       position: fixed;
@@ -233,18 +251,28 @@
         <% }) %>
       </div>
     </div>
+    
+ <!-- Alphabet Navigation -->
+ <div class="alphabet-navigation">
+  <% for(let i = 65; i <= 90; i++) { %>
+    <a href="#<%= String.fromCharCode(i) %>"><%= String.fromCharCode(i) %></a>
+  <% } %>
+</div>
 
-    <!-- All Books Section -->
-    <div id="allBooksSection" class="collapse collapse-content all-books-content show">
-      <div class="row">
-        <% allBooks.forEach(function(book) { %>
-          <div class="bookrow">
-          <%- include('../partials/bookCard', { book: book }) %>
-        </div>
-        <% }) %>
+<!-- Books Sections -->
+<div class="books-container">
+  <% for(let i = 65; i <= 90; i++) { %>
+    <% let filteredBooks = books.filter(book => book.title[0].toUpperCase() === String.fromCharCode(i)); %>
+    <% if (filteredBooks.length > 0) { %>
+      <div id="<%= String.fromCharCode(i) %>" class="book-section-anchor"></div>
+    <% } %>
+    <% filteredBooks.forEach(function(book) { %>
+      <div class="book-card">
+        <%- include('../partials/bookCard', { book: book }) %>
       </div>
-    </div>
-  </div>
+    <% }) %>
+  <% } %>
+</div>
 
   <%- include('../partials/footer') %>
   <%- include('../partials/bookcardModal') %>
