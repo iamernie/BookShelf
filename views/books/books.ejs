@@ -8,6 +8,29 @@
     body {
       background-color: #f4f4f4;
     }
+    .alphabet-navigation {
+      position: fixed;
+      right: 10px; /* Adjust as needed */
+      top: 50%; /* Center vertically */
+      transform: translateY(-50%);
+      background-color: #f4f4f4; /* Match your color scheme */
+      border-radius: 5px;
+      padding: 10px;
+    }
+
+    .alphabet-navigation a {
+      display: block; /* Each letter on a new line */
+      font-size: 20px; /* Larger font size */
+      color: #333333; /* Match your color scheme */
+      text-decoration: none; /* Remove underline */
+      margin: 5px 0; /* Space between letters */
+    }
+
+    .alphabet-navigation a:hover {
+      color: #555555; /* Darker color on hover */
+      text-decoration: underline; /* Underline on hover */
+    }
+    
     .books-container {
       display: flex;
       flex-wrap: wrap;
