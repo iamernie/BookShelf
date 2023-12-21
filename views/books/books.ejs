@@ -61,7 +61,7 @@
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      text-align: center;
+      text-align: left;
       line-height: 60px;
       text-decoration: none;
       box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
@@ -264,6 +264,7 @@ body, h1, h2, h3, p, a {
   </style>
 </head>
 <body>
+  <%- include('../partials/bookcardModal') %>
   <%- include('../navbar') %>
 
   <div class="container mt-4">
@@ -364,17 +365,16 @@ body, h1, h2, h3, p, a {
 </div>
 
   <%- include('../partials/footer') %>
-  <%- include('../partials/bookcardModal') %>
+  
 
   <script>
     const updateCollapseHeaders = () => {
       const nextUpHeader = document.querySelector('.next-up-header');
-      const allBooksHeader = document.querySelector('.all-books-header');
       const nextUpSection = document.getElementById('nextUpSection');
-      const allBooksSection = document.getElementById('allBooksSection');
+
 
       nextUpHeader.classList.toggle('inactive-header', !nextUpSection.classList.contains('show'));
-      allBooksHeader.classList.toggle('inactive-header', !allBooksSection.classList.contains('show'));
+
     };
 
     const clearSearchResults = () => {
