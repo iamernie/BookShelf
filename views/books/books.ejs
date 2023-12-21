@@ -8,9 +8,50 @@
     body {
       background-color: #f4f4f4;
     }
+    .alphabet-navigation {
+      position: fixed;
+      right: 10px; /* Adjust as needed */
+      top: 50%; /* Center vertically */
+      transform: translateY(-50%);
+      background-color: #f4f4f4; /* Match your color scheme */
+      border-radius: 5px;
+      padding: 10px;
+    }
+
+    .alphabet-navigation a {
+      display: block; /* Each letter on a new line */
+      font-size: 20px; /* Larger font size */
+      color: #333333; /* Match your color scheme */
+      text-decoration: none; /* Remove underline */
+      margin: 5px 0; /* Space between letters */
+    }
+
+    .alphabet-navigation a:hover {
+      color: #555555; /* Darker color on hover */
+      text-decoration: underline; /* Underline on hover */
+    }
+    
+    .books-container {
+      display: flex;
+      flex-wrap: wrap;
+      padding-left: 25px;
+    }
+    .book-card {
+      margin-right: 10px; /* Adjust as needed for spacing */
+      margin-bottom: 10px;
+    }
+    .all-books-container {
+      display: flex;
+      flex-wrap: wrap;
+      padding-left: 25px;
+    }
     .bookrow {
       padding-left: 25px;
-    
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .book-section {
+      width: 100%;
     }
     .fab {
       position: fixed;
@@ -20,7 +61,7 @@
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      text-align: center;
+      text-align: left;
       line-height: 60px;
       text-decoration: none;
       box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
@@ -104,11 +145,27 @@
       text-align: center;
       transition: background-color 0.3s;
     }
+    /* Adjusted Next Up Header Styles */
     .next-up-header {
       background-color: #6f42c1; /* Light purple */
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 18px; /* Smaller font size */
+      font-weight: bold;
+      width: auto; /* Adjust width as per content size */
+      margin-bottom: 10px;
+      cursor: pointer;
+      display: inline-block; /* Required for smaller width headers */
     }
+
+    /* New All Books Header Styles */
     .all-books-header {
-      background-color: #28a745; /* Green */
+      font-size: 24px; /* Larger font size for section header */
+      color: #333; /* Dark text color for visibility */
+      padding: 10px 0; /* Padding for spacing */
+      font-weight: bold;
+      margin-top: 20px; /* Spacing above the header */
     }
     .inactive-header {
       opacity: 0.5;
@@ -153,9 +210,61 @@
     .search-results-header.collapsed {
       background-color: rgba(23, 162, 184, 0.5); /* Semi-transparent light blue */
     }
+    
+/* Typography for consistent look */
+body, h1, h2, h3, p, a {
+  font-family: 'Arial', sans-serif; /* or your preferred font */
+}
+
+/* Improved Alphabet Navigation */
+.alphabet-navigation {
+  background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent */
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Book Card Improvements */
+.book-card {
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  transition: transform 0.2s; /* Smooth animation on hover */
+}
+
+.book-card:hover {
+  transform: translateY(-2px); /* Slight raise effect on hover */
+}
+
+/* Button and Link Enhancements */
+.fab, .collapse-header, .alphabet-navigation a {
+  transition: background-color 0.3s, color 0.3s, transform 0.2s; /* Smooth transitions for color and position */
+}
+
+/* Responsive Grid Layout */
+@media (max-width: 768px) {
+  .books-container, .bookrow, .stats-container, .section-container {
+    flex-direction: column;
+  }
+  .book-card, .collapse-header {
+    width: 100%; /* Full width on smaller screens */
+    margin-right: 0;
+  }
+}
+
+/* Additional Hover Effects */
+.collapse-header:hover, .fab:hover, .alphabet-navigation a:hover {
+  background-color: #0056b3; /* Darker shade for hover state */
+  color: white; /* Ensure text is readable on hover */
+}
+
+/* Accessibility Improvements */
+.stats-item {
+  /* Increase contrast for better readability */
+  color: #505050;
+  background-color: #fafafa;
+}
   </style>
 </head>
 <body>
+  <%- include('../partials/bookcardModal') %>
   <%- include('../navbar') %>
 
   <div class="container mt-4">
@@ -212,12 +321,9 @@
     <% } %>
 
     <div class="section-container">
-      <div class="collapse-header next-up-header" data-bs-toggle="collapse" data-bs-target="#nextUpSection">Next Up</div>
-      <div class="collapse-header all-books-header" data-bs-toggle="collapse" data-bs-target="#allBooksSection">All Books</div>
-    </div>
-
+      <h2 class="next-up-header" style="font-size: 18px;">Next Up</h2> <!-- Shrink title and remove collapse functionality -->
     <!-- Next Up Section -->
-    <div id="nextUpSection" class="collapse collapse-content next-up-content show">
+    <div id="nextUpSection" class="collapse collapse-content next-up-content">
       <div class="row">
         <% if (currentBook) { %>
           <div class="bookrow">
@@ -233,31 +339,42 @@
         <% }) %>
       </div>
     </div>
+  </div>    
+ <!-- Alphabet Navigation -->
+ <div class="alphabet-navigation">
+  <% for(let i = 65; i <= 90; i++) { %>
+    <a href="#<%= String.fromCharCode(i) %>"><%= String.fromCharCode(i) %></a>
+  <% } %>
+</div>
 
-    <!-- All Books Section -->
-    <div id="allBooksSection" class="collapse collapse-content all-books-content show">
-      <div class="row">
-        <% allBooks.forEach(function(book) { %>
-          <div class="bookrow">
-          <%- include('../partials/bookCard', { book: book }) %>
-        </div>
-        <% }) %>
+<!-- Books Sections -->
+<h2 class="all-books-header">All Books</h2>
+
+<div class="books-container">
+  <% for(let i = 65; i <= 90; i++) { %>
+    <% let filteredBooks = books.filter(book => book.title[0].toUpperCase() === String.fromCharCode(i)); %>
+    <% if (filteredBooks.length > 0) { %>
+      <div id="<%= String.fromCharCode(i) %>" class="book-section-anchor"></div>
+    <% } %>
+    <% filteredBooks.forEach(function(book) { %>
+      <div class="book-card">
+        <%- include('../partials/bookCard', { book: book }) %>
       </div>
-    </div>
-  </div>
+    <% }) %>
+  <% } %>
+</div>
 
   <%- include('../partials/footer') %>
-  <%- include('../partials/bookcardModal') %>
+  
 
   <script>
     const updateCollapseHeaders = () => {
       const nextUpHeader = document.querySelector('.next-up-header');
-      const allBooksHeader = document.querySelector('.all-books-header');
       const nextUpSection = document.getElementById('nextUpSection');
-      const allBooksSection = document.getElementById('allBooksSection');
+
 
       nextUpHeader.classList.toggle('inactive-header', !nextUpSection.classList.contains('show'));
-      allBooksHeader.classList.toggle('inactive-header', !allBooksSection.classList.contains('show'));
+
     };
 
     const clearSearchResults = () => {
@@ -273,10 +390,10 @@
       });
     }
 
-    document.querySelectorAll('.collapse-header').forEach(header => {
-      header.addEventListener('click', () => {
-        setTimeout(updateCollapseHeaders, 350);
-      });
+    // Toggle the "Next Up" section on header click
+    document.querySelector('.next-up-header').addEventListener('click', function() {
+      var nextUpSection = document.getElementById('nextUpSection');
+      nextUpSection.classList.toggle('show');
     });
 
     // Initial state update

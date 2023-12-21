@@ -49,18 +49,18 @@
 
   #bookModalBookNumber {
     font-size: 1.5em; /* Larger font size */
-    text-align: center; /* Center-align the text */
+    text-align: left; /* Center-align the text */
     margin-top: 10px; /* Spacing between the image and the book number */
     /* Other styles as needed */
   }
   #bookModalBookNumber {
     font-size: 1.5em; /* Larger font size */
-    text-align: center; /* Center-align the text */
+    text-align: left; /* Center-align the text */
     margin-top: 10px; /* Spacing between the image and the book number */
   }
   
   #bookModalRating {
-    text-align: center; /* Center-align the stars */
+    text-align: left; /* Center-align the stars */
     font-size: 2em; /* Even larger font size for stars */
     color: #ffc107; /* Bootstrap yellow color for filled stars */
     margin-top: 10px; /* Spacing between the book number and the rating */
@@ -97,7 +97,7 @@
             <!-- Save the seriesi ID -->
               <input type="hidden" id="hiddenSeriesId" value="">
               <!-- New element for the book number -->
-              <div id="bookModalBookNumber" style="display: none; font-size: 1.5em; text-align: center;"></div>
+              <div id="bookModalBookNumber" style="display: none; font-size: 1.5em; text-align: left;"></div>
               <div id="bookModalRating" class="star-rating">
                  <!-- Add a clickable element for 0 stars -->
                 <i class="far fa-star star" onclick="setRating(0)"></i>
