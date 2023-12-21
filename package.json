@@ -1,6 +1,6 @@
 {
   "name": "bookshelf",
-  "version": "0.1.9.0 - Dec 19 2023 (new-book-nav-branch)",
+  "version": "0.1.10.0 - Dec 21 2023",
   "description": "BookShelf - Self hosted Book Manager",
   "main": "app.js",
   "scripts": {

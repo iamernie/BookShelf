@@ -83,43 +83,43 @@
       background-color: #0056b3;
       text-decoration: none;
     }
-    
-    
-    
+            
+    /* New Styles for Library Stats */
     .stats-container {
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Adapts to the available width */
+      gap: 15px; /* Spacing between stats */
       background: #fff;
+      padding: 15px;
       border-radius: 5px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      padding: 10px;
-      margin-top: 20px;
-      margin-bottom: 20px;
+      margin-top: 10px; /* Smaller top margin */
+      margin-bottom: 10px; /* Smaller bottom margin */
     }
-    
+
     .stats-item {
       text-align: center;
-      flex-grow: 1;
     }
-    
-    .stats-item:not(:last-child) {
-      border-right: 1px solid #eaeaea;
-    }
-    
+
     .stats-title {
-      font-size: 16px;
+      font-size: 14px; /* Smaller font size */
       color: #333;
       margin-bottom: 5px;
-      font-weight: 500;
     }
-    
+
     .stats-number {
-      font-size: 20px;
-      font-weight: bold;
+      font-size: 18px; /* Larger font size for emphasis */
       color: #17a2b8; /* Bootstrap's info color */
     }
+
+/* Accessibility Improvements */
+.stats-item {
+  /* Increase contrast for better readability */
+  color: #505050;
+  background-color: #fafafa;
+}
     
+
     /* Other styles remain unchanged */
     
     .jumbotron {
@@ -147,14 +147,14 @@
     }
     /* Adjusted Next Up Header Styles */
     .next-up-header {
-      background-color: #6f42c1; /* Light purple */
+      background-color: #4a69bd; /* Light purple */
       color: white;
       padding: 10px 20px;
       border-radius: 5px;
-      font-size: 18px; /* Smaller font size */
+      font-size: 16px; /* Smaller font size */
       font-weight: bold;
       width: auto; /* Adjust width as per content size */
-      margin-bottom: 10px;
+      margin-bottom: 5px;
       cursor: pointer;
       display: inline-block; /* Required for smaller width headers */
     }
@@ -222,16 +222,6 @@ body, h1, h2, h3, p, a {
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05);
 }
 
-/* Book Card Improvements */
-.book-card {
-  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  transition: transform 0.2s; /* Smooth animation on hover */
-}
-
-.book-card:hover {
-  transform: translateY(-2px); /* Slight raise effect on hover */
-}
 
 /* Button and Link Enhancements */
 .fab, .collapse-header, .alphabet-navigation a {
@@ -255,11 +245,22 @@ body, h1, h2, h3, p, a {
   color: white; /* Ensure text is readable on hover */
 }
 
-/* Accessibility Improvements */
-.stats-item {
-  /* Increase contrast for better readability */
-  color: #505050;
-  background-color: #fafafa;
+.all-books-section {
+  background-color: #f4f4f4; /* Set the background color to match the rest of the page */
+  padding: 20px 0; /* Add some vertical padding for spacing */
+}
+
+.all-books-header {
+  text-align: center; /* Center the header text */
+  margin-bottom: 20px; /* Add some margin below the header for spacing */
+  /* ... other styles ... */
+}
+
+.books-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center; /* Center the books within the container */
+  /* ... other styles ... */
 }
   </style>
 </head>
@@ -346,18 +347,19 @@ body, h1, h2, h3, p, a {
     <a href="#<%= String.fromCharCode(i) %>"><%= String.fromCharCode(i) %></a>
   <% } %>
 </div>
-
+    </div></div>
 <!-- Books Sections -->
+<div class="all-books-section">
 <h2 class="all-books-header">All Books</h2>
 
-<div class="books-container">
+<div class="books-container" >
   <% for(let i = 65; i <= 90; i++) { %>
     <% let filteredBooks = books.filter(book => book.title[0].toUpperCase() === String.fromCharCode(i)); %>
     <% if (filteredBooks.length > 0) { %>
       <div id="<%= String.fromCharCode(i) %>" class="book-section-anchor"></div>
     <% } %>
     <% filteredBooks.forEach(function(book) { %>
-      <div class="book-card">
+      <div class="bookrow">
         <%- include('../partials/bookCard', { book: book }) %>
       </div>
     <% }) %>
