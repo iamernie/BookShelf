@@ -132,6 +132,80 @@
         margin-right: 0;
       }
     }
+
+  .book-highlight-container {
+    display: flex;
+    justify-content: center; /* Center children horizontally */
+    align-items: center; /* Center children vertically */
+    width: 55%; /* Set width to 85% of the container width */
+    height: 225px; /* Set a fixed height, adjust as needed */
+    margin: 0 auto; /* Center the container itself */
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    cursor: pointer;
+    margin-top: 20px; /* Add some top margin */
+    margin-bottom: 20px; /* Add some bottom margin */
+
+  }
+    
+    .book-highlight-container {
+      display: flex;
+      justify-content: center; /* Centers items horizontally within the container */
+      align-items: center; /* Centers items vertically */
+      flex-wrap: wrap; /* Allows items to wrap onto multiple lines */
+      width: 85%; /* Set width to 85% of the parent container */
+      margin: 0 auto; /* Centers the container */
+      gap: 15px; /* Space between items when they wrap */
+      padding: 10px; /* Padding inside the container */
+    }
+    .book-image-with-banner:hover {
+      transform: scale(1.05); /* Slightly enlarge the card on hover */
+      z-index: 10; /* Ensure it's above other elements */
+    }
+
+
+    .book-image img {
+      width: 10%; /* Image takes up 25% of the container's width */
+      max-width: 200px; /* Optional: to prevent the image from becoming too large */
+      height: auto; /* Keep the aspect ratio */
+      border-radius: 4px; /* Optional: for rounded corners */
+    }
+    
+
+    
+    .book-image-with-banner img {
+      width: 170px; /* Image will fill the container width */
+      display: block; /* Ensures there's no space under the image */
+      z-index: 10; /* Ensure the scaled element is above others */     
+      border-radius: 14px 14px 0px 0px; /* Optional: for rounded corners */
+    }
+    .status-banner-next {
+      /* ... other properties ... */
+      border-radius: 0 0 10px 10px; /* This rounds only the bottom corners */
+      width: 170px
+    }
+
+    .book-details {
+      flex-grow: 1; /* Take up the remaining space */
+      padding-left: 20px; /* Spacing between image and details */
+    }
+
+/* Medium devices (tablets, less than 768px) */
+@media (max-width: 767px) {
+  .book-image-with-banner {
+    max-width: calc(50% - 30px); /* Two items per row minus gap */
+  }
+}
+
+/* Small devices (phones, less than 576px) */
+@media (max-width: 575px) {
+  .book-image-with-banner {
+    max-width: 100%; /* One item per row */
+    margin: 10px 0; /* Only vertical margin */
+  }
+}
   </style>
 </head>
 <body>
@@ -179,6 +253,28 @@
   <% } %>
 </div>
     </div></div>
+
+
+    <center>
+    <div class="book-highlight-container">
+      <div class="book-image-with-banner" onclick="showBookDetails('<%= currentBook.id %>')">
+        <img src="<%= currentBook.coverImageUrl %>" alt="Current Book Cover">
+        <div class="status-banner status-banner-next <%= currentBook.status.name.toLowerCase() %>-status">
+          <%= currentBook.status.name %>
+        </div>
+      </div>
+      <!-- Repeat for "Next Up" books -->
+      <% nextUpBooks.forEach(function(book) { %>
+        <div class="book-image-with-banner" onclick="showBookDetails('<%= book.id %>')">
+          <img src="<%= book.coverImageUrl %>" alt="<%= book.title %> Cover">
+          <div class="status-banner status-banner-next <%= book.status.name.toLowerCase() %>-status">
+            <%= book.status.name %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+</center>
+
 <!-- Books Sections -->
 <div class="all-books-section">
 
