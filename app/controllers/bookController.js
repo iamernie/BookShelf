@@ -12,16 +12,18 @@ const { getStats } = require("./statsController"); // If in the same directory
 exports.searchBooks = async (req, res) => {
   try {
     const searchQuery = req.query.search || "";
+    const statusFilter = req.query.status || null;
     const whereConditions = {};
     const searchPerformed = !!searchQuery; // Check if a search query exists
 
     // Fetch the current and next up books asynchronously
-    const currentBookPromise = exports.getCurrentBook(); // Note the usage of exports. to refer to the function
+    const currentBookPromise = exports.getCurrentBook();
     const nextUpBooksPromise = exports.getNextUpBooks();
     const allBooksPromise = exports.getAllBooks();
     const statsPromise = getStats(); // Fetch stats
+    const statuses = await Status.findAll();
 
-    // Wait for both promises to resolve
+    // Wait for all promises to resolve
     const [currentBook, nextUpBooks, allBooks, stats] = await Promise.all([
       currentBookPromise,
       nextUpBooksPromise,
@@ -29,13 +31,26 @@ exports.searchBooks = async (req, res) => {
       statsPromise,
     ]);
 
+    // Apply search query if it exists
     if (searchQuery) {
-      // Search in book title, author name, and series title
       whereConditions[Op.or] = [
         { title: { [Op.like]: `%${searchQuery}%` } },
         { "$Author.name$": { [Op.like]: `%${searchQuery}%` } },
         { "$Series.title$": { [Op.like]: `%${searchQuery}%` } },
       ];
+    }
+
+    console.log("Status Filter: ", statusFilter); // Debugging"
+    if (statusFilter == 1) {
+      // Find the "Read" status ID
+      const readStatus = await Status.findOne({ where: { name: "Read" } });
+      if (readStatus) {
+        // Exclude books with the "Read" status
+        whereConditions.statusId = { [Op.not]: readStatus.id };
+      }
+    } else if (statusFilter) {
+      // Apply the selected status filter
+      whereConditions.statusId = statusFilter;
     }
 
     const books = await Book.findAll({
@@ -53,8 +68,12 @@ exports.searchBooks = async (req, res) => {
         Format,
         Status,
       ],
+      order: [
+        ["title", "ASC"], // Assuming you want to order by title
+      ],
     });
 
+    // Render the page with the filtered and/or searched books
     res.render("books/books", {
       books,
       searchQuery,
@@ -63,6 +82,9 @@ exports.searchBooks = async (req, res) => {
       allBooks,
       searchPerformed,
       stats,
+      statuses,
+      searchQuery: req.query.search || "",
+      statusFilter: req.query.status || "",
     });
   } catch (error) {
     console.error("Error fetching books:", error);
