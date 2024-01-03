@@ -5,54 +5,60 @@
   <link rel="stylesheet" href="/styles/bookCard.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
   <style>
+       /* Base & Layout */
+    body, h1, h2, h3, p, a {
+      font-family: 'Arial', sans-serif;
+      color: #333;
+    }
+    
     body {
       background-color: #f4f4f4;
     }
+
+    .jumbotron, .collapse-content, .all-books-section {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .container {
+      width: 100%; /* Adjust as needed */
+      max-width: 1200px; /* Or whatever maximum width you prefer */
+      margin: 0 auto; /* Center the container */
+    }
+ 
+    .books-container, .all-books-container, .section-container, .bookrow, .book-section {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    /* Navigation & Alphabet */
     .alphabet-navigation {
       position: fixed;
-      right: 10px; /* Adjust as needed */
-      top: 50%; /* Center vertically */
+      right: 10px;
+      top: 50%;
       transform: translateY(-50%);
-      background-color: #f4f4f4; /* Match your color scheme */
+      background-color: rgba(255, 255, 255, 0.9);
       border-radius: 5px;
       padding: 10px;
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05);
     }
 
     .alphabet-navigation a {
-      display: block; /* Each letter on a new line */
-      font-size: 20px; /* Larger font size */
-      color: #333333; /* Match your color scheme */
-      text-decoration: none; /* Remove underline */
-      margin: 5px 0; /* Space between letters */
+      display: block;
+      font-size: 20px;
+      color: #333;
+      text-decoration: none;
+      margin: 5px 0;
     }
 
-    .alphabet-navigation a:hover {
-      color: #555555; /* Darker color on hover */
-      text-decoration: underline; /* Underline on hover */
+    /* Interactive Elements */
+    .fab, .collapse-header {
+      transition: background-color 0.3s, color 0.3s, transform 0.2s;
     }
-    
-    .books-container {
-      display: flex;
-      flex-wrap: wrap;
-      padding-left: 25px;
-    }
-    .book-card {
-      margin-right: 10px; /* Adjust as needed for spacing */
-      margin-bottom: 10px;
-    }
-    .all-books-container {
-      display: flex;
-      flex-wrap: wrap;
-      padding-left: 25px;
-    }
-    .bookrow {
-      padding-left: 25px;
-      display: flex;
-      flex-wrap: wrap;
-    }
-    .book-section {
-      width: 100%;
-    }
+
     .fab {
       position: fixed;
       bottom: 20px;
@@ -61,206 +67,144 @@
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      text-align: left;
-      line-height: 60px;
-      text-decoration: none;
+      font-size: 0; /* Hide the text */
+      align-items: center;
+      justify-content: center;
       box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
       z-index: 1000;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 0; /* Hide the text */
     }
-    
+
     .fab::before {
       content: "+";
-      font-size: 55px; /* Adjust the size of the plus sign */
+      font-size: 55px;
+      color: white;
+    }
+
+    /* Headers & Titles */
+    .stats-title, .all-books-header {
+      font-size: 14px;
       font-weight: bold;
-      color: white; /* Color of the plus sign */
-    }
-    
-    .fab:hover {
-      background-color: #0056b3;
-      text-decoration: none;
-    }
-            
-    /* New Styles for Library Stats */
-    .stats-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Adapts to the available width */
-      gap: 15px; /* Spacing between stats */
-      background: #fff;
-      padding: 15px;
-      border-radius: 5px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      margin-top: 10px; /* Smaller top margin */
-      margin-bottom: 10px; /* Smaller bottom margin */
-    }
-
-    .stats-item {
-      text-align: center;
-    }
-
-    .stats-title {
-      font-size: 14px; /* Smaller font size */
-      color: #333;
       margin-bottom: 5px;
     }
 
     .stats-number {
-      font-size: 18px; /* Larger font size for emphasis */
-      color: #17a2b8; /* Bootstrap's info color */
+      font-size: 18px;
+      color: #17a2b8;
     }
 
-/* Accessibility Improvements */
-.stats-item {
-  /* Increase contrast for better readability */
-  color: #505050;
-  background-color: #fafafa;
-}
-    
-
-    /* Other styles remain unchanged */
-    
-    .jumbotron {
+    /* Stats & Cards */
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* This will create as many columns as can fit */
+      gap: 15px;
       background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      padding: 20px;
-      text-align: center;
+      padding: 15px;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-top: 10px;
+      margin-bottom: 10px;
     }
-    .section-container {
+
+    .stats-item {
+      text-align: center;
+      color: #505050;
+      background-color: #fafafa;
+    }
+
+    .book-card {
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* Hover States */
+    .fab:hover, .collapse-header:hover, .alphabet-navigation a:hover {
+      background-color: #0056b3;
+      color: white;
+    }
+
+    /* Media Queries */
+    @media (max-width: 768px) {
+      .books-container, .bookrow, .stats-container, .section-container {
+        flex-direction: column;
+      }
+      .book-card, .collapse-header {
+        width: 100%;
+        margin-right: 0;
+      }
+    }
+
+  .book-highlight-container {
+    display: flex;
+    justify-content: center; /* Center children horizontally */
+    align-items: center; /* Center children vertically */
+    width: 55%; /* Set width to 85% of the container width */
+    height: 225px; /* Set a fixed height, adjust as needed */
+    margin: 0 auto; /* Center the container itself */
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    cursor: pointer;
+    margin-top: 20px; /* Add some top margin */
+    margin-bottom: 20px; /* Add some bottom margin */
+
+  }
+    
+    .book-highlight-container {
       display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
+      justify-content: center; /* Centers items horizontally within the container */
+      align-items: center; /* Centers items vertically */
+      flex-wrap: wrap; /* Allows items to wrap onto multiple lines */
+      width: 85%; /* Set width to 85% of the parent container */
+      margin: 0 auto; /* Centers the container */
+      gap: 15px; /* Space between items when they wrap */
+      padding: 10px; /* Padding inside the container */
     }
-    .collapse-header {
-      cursor: pointer;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      font-size: 20px;
-      font-weight: bold;
-      width: 44%;
-      text-align: center;
-      transition: background-color 0.3s;
-    }
-    /* Adjusted Next Up Header Styles */
-    .next-up-header {
-      background-color: #4a69bd; /* Light purple */
-      color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      font-size: 16px; /* Smaller font size */
-      font-weight: bold;
-      width: auto; /* Adjust width as per content size */
-      margin-bottom: 5px;
-      cursor: pointer;
-      display: inline-block; /* Required for smaller width headers */
+    .book-image-with-banner:hover {
+      transform: scale(1.05); /* Slightly enlarge the card on hover */
+      z-index: 10; /* Ensure it's above other elements */
     }
 
-    /* New All Books Header Styles */
-    .all-books-header {
-      font-size: 24px; /* Larger font size for section header */
-      color: #333; /* Dark text color for visibility */
-      padding: 10px 0; /* Padding for spacing */
-      font-weight: bold;
-      margin-top: 20px; /* Spacing above the header */
-    }
-    .inactive-header {
-      opacity: 0.5;
-    }
-    .collapse-content {
-      padding: 15px;
-      border-radius: 5px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      margin-top: 10px;
-      width: 100%;
-    }
-    .next-up-content {
-      background-color: rgba(111, 66, 193, 0.1); /* Very transparent purple */
-    }
-    .all-books-content {
-      background-color: rgba(40, 167, 69, 0.1); /* Very transparent green */
-    }
 
-    /* Styles for the Search Results Header */
-    .search-results-header {
-      background-color: #17a2b8; /* Bootstrap's info color (light blue) */
-      color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      font-size: 20px;
-      font-weight: bold;
-      text-align: center;
-      margin-top: 20px;
-      transition: background-color 0.3s;
-    }
-
-    /* Styles for the Search Results Content */
-    .search-results-content {
-      padding: 15px;
-      border-radius: 5px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      margin-top: 10px;
-      background-color: rgba(23, 162, 184, 0.1); /* Very transparent light blue */
-    }
-
-    /* Style adjustments when section is collapsed */
-    .search-results-header.collapsed {
-      background-color: rgba(23, 162, 184, 0.5); /* Semi-transparent light blue */
+    .book-image img {
+      width: 10%; /* Image takes up 25% of the container's width */
+      max-width: 200px; /* Optional: to prevent the image from becoming too large */
+      height: auto; /* Keep the aspect ratio */
+      border-radius: 4px; /* Optional: for rounded corners */
     }
     
-/* Typography for consistent look */
-body, h1, h2, h3, p, a {
-  font-family: 'Arial', sans-serif; /* or your preferred font */
-}
 
-/* Improved Alphabet Navigation */
-.alphabet-navigation {
-  background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent */
-  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05);
-}
+    
+    .book-image-with-banner img {
+      width: 170px; /* Image will fill the container width */
+      display: block; /* Ensures there's no space under the image */
+      z-index: 10; /* Ensure the scaled element is above others */     
+      border-radius: 14px 14px 0px 0px; /* Optional: for rounded corners */
+    }
+    .status-banner-next {
+      /* ... other properties ... */
+      border-radius: 0 0 10px 10px; /* This rounds only the bottom corners */
+      width: 170px
+    }
 
+    .book-details {
+      flex-grow: 1; /* Take up the remaining space */
+      padding-left: 20px; /* Spacing between image and details */
+    }
 
-/* Button and Link Enhancements */
-.fab, .collapse-header, .alphabet-navigation a {
-  transition: background-color 0.3s, color 0.3s, transform 0.2s; /* Smooth transitions for color and position */
-}
-
-/* Responsive Grid Layout */
-@media (max-width: 768px) {
-  .books-container, .bookrow, .stats-container, .section-container {
-    flex-direction: column;
-  }
-  .book-card, .collapse-header {
-    width: 100%; /* Full width on smaller screens */
-    margin-right: 0;
+/* Medium devices (tablets, less than 768px) */
+@media (max-width: 767px) {
+  .book-image-with-banner {
+    max-width: calc(50% - 30px); /* Two items per row minus gap */
   }
 }
 
-/* Additional Hover Effects */
-.collapse-header:hover, .fab:hover, .alphabet-navigation a:hover {
-  background-color: #0056b3; /* Darker shade for hover state */
-  color: white; /* Ensure text is readable on hover */
-}
-
-.all-books-section {
-  background-color: #f4f4f4; /* Set the background color to match the rest of the page */
-  padding: 20px 0; /* Add some vertical padding for spacing */
-}
-
-.all-books-header {
-  text-align: center; /* Center the header text */
-  margin-bottom: 20px; /* Add some margin below the header for spacing */
-  /* ... other styles ... */
-}
-
-.books-container {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center; /* Center the books within the container */
-  /* ... other styles ... */
+/* Small devices (phones, less than 576px) */
+@media (max-width: 575px) {
+  .book-image-with-banner {
+    max-width: 100%; /* One item per row */
+    margin: 10px 0; /* Only vertical margin */
+  }
 }
   </style>
 </head>
@@ -269,8 +213,7 @@ body, h1, h2, h3, p, a {
   <%- include('../navbar') %>
 
   <div class="container mt-4">
-    <div class="jumbotron">
-      <h1 class="display-4">Library Stats</h1>
+
       <div class="container mt-4">
         <div class="stats-container">
           <div class="stats-item">
@@ -301,46 +244,8 @@ body, h1, h2, h3, p, a {
             <div class="stats-title">Most Read Author</div>
             <div class="stats-number"><%= stats.mostReadAuthor ? stats.mostReadAuthor : 'N/A' %> (<%= stats.mostReadAuthorCount %>)</div>
           </div>
-        </div>
-    </div>
 
-    <!-- Search Results Section -->
-    <% if (searchPerformed) { %>
-      <div class="collapse-header search-results-header" data-bs-toggle="collapse" data-bs-target="#searchResultsSection">Search Results</div>
-      <div id="searchResultsSection" class="collapse collapse-content search-results-content show">
-        <div class="row bookrow">
-          <% books.forEach(function(book) { %>
-            <div class="bookrow">
-            <%- include('../partials/bookCard', { book: book }) %>
-            </div>
-          <% }) %>
-          <% if (books.length === 0) { %>
-            <p>No results found for "<%= searchQuery %>".</p>
-          <% } %>
-        </div>
-      </div>
-    <% } %>
-
-    <div class="section-container">
-      <h2 class="next-up-header" style="font-size: 18px;">Next Up</h2> <!-- Shrink title and remove collapse functionality -->
-    <!-- Next Up Section -->
-    <div id="nextUpSection" class="collapse collapse-content next-up-content">
-      <div class="row">
-        <% if (currentBook) { %>
-          <div class="bookrow">
-          <%- include("../partials/bookCard", { book: currentBook }) %>
-          </div>
-        <% } else { %>
-          <p>No current book selected.</p>
-        <% } %>
-        <% nextUpBooks.forEach(function(book) { %>
-          <div class="bookrow">
-          <%- include('../partials/bookCard', { book: book }) %>
-          </div>
-        <% }) %>
-      </div>
     </div>
-  </div>    
  <!-- Alphabet Navigation -->
  <div class="alphabet-navigation">
   <% for(let i = 65; i <= 90; i++) { %>
@@ -348,10 +253,54 @@ body, h1, h2, h3, p, a {
   <% } %>
 </div>
     </div></div>
+
+
+    <center>
+    <div class="book-highlight-container">
+       <% if (currentBook !== null) { %>
+      <div class="book-image-with-banner" onclick="showBookDetails('<%= currentBook.id %>')">
+        <img src="<%= currentBook.coverImageUrl %>" alt="Current Book Cover">
+        <div class="status-banner status-banner-next <%= currentBook.status.name.toLowerCase() %>-status">
+          <%= currentBook.status.name %>
+        </div>
+      </div>
+      <% } %>
+      <!-- Repeat for "Next Up" books -->
+      <% if (nextUpBooks !== null) { %>
+      <% nextUpBooks.forEach(function(book) { %>
+        <div class="book-image-with-banner" onclick="showBookDetails('<%= book.id %>')">
+          <img src="<%= book.coverImageUrl %>" alt="<%= book.title %> Cover">
+          <div class="status-banner status-banner-next <%= book.status.name.toLowerCase() %>-status">
+            <%= book.status.name %>
+          </div>
+        </div>
+      <% }) %>
+      <% } %>
+    </div>
+</center>
+
 <!-- Books Sections -->
 <div class="all-books-section">
-<h2 class="all-books-header">All Books</h2>
 
+<div class="book-filter">
+  <div class="row">
+    <div class="col">
+      <form id="filterForm" action="/books" method="get">
+        <label for="statusFilter">Filter by status:</label>
+        <select id="statusFilter" name="status" onchange="document.getElementById('filterForm').submit();">
+          <option value="">All</option>
+          <% statuses.forEach(function(status) { %>
+            <option value="<%= status.id %>" <%= (status.id.toString() === statusFilter) ? 'selected' : '' %>><%= status.name %></option>
+          <% }); %>
+        </select>
+        
+        <!-- Preserve the search query when filtering -->
+        <% if(searchQuery) { %>
+          <input type="hidden" name="search" value="<%= searchQuery %>">
+        <% } %>
+      </form>
+    </div>
+</div></dir>
 <div class="books-container" >
   <% for(let i = 65; i <= 90; i++) { %>
     <% let filteredBooks = books.filter(book => book.title[0].toUpperCase() === String.fromCharCode(i)); %>
@@ -400,6 +349,13 @@ body, h1, h2, h3, p, a {
 
     // Initial state update
     updateCollapseHeaders();
+
+      function filterBooksByStatus() {
+        const statusId = document.getElementById('statusFilter').value;
+        window.location.href = `/books/filter?status=${statusId}`; // This should match your existing route for filtering
+      }
+
+    
   </script>
   <a href="/books/add" class="fab" id="addBookButton">+</a>
 
