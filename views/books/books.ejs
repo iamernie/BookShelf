@@ -257,13 +257,16 @@
 
     <center>
     <div class="book-highlight-container">
+       <% if (currentBook !== null) { %>
       <div class="book-image-with-banner" onclick="showBookDetails('<%= currentBook.id %>')">
         <img src="<%= currentBook.coverImageUrl %>" alt="Current Book Cover">
         <div class="status-banner status-banner-next <%= currentBook.status.name.toLowerCase() %>-status">
           <%= currentBook.status.name %>
         </div>
       </div>
+      <% } %>
       <!-- Repeat for "Next Up" books -->
+      <% if (nextUpBooks !== null) { %>
       <% nextUpBooks.forEach(function(book) { %>
         <div class="book-image-with-banner" onclick="showBookDetails('<%= book.id %>')">
           <img src="<%= book.coverImageUrl %>" alt="<%= book.title %> Cover">
@@ -272,6 +275,7 @@
           </div>
         </div>
       <% }) %>
+      <% } %>
     </div>
 </center>
 
