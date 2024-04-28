@@ -256,15 +256,20 @@
 
 
     <center>
-    <div class="book-highlight-container">
-       <% if (currentBook !== null) { %>
-      <div class="book-image-with-banner" onclick="showBookDetails('<%= currentBook.id %>')">
-        <img src="<%= currentBook.coverImageUrl %>" alt="Current Book Cover">
-        <div class="status-banner status-banner-next <%= currentBook.status.name.toLowerCase() %>-status">
-          <%= currentBook.status.name %>
-        </div>
-      </div>
-      <% } %>
+      <div class="book-highlight-container">
+        <!-- Display all current books -->
+        <% if (currentBooks && currentBooks.length > 0) { %>
+            <% currentBooks.forEach(function(book) { %>
+                <div class="book-image-with-banner" onclick="showBookDetails('<%= book.id %>')">
+                    <img src="<%= book.coverImageUrl %>" alt="Cover of <%= book.title %>">
+                    <div class="status-banner <%= book.status.name.toLowerCase() %>-status">
+                        <%= book.status.name %>
+                    </div>
+                </div>
+            <% }); %>
+        <% } else { %>
+            <p>No current books to display.</p>
+        <% } %>
       <!-- Repeat for "Next Up" books -->
       <% if (nextUpBooks !== null) { %>
       <% nextUpBooks.forEach(function(book) { %>

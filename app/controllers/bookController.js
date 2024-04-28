@@ -17,15 +17,15 @@ exports.searchBooks = async (req, res) => {
     const searchPerformed = !!searchQuery; // Check if a search query exists
 
     // Fetch the current and next up books asynchronously
-    const currentBookPromise = exports.getCurrentBook();
+    const currentBooksPromise = exports.getCurrentBooks();
     const nextUpBooksPromise = exports.getNextUpBooks();
     const allBooksPromise = exports.getAllBooks();
     const statsPromise = getStats(); // Fetch stats
     const statuses = await Status.findAll();
 
     // Wait for all promises to resolve
-    const [currentBook, nextUpBooks, allBooks, stats] = await Promise.all([
-      currentBookPromise,
+    const [currentBooks, nextUpBooks, allBooks, stats] = await Promise.all([
+      currentBooksPromise,
       nextUpBooksPromise,
       allBooksPromise,
       statsPromise,
@@ -77,7 +77,7 @@ exports.searchBooks = async (req, res) => {
     res.render("books/books", {
       books,
       searchQuery,
-      currentBook,
+      currentBooks,
       nextUpBooks,
       allBooks,
       searchPerformed,
@@ -115,24 +115,14 @@ exports.filterBooksByStatus = async (req, res) => {
   }
 };
 
-exports.getCurrentBook = async () => {
+exports.getCurrentBooks = async () => {
   try {
-    const currentBook = await Book.findOne({
-      include: [
-        {
-          model: Status,
-          where: { name: "Current" },
-        },
-        Author,
-        Series,
-      ],
+    return await Book.findAll({
+      include: [{ model: Status, where: { name: "Current" } }, Author, Series],
     });
-    // Log the current book or handle it as needed
-    //console.log("Current Book:", currentBook);
-    return currentBook;
   } catch (error) {
-    console.error("Error fetching current book:", error);
-    return null;
+    console.error("Error fetching current books:", error);
+    return [];
   }
 };
 
