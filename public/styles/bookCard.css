@@ -1,268 +1,107 @@
-.bookrow {
-  padding-left: 25px;
+/* Base styles for body and text elements */
+body,
+h1,
+h2,
+h3,
+p,
+a {
+  font-family: "Arial", sans-serif;
+  color: #333;
 }
 
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  margin-right: -5px;
-  margin-left: -5px;
-}
-.col-xl-2,
-.col-lg-3,
-.col-md-4,
-.col-sm-6,
-.col-12 {
-  padding-right: 5px;
-  padding-left: 5px;
-  flex: 1; /* This allows the card to grow */
-  min-width: 180px; /* This ensures that the card does not go below 180px */
-  max-width: 180px; /* This ensures that the card does not grow beyond 180px */
-}
-
-.card-container {
-  padding: 0.5em;
-}
-
+/* Ensure main container is responsive */
 .container {
-  max-width: 95%; /* This will allow the container to use the full width of the viewport */
+  max-width: 95%; /* Allow some margin on larger screens */
+  margin: auto; /* Center the container */
 }
 
-.col-md-3 {
-  padding-right: 5px;
-  padding-left: 5px;
+/* Responsiveness for the stats container */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(120px, 1fr)
+  ); /* Flexible grid layout */
+  gap: 15px; /* Spacing between grid items */
+  margin-bottom: 20px; /* Spacing below the stats */
 }
 
+/* Base styles for book cards */
 .book-card {
-  display: flex;
-  min-width: 190px;
-  min-width: 190px;
-  flex-direction: column;
-  height: 300px;
   background: #fff;
   border-radius: 0.5rem;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  margin-bottom: 15px; /* Spacing between book cards */
 }
 
-.book-card:hover {
-  transform: scale(1.03);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+/* Flexbox layout for book cards */
+.row {
+  display: flex;
+  flex-wrap: wrap;
 }
 
+/* Responsive book image container */
 .book-image-container {
-  position: relative;
   width: 100%;
-  height: 179px;
   overflow: hidden;
 }
 
+/* Book image responsiveness */
 .book-image {
   width: 100%;
-  height: 195px;
-  object-fit: cover;
-  display: block;
+  height: auto; /* Maintain aspect ratio */
+  object-fit: cover; /* Cover the container without stretching */
 }
 
+/* Information section within the book card */
 .book-info {
   padding: 1rem;
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 
-.book-card .card-body {
-  padding: 15px;
-  background: #f8f9fa;
-  color: #333;
-}
-
-.book-card .book-title {
-  font-size: 1.2em;
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #0056b3;
-}
-
-.book-card .book-series,
-.book-card .book-author {
-  font-size: 0.95em;
-  color: #555;
-  margin-bottom: 2px;
-}
-
-.book-card .book-status {
-  font-size: 0.9em;
-  color: #28a745;
-  font-weight: bold;
-}
-
-.book-card .fa {
-  margin-right: 5px;
-}
-
-.book-title,
-.book-author,
-.book-series,
-.book-status {
-  text-align: center;
-  margin-bottom: 0.5rem;
-}
-
-.status-banner {
-  text-align: center;
-  width: 100%;
-  padding: 2px 0;
-  color: white;
-  font-weight: bold;
-  font-size: 0.75em;
-}
-
-.current-status {
+/* Style for the floating action button (FAB) */
+.fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
   background-color: #007bff;
-}
-
-.parked-status {
-  background-color: #ffc107;
-}
-
-.read-status {
-  background-color: #28a745;
-}
-
-.unread-status {
-  background-color: #dc3545;
-}
-
-.next-status {
-  background-color: #ffc107;
-}
-
-.unreleased-status {
-  position: absolute;
-  top: 0px; /* Adjust as needed */
-  left: 50%; /* Center horizontally */
-  transform: translateX(-50%); /* Adjust horizontal position */
-  background-color: #6c757d; /* Example color */
   color: white;
-  padding: 5px 10px; /* Padding around the text */
-  border-bottom-left-radius: 15px; /* Rounded bottom-left corner */
-  border-bottom-right-radius: 15px; /* Rounded bottom-right corner */
-  font-size: 0.75em;
-  z-index: 10;
-  display: inline-block; /* Allows the element to size according to its content */
-  font-weight: bold;
-  font-size: 0.75em;
+  border-radius: 50%;
+  padding: 0.6rem;
+  font-size: 2.5rem; /* Increase font size for the '+' icon */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
-@media (max-width: 768px) {
-  .book-image-container {
-    height: 150px; /* Adjust the height as per your requirement */
-  }
-
-  .book-image {
-    height: 150px; /* Adjust the height to match the container's height */
-  }
-}
-
+/* Media query for tablet and smaller devices */
 @media (max-width: 768px) {
   .container {
-    max-width: 100%;
-  }
-}
-@media (max-width: 768px) {
-  .col-md-3 {
-    padding-right: 2px;
-    padding-left: 2px;
-  }
-}
-@media (max-width: 768px) {
-  .container,
-  .container-fluid {
-    padding-right: 0;
-    padding-left: 0;
-    margin-right: auto;
-    margin-left: auto;
-  }
-  .row {
-    display: flex;
-    flex-wrap: wrap;
-    margin-right: -15px;
-    margin-left: -15px;
-  }
-  .col-xl-2,
-  .col-lg-3,
-  .col-md-4,
-  .col-sm-6,
-  .col-12 {
-    padding-right: 0;
-    padding-left: 0;
-  }
-}
-/* Adjust for mobile screens */
-@media (max-width: 768px) {
-  /* ...other styles... */
-
-  /* Make the book cards take full width on mobile */
-  .col-xl-1,
-  .col-lg-3,
-  .col-md-4,
-  .col-sm-6,
-  .col-12 {
-    width: 100%;
-    max-width: none; /* This ensures that the max-width doesn't limit the card size */
-    min-width: 0; /* This overrides the min-width set for larger screens */
-    padding-right: 15px; /* Adjust as needed */
-    padding-left: 15px; /* Adjust as needed */
-    flex: none; /* This disables the flex grow/shrink/basis properties */
+    max-width: 100%; /* Full width on smaller screens */
   }
 
-  /* Ensure the book card itself takes full width */
+  /* Adjust book cards for smaller screens */
   .book-card {
-    width: 100%; /* Full width for the card */
-    height: auto; /* Adjust height as needed, or remove for automatic height */
-    min-height: 300px; /* Optional: if you want a minimum height */
+    margin-bottom: 10px; /* Less spacing between cards */
   }
 
-  .book-image-container {
-    height: auto; /* Set height to auto or adjust as needed */
+  .fab {
+    bottom: 15px;
+    right: 15px;
+    padding: 0.5rem;
+    font-size: 2rem; /* Slightly smaller '+' icon */
   }
 
-  .book-image {
-    height: auto; /* Set height to auto or adjust as needed */
-  }
-
-  /* Reset margins for the row on mobile */
-  .row {
-    margin-right: 0;
-    margin-left: 0;
-  }
-
-  /* Optional: Adjust padding and margins for container and stats on mobile */
-  .container,
-  .container-fluid {
-    padding-right: 0;
-    padding-left: 0;
-    margin-right: auto;
-    margin-left: auto;
-  }
-  /* For mobile devices */
   .stats-container {
-    flex-direction: column;
-    align-items: stretch; /* Stretch items to full width */
-  }
-
-  .stats-item {
-    flex-basis: 100%; /* Each item takes full width */
-    border-right: none; /* Remove border */
-    margin-bottom: 10px; /* Add space between items */
-  }
-
-  .stats-title,
-  .stats-number {
-    font-size: smaller; /* Adjust font size for small screens */
+    grid-template-columns: 1fr; /* Stack stats items on small screens */
   }
 }
-/* Add any additional mobile-specific styles here */
+
+/* Additional styles for specific components or interaction states */
+.book-card:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.alphabet-navigation {
+  /* Styles for alphabet navigation (if applicable) */
+}
+
+/* Additional media queries for other breakpoints as needed */
