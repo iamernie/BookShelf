@@ -5,14 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3333:3000"
     volumes:
       - ./database.sql:/usr/src/app/thedatabase.sqlite
     environment:
       - NODE_ENV=production
-    depends_on:
-      - db
-  db:
-    image: sqlite:latest
-    volumes:
-      - ./database.sql:/var/lib/sqlite/database.sqlite
