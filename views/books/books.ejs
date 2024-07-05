@@ -262,7 +262,7 @@
             <% currentBooks.forEach(function(book) { %>
                 <div class="book-image-with-banner" onclick="showBookDetails('<%= book.id %>')">
                     <img src="<%= book.coverImageUrl %>" alt="Cover of <%= book.title %>">
-                    <div class="status-banner <%= book.status.name.toLowerCase() %>-status">
+                    <div class="status-banner status-banner-next <%= book.status.name.toLowerCase() %>-status">
                         <%= book.status.name %>
                     </div>
                 </div>
