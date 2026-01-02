@@ -1,0 +1,62 @@
+# Jekyll configuration for GitHub Pages
+
+# Site settings
+title: BookShelf V2 Documentation
+description: Complete user documentation for BookShelf - your personal book library manager
+url: https://yourusername.github.io
+baseurl: /BookShelfV2
+
+# Theme
+remote_theme: just-the-docs/just-the-docs@v0.7.0
+color_scheme: light
+
+# Logo
+logo: /assets/images/logo.png
+
+# Search
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: false
+
+# Heading anchors
+heading_anchors: true
+
+# Aux links
+aux_links:
+  "BookShelf on GitHub":
+    - "https://github.com/yourusername/BookShelfV2"
+  "Docker Hub":
+    - "https://hub.docker.com/r/yourusername/bookshelf"
+
+# Footer
+footer_content: "Copyright &copy; 2026 Ernie. BookShelf is released under the MIT License."
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Collections
+collections:
+  docs:
+    permalink: "/:collection/:path/"
+    output: true
+
+# Plugins
+plugins:
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - node_modules/
+  - vendor/
+  - CHANGELOG.md
+  - MIGRATION_V1_TO_V2.md
+  - ROADMAP.md
+  - TESTING.md
+  - screenshots/

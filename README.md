@@ -55,6 +55,14 @@ BookShelf is a self-hosted web app for book lovers who want to track their readi
 
 ---
 
+## 📚 Documentation
+
+**[View Full Documentation →](https://yourusername.github.io/BookShelfV2/)**
+
+Complete user guides, installation instructions, and API reference available on our documentation site.
+
+---
+
 ## Quick Start (Docker)
 
 The easiest way to run BookShelf:

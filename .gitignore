@@ -28,6 +28,9 @@ static/uploads/temp/
 # Data directory (audiobooks, backups, temp files)
 data/
 
+#Local dev files
+dev_only
+
 # Root-level backups
 backups/
 
