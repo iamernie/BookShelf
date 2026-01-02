@@ -73,3 +73,5 @@ coverage/
 # Temporary files
 tmp/
 *.tmp
+SPEC.md
+security-recommendations.md
