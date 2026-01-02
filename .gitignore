@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+
+# Build output
+.svelte-kit/
+build/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Database files
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# User content - covers, ebooks, and audiobooks
+static/covers/
+!static/covers/.gitkeep
+!static/covers/placeholder.png
+static/ebooks/
+!static/ebooks/.gitkeep
+static/uploads/temp/
+!static/uploads/temp/.gitkeep
+
+# Data directory (audiobooks, backups, temp files)
+data/
+
+# Root-level backups
+backups/
+
+# Media files - ebooks
+*.epub
+*.mobi
+*.azw
+*.azw3
+*.pdf
+*.cbz
+*.cbr
+
+# Media files - audiobooks
+*.mp3
+*.m4a
+*.m4b
+*.flac
+*.ogg
+*.wav
+*.aac
+
+# Testing databases
+testing/databases/*.sqlite
+testing/databases/*.sqlite-*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs (at root level only, not src/routes/api/admin/logs/)
+/logs/
+*.log
+
+# Test
+coverage/
+
+# Temporary files
+tmp/
+*.tmp

@@ -1,0 +1,91 @@
+# BookShelf V2 Docker Compose Configuration
+# https://github.com/iamernie/BookShelfV2
+#
+# Quick Start:
+#   1. Copy .env.example to .env and configure your settings
+#   2. Run: docker-compose up -d
+#   3. Access BookShelf at http://localhost:3000
+#
+# For GHCR image, use:
+#   docker-compose -f docker-compose.yml up -d
+#
+# FILE PERMISSIONS:
+#   Set PUID/PGID to match your host user for proper file ownership:
+#     - Run 'id' to find your UID/GID
+#     - Set PUID and PGID in your .env file or environment
+
+services:
+  bookshelf:
+    # Use the GitHub Container Registry image
+    image: ghcr.io/iamernie/bookshelfv2:latest
+    # Or build locally:
+    # build: .
+
+    container_name: bookshelf-v2
+    restart: unless-stopped
+
+    ports:
+      - "${PORT:-3000}:3000"
+
+    environment:
+      # Required: Session secret (generate with: openssl rand -hex 32)
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is required}
+
+      # Optional: Node environment
+      - NODE_ENV=${NODE_ENV:-production}
+
+      # Optional: Port (default 3000)
+      - PORT=3000
+
+      # Required for SvelteKit in production
+      - ORIGIN=${ORIGIN:-http://localhost:3000}
+
+      # Body size limit for uploads (default 512KB is too small for ebooks/audiobooks)
+      # Set to 500MB to allow large audiobook uploads
+      - BODY_SIZE_LIMIT=500M
+
+      # User/Group ID for file permissions (match your host user)
+      # Run 'id' on your host to find your UID/GID
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+
+      # Database and log paths (internal to container)
+      - DATABASE_PATH=/data/bookshelf.sqlite
+      - LOG_DIR=/logs
+
+    volumes:
+      # Persistent data storage
+      # Database - stores all your book data
+      - bookshelf_data:/data
+
+      # Logs - application logs for debugging
+      - bookshelf_logs:/logs
+
+      # Covers - book cover images
+      - bookshelf_covers:/app/static/covers
+
+      # Ebooks - uploaded ebook files
+      - bookshelf_ebooks:/app/static/ebooks
+
+      # Audiobooks - uploaded audiobook files
+      - bookshelf_audiobooks:/data/audiobooks
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# Named volumes for data persistence
+volumes:
+  bookshelf_data:
+    driver: local
+  bookshelf_logs:
+    driver: local
+  bookshelf_covers:
+    driver: local
+  bookshelf_ebooks:
+    driver: local
+  bookshelf_audiobooks:
+    driver: local

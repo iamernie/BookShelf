@@ -1,0 +1,66 @@
+# BookShelf V2 Docker Compose - Testing Configuration
+# Use this to test Docker builds locally before deploying to production
+#
+# Usage:
+#   docker-compose -f docker-compose.test.yml up --build
+#   Access at: http://localhost:6465
+#
+# This configuration:
+#   - Builds from local source (not GHCR)
+#   - Uses testing database
+#   - Runs on different port (6465) to avoid conflicts
+#   - Enables debug logging
+
+services:
+  bookshelf-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: bookshelf-v2-test
+    restart: unless-stopped
+
+    ports:
+      - "6465:3000"
+
+    environment:
+      # Required: Session secret
+      - SESSION_SECRET=${SESSION_SECRET:-test-secret-please-change-in-production}
+
+      # Development mode for testing
+      - NODE_ENV=development
+
+      # Internal port
+      - PORT=3000
+
+      # Required for SvelteKit
+      - ORIGIN=http://localhost:6465
+
+      # User/Group ID
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+
+      # Database and log paths (internal to container)
+      - DATABASE_PATH=/data/bookshelf.sqlite
+      - LOG_DIR=/logs
+
+    volumes:
+      # Use local test volumes (separate from production)
+      - ./testing/docker/data:/data
+      - ./testing/docker/logs:/logs
+      - ./testing/docker/covers:/app/static/covers
+      - ./testing/docker/ebooks:/app/static/ebooks
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Show container logs for debugging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

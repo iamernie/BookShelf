@@ -1,0 +1,343 @@
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   Theme Variables
+   ============================================ */
+
+/* Light theme */
+:root, .light {
+	--bg-primary: #f8fafc;
+	--bg-secondary: #ffffff;
+	--bg-tertiary: #f1f5f9;
+	--bg-hover: #e2e8f0;
+	--text-primary: #1e293b;
+	--text-secondary: #475569;
+	--text-muted: #64748b;
+	--border-color: #e2e8f0;
+	--border-subtle: #f1f5f9;
+	--accent: #10b981;
+	--accent-hover: #059669;
+	--accent-muted: #34d399;
+	--shadow-color: rgba(0, 0, 0, 0.1);
+	color-scheme: light;
+}
+
+/* Dark theme */
+.dark {
+	--bg-primary: #0f172a;
+	--bg-secondary: #1e293b;
+	--bg-tertiary: #334155;
+	--bg-hover: #475569;
+	--text-primary: #f1f5f9;
+	--text-secondary: #cbd5e1;
+	--text-muted: #94a3b8;
+	--border-color: #475569;
+	--border-subtle: #334155;
+	--accent: #34d399;
+	--accent-hover: #10b981;
+	--accent-muted: #059669;
+	--shadow-color: rgba(0, 0, 0, 0.3);
+	color-scheme: dark;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+body {
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	@apply antialiased;
+}
+
+/* ============================================
+   Custom Scrollbar
+   ============================================ */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--bg-hover);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--text-muted);
+}
+
+/* ============================================
+   Component Classes
+   ============================================ */
+@layer components {
+	/* Buttons */
+	.btn {
+		@apply inline-flex items-center justify-center gap-2 px-4 py-2
+			   font-medium rounded-lg transition-all duration-200
+			   focus:outline-none focus:ring-2 focus:ring-offset-2
+			   disabled:opacity-50 disabled:cursor-not-allowed;
+	}
+
+	.btn-accent {
+		@apply btn text-white;
+		background-color: var(--accent);
+	}
+	.btn-accent:hover:not(:disabled) {
+		background-color: var(--accent-hover);
+	}
+	.btn-accent:focus {
+		--tw-ring-color: var(--accent);
+	}
+
+	.btn-primary {
+		@apply btn bg-primary-600 text-white hover:bg-primary-700
+			   focus:ring-primary-500;
+	}
+
+	.btn-secondary {
+		@apply btn;
+		background-color: var(--bg-tertiary);
+		color: var(--text-primary);
+	}
+	.btn-secondary:hover:not(:disabled) {
+		background-color: var(--bg-hover);
+	}
+
+	.btn-danger {
+		@apply btn bg-red-600 text-white hover:bg-red-700
+			   focus:ring-red-500;
+	}
+
+	.btn-ghost {
+		@apply btn bg-transparent;
+		color: var(--text-secondary);
+	}
+	.btn-ghost:hover:not(:disabled) {
+		background-color: var(--bg-tertiary);
+		color: var(--text-primary);
+	}
+
+	.btn-sm {
+		@apply px-3 py-1.5 text-sm;
+	}
+
+	.btn-lg {
+		@apply px-6 py-3 text-lg;
+	}
+
+	.btn-icon {
+		@apply p-2;
+	}
+
+	/* Form Elements */
+	.input {
+		@apply w-full px-3 py-2 rounded-lg transition-colors
+			   focus:outline-none focus:ring-2 focus:ring-offset-0
+			   disabled:opacity-50 disabled:cursor-not-allowed;
+		background-color: var(--bg-tertiary);
+		border: 1px solid var(--border-color);
+		color: var(--text-primary);
+	}
+	.input:focus {
+		border-color: var(--accent);
+		--tw-ring-color: var(--accent);
+	}
+	.input::placeholder {
+		color: var(--text-muted);
+	}
+
+	.label {
+		@apply block text-sm font-medium mb-1;
+		color: var(--text-secondary);
+	}
+
+	.select {
+		@apply input appearance-none cursor-pointer;
+		background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236e7681' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+		background-position: right 0.5rem center;
+		background-repeat: no-repeat;
+		background-size: 1.5em 1.5em;
+		padding-right: 2.5rem;
+	}
+
+	/* Cards */
+	.card {
+		@apply rounded-xl overflow-hidden;
+		background-color: var(--bg-secondary);
+		border: 1px solid var(--border-color);
+	}
+
+	.card-hover {
+		@apply card transition-all duration-200 cursor-pointer;
+	}
+	.card-hover:hover {
+		border-color: var(--accent);
+		transform: translateY(-2px);
+	}
+
+	/* Badge */
+	.badge {
+		@apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+	}
+
+	.badge-accent {
+		background-color: var(--accent-muted);
+		color: white;
+	}
+
+	/* Sidebar */
+	.sidebar {
+		background-color: var(--bg-secondary);
+		border-right: 1px solid var(--border-color);
+	}
+
+	.sidebar-item {
+		@apply flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer;
+		color: var(--text-secondary);
+	}
+	.sidebar-item:hover {
+		background-color: var(--bg-tertiary);
+		color: var(--text-primary);
+	}
+	.sidebar-item.active {
+		background-color: var(--bg-tertiary);
+		color: var(--accent);
+	}
+	.sidebar-item.collapsed {
+		@apply justify-center px-2;
+		gap: 0;
+	}
+
+	.sidebar-section {
+		@apply px-3 py-2 text-xs font-semibold uppercase tracking-wider;
+		color: var(--text-muted);
+	}
+
+	/* Navbar */
+	.navbar {
+		background-color: var(--bg-secondary);
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	/* Dividers */
+	.divider {
+		border-color: var(--border-color);
+	}
+
+	/* Genre/Tag pills */
+	.tag-pill {
+		@apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+		background-color: var(--bg-tertiary);
+		color: var(--text-secondary);
+	}
+
+	/* Series badge (overlay on book covers) */
+	.series-badge {
+		@apply absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-bold;
+		background-color: rgba(0, 0, 0, 0.7);
+		color: white;
+	}
+
+	/* Cover image placeholder */
+	.cover-placeholder {
+		@apply flex items-center justify-center text-center;
+		background-color: var(--bg-tertiary);
+		color: var(--text-muted);
+	}
+
+	/* Action button row */
+	.action-bar {
+		@apply flex items-center gap-2 flex-wrap;
+	}
+
+	/* Dropdown menu */
+	.dropdown-menu {
+		@apply absolute z-50 py-1 rounded-lg shadow-lg;
+		background-color: var(--bg-secondary);
+		border: 1px solid var(--border-color);
+		min-width: 160px;
+	}
+
+	.dropdown-item {
+		@apply flex items-center gap-2 px-3 py-2 text-sm cursor-pointer;
+		color: var(--text-secondary);
+	}
+	.dropdown-item:hover {
+		background-color: var(--bg-tertiary);
+		color: var(--text-primary);
+	}
+
+	/* Progress bar */
+	.progress-bar {
+		@apply h-1 rounded-full overflow-hidden;
+		background-color: var(--bg-tertiary);
+	}
+	.progress-bar-fill {
+		@apply h-full transition-all;
+		background-color: var(--accent);
+	}
+
+	/* Tooltip */
+	.tooltip {
+		@apply absolute z-50 px-2 py-1 text-xs rounded shadow-lg;
+		background-color: var(--bg-tertiary);
+		color: var(--text-primary);
+		border: 1px solid var(--border-color);
+	}
+}
+
+/* ============================================
+   Transitions
+   ============================================ */
+.fade-in {
+	animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.slide-in-left {
+	animation: slideInLeft 0.2s ease-out;
+}
+
+@keyframes slideInLeft {
+	from {
+		opacity: 0;
+		transform: translateX(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.animate-slide-in {
+	animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateX(100%);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}

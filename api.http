@@ -1,0 +1,461 @@
+### BookShelf V2 API Testing
+### Use with REST Client VS Code extension (humao.rest-client)
+
+@baseUrl = http://localhost:5173/api
+
+### ============================================
+### AUTHENTICATION
+### ============================================
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+###
+
+### Get current user
+GET {{baseUrl}}/auth/me
+
+###
+
+### Logout
+POST {{baseUrl}}/auth/logout
+
+### ============================================
+### BOOKS
+### ============================================
+
+### List books (with pagination)
+GET {{baseUrl}}/books?page=1&limit=24
+
+###
+
+### List books (with filters)
+GET {{baseUrl}}/books?search=lord&status=1&genre=1&sort=title&order=asc
+
+###
+
+### Get book options (dropdowns)
+GET {{baseUrl}}/books/options
+
+###
+
+### Get single book
+GET {{baseUrl}}/books/1
+
+###
+
+### Create book
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Test Book",
+  "statusId": 1,
+  "rating": 4,
+  "authors": [{ "id": 1, "role": "Author", "isPrimary": true }],
+  "series": [{ "id": 1, "bookNum": 1, "isPrimary": true }]
+}
+
+###
+
+### Update book
+PUT {{baseUrl}}/books/1
+Content-Type: application/json
+
+{
+  "title": "Updated Title",
+  "rating": 5
+}
+
+###
+
+### Delete book
+DELETE {{baseUrl}}/books/1
+
+###
+
+### Book lookup by ISBN
+GET {{baseUrl}}/books/lookup?isbn=9780544003415
+
+###
+
+### Book lookup by title
+GET {{baseUrl}}/books/lookup?query=the hobbit
+
+### ============================================
+### AUTHORS
+### ============================================
+
+### List authors
+GET {{baseUrl}}/authors?page=1&limit=24
+
+###
+
+### Search authors
+GET {{baseUrl}}/authors?search=tolkien
+
+###
+
+### Get author with books
+GET {{baseUrl}}/authors/1
+
+###
+
+### Create author
+POST {{baseUrl}}/authors
+Content-Type: application/json
+
+{
+  "name": "New Author",
+  "bio": "Author biography"
+}
+
+###
+
+### Update author
+PUT {{baseUrl}}/authors/1
+Content-Type: application/json
+
+{
+  "name": "Updated Author Name"
+}
+
+###
+
+### Delete author
+DELETE {{baseUrl}}/authors/1
+
+### ============================================
+### SERIES
+### ============================================
+
+### List series
+GET {{baseUrl}}/series?page=1&limit=24
+
+###
+
+### Search series
+GET {{baseUrl}}/series?search=rings
+
+###
+
+### Get series with books
+GET {{baseUrl}}/series/1
+
+###
+
+### Create series
+POST {{baseUrl}}/series
+Content-Type: application/json
+
+{
+  "title": "New Series"
+}
+
+###
+
+### Update series
+PUT {{baseUrl}}/series/1
+Content-Type: application/json
+
+{
+  "title": "Updated Series Title"
+}
+
+###
+
+### Delete series
+DELETE {{baseUrl}}/series/1
+
+### ============================================
+### TAGS
+### ============================================
+
+### List tags
+GET {{baseUrl}}/tags?page=1&limit=50
+
+###
+
+### Get tag with books
+GET {{baseUrl}}/tags/1
+
+###
+
+### Create tag
+POST {{baseUrl}}/tags
+Content-Type: application/json
+
+{
+  "name": "New Tag",
+  "color": "#3b82f6"
+}
+
+###
+
+### Quick create tag
+POST {{baseUrl}}/tags/quick
+Content-Type: application/json
+
+{
+  "name": "Quick Tag"
+}
+
+###
+
+### Toggle tag on book
+POST {{baseUrl}}/tags/toggle
+Content-Type: application/json
+
+{
+  "tagId": 1,
+  "bookId": 1
+}
+
+###
+
+### Update tag
+PUT {{baseUrl}}/tags/1
+Content-Type: application/json
+
+{
+  "name": "Updated Tag",
+  "color": "#ef4444"
+}
+
+###
+
+### Delete tag
+DELETE {{baseUrl}}/tags/1
+
+### ============================================
+### GENRES
+### ============================================
+
+### List genres
+GET {{baseUrl}}/genres?page=1&limit=50
+
+###
+
+### Get genre with books
+GET {{baseUrl}}/genres/1
+
+###
+
+### Create genre
+POST {{baseUrl}}/genres
+Content-Type: application/json
+
+{
+  "name": "New Genre",
+  "color": "#22c55e",
+  "icon": "book"
+}
+
+###
+
+### Update genre
+PUT {{baseUrl}}/genres/1
+Content-Type: application/json
+
+{
+  "name": "Updated Genre"
+}
+
+###
+
+### Delete genre
+DELETE {{baseUrl}}/genres/1
+
+### ============================================
+### FORMATS
+### ============================================
+
+### List formats
+GET {{baseUrl}}/formats?page=1&limit=50
+
+###
+
+### Get format with books
+GET {{baseUrl}}/formats/1
+
+###
+
+### Create format
+POST {{baseUrl}}/formats
+Content-Type: application/json
+
+{
+  "name": "New Format"
+}
+
+###
+
+### Update format
+PUT {{baseUrl}}/formats/1
+Content-Type: application/json
+
+{
+  "name": "Updated Format"
+}
+
+###
+
+### Delete format
+DELETE {{baseUrl}}/formats/1
+
+### ============================================
+### NARRATORS
+### ============================================
+
+### List narrators
+GET {{baseUrl}}/narrators?page=1&limit=50
+
+###
+
+### Get narrator with books
+GET {{baseUrl}}/narrators/1
+
+###
+
+### Create narrator
+POST {{baseUrl}}/narrators
+Content-Type: application/json
+
+{
+  "name": "New Narrator",
+  "bio": "Narrator biography"
+}
+
+###
+
+### Update narrator
+PUT {{baseUrl}}/narrators/1
+Content-Type: application/json
+
+{
+  "name": "Updated Narrator"
+}
+
+###
+
+### Delete narrator
+DELETE {{baseUrl}}/narrators/1
+
+### ============================================
+### STATUSES
+### ============================================
+
+### List statuses (system-defined)
+GET {{baseUrl}}/statuses
+
+###
+
+### Get status with books
+GET {{baseUrl}}/statuses/1
+
+###
+
+### Update status name (localization)
+PUT {{baseUrl}}/statuses/1
+Content-Type: application/json
+
+{
+  "name": "Gelesen"
+}
+
+### ============================================
+### EBOOKS
+### ============================================
+
+### Get reading progress
+GET {{baseUrl}}/ebooks/1/progress
+
+###
+
+### Save reading progress
+POST {{baseUrl}}/ebooks/1/progress
+Content-Type: application/json
+
+{
+  "location": "epubcfi(/6/4!/4/2/1:0)",
+  "percentage": 25.5
+}
+
+###
+
+### Delete ebook from book
+DELETE {{baseUrl}}/ebooks/1
+
+### ============================================
+### COVERS
+### ============================================
+
+### Download cover from URL
+POST {{baseUrl}}/covers/download
+Content-Type: application/json
+
+{
+  "url": "https://covers.openlibrary.org/b/isbn/9780544003415-L.jpg",
+  "bookId": 1
+}
+
+### ============================================
+### SEARCH
+### ============================================
+
+### Autocomplete search
+GET {{baseUrl}}/search/autocomplete?q=lord
+
+### ============================================
+### IMPORT
+### ============================================
+
+### Book lookup by ISBN (for import)
+GET {{baseUrl}}/import/lookup?isbn=9780544003415
+
+###
+
+### Book lookup by title (for import)
+GET {{baseUrl}}/import/lookup?query=the hobbit
+
+###
+
+### Get full details for a lookup result
+POST {{baseUrl}}/import/lookup
+Content-Type: application/json
+
+{
+  "source": "openlibrary",
+  "id": "OL27448W"
+}
+
+### Note: CSV and Audible imports require file uploads
+### Use the web UI at /import for those
+
+### ============================================
+### EXPORT
+### ============================================
+
+### Export to CSV (full format)
+GET {{baseUrl}}/export?format=csv
+
+###
+
+### Export to CSV (Goodreads compatible)
+GET {{baseUrl}}/export?format=csv&goodreads=true
+
+###
+
+### Export to JSON (full backup)
+GET {{baseUrl}}/export?format=json
+
+###
+
+### Export JSON without authors/series
+GET {{baseUrl}}/export?format=json&authors=false&series=false

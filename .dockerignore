@@ -1,0 +1,87 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+yarn.lock
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# GitHub
+.github
+
+# IDE and editors
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Environment files (users should set env vars in docker-compose or -e flags)
+.env
+.env.*
+!.env.example
+
+# Database files (should be mounted as volumes)
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+database.sql
+
+# Logs (should be mounted as volumes)
+logs
+*.log
+
+# User content (should be mounted as volumes)
+static/covers/*
+!static/covers/.gitkeep
+!static/covers/placeholder.png
+static/ebooks/*
+!static/ebooks/.gitkeep
+
+# Documentation (not needed in production image)
+*.md
+!CHANGELOG.md
+docs
+LICENSE
+
+# Tests
+tests
+test
+*.test.ts
+*.spec.ts
+testing
+coverage
+.nyc_output
+playwright-report
+test-results
+
+# Build artifacts (will be generated during build)
+build
+dist
+.svelte-kit
+*.tgz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.temp
+
+# Old/backup files
+*.old
+*.bak
+*.backup
+old.*
+
+# TypeScript build info
+*.tsbuildinfo
