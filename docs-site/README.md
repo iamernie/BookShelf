@@ -1,35 +1,23 @@
-# Modern BookShelf Documentation
+# BookShelf Documentation Site
 
-This is the new modern documentation site for BookShelf V2, designed to match the application's design language.
+Modern documentation site for BookShelf V2, designed to match the application's design language.
 
 ## Features
 
-✨ **Modern Design** - Matches the BookShelf app's color scheme and styling
-🌓 **Dark/Light Themes** - Theme toggle with local storage persistence
-📱 **Fully Responsive** - Works great on mobile, tablet, and desktop
-🎨 **Green Accent Color** - Uses the same emerald green (#10b981) as the app
-⚡ **Fast & Lightweight** - Pure HTML/CSS/JS, no build process needed
-📋 **Code Copy Buttons** - Easy copying of command examples
+- **Modern Design** - Matches the BookShelf app's color scheme and styling
+- **Dark/Light Themes** - Theme toggle with local storage persistence
+- **Fully Responsive** - Works great on mobile, tablet, and desktop
+- **Green Accent Color** - Uses the same emerald green (#10b981) as the app
+- **Fast & Lightweight** - Pure HTML/CSS/JS, no build process needed
+- **Code Copy Buttons** - Easy copying of command examples
+- **Accordion FAQs** - Expandable Q&A sections
 
-## Design System
+## Pages
 
-Matches BookShelf V2's design system:
-- **Colors**: Same CSS variables as the app
-- **Typography**: Inter font family
-- **Components**: Cards, buttons, alerts, code blocks
-- **Animations**: Smooth transitions and hover effects
-
-## File Structure
-
-```
-docs-site/
-├── index.html          # Home page
-├── style.css           # Stylesheet (matches app theme)
-├── script.js           # Theme toggle and interactions
-├── getting-started.html # Installation guide
-├── user-guide.html     # User documentation
-└── faq.html            # Frequently asked questions
-```
+- **index.html** - Home page with feature overview
+- **getting-started.html** - Installation and setup guide
+- **user-guide.html** - Complete user documentation
+- **faq.html** - Frequently asked questions
 
 ## Development
 
@@ -56,7 +44,7 @@ Then open http://localhost:8000
 1. Push the `docs-site` folder to your repository
 2. Go to Settings > Pages
 3. Select the branch and `/docs-site` folder
-4. Your docs will be available at `https://yourusername.github.io/BookShelfV2/`
+4. Your docs will be available at `https://yourusername.github.io/BookShelf/`
 
 ### Netlify/Vercel
 
@@ -78,13 +66,13 @@ The documentation uses the same colors as BookShelf:
 - Accent: #34d399
 - Text: #f1f5f9
 
-## To-Do
+## Customization
 
-- [ ] Add more page templates (getting-started, user-guide, faq)
-- [ ] Add screenshots section
-- [ ] Create admin guide page
-- [ ] Add search functionality
-- [ ] Add breadcrumb navigation
+Before deploying, update these placeholders throughout the HTML files:
+
+- `yourusername` - Your GitHub username
+- `BookShelfV2` - Your repository name (if different)
+- GitHub repository URLs
 
 ## License
 

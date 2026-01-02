@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started - BookShelf V2 Documentation</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="light">
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-book-open"></i>
+                <span>BookShelf V2</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="getting-started.html" class="nav-link active">Getting Started</a>
+                <a href="user-guide.html" class="nav-link">User Guide</a>
+                <a href="faq.html" class="nav-link">FAQ</a>
+                <a href="https://github.com/yourusername/BookShelfV2" class="nav-link" target="_blank">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+                <button id="theme-toggle" class="btn-icon" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+            <button id="mobile-menu-toggle" class="btn-icon mobile-only" aria-label="Toggle menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="mobile-menu">
+        <a href="index.html" class="mobile-link">Home</a>
+        <a href="getting-started.html" class="mobile-link active">Getting Started</a>
+        <a href="user-guide.html" class="mobile-link">User Guide</a>
+        <a href="faq.html" class="mobile-link">FAQ</a>
+        <a href="https://github.com/yourusername/BookShelfV2" class="mobile-link" target="_blank">GitHub</a>
+    </div>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1><i class="fas fa-rocket"></i> Getting Started</h1>
+            <p class="lead">Get BookShelf up and running in minutes.</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="content-wrapper">
+                <!-- Sidebar Navigation -->
+                <aside class="sidebar">
+                    <nav class="toc">
+                        <h4>On This Page</h4>
+                        <ul>
+                            <li><a href="#installation">Installation Methods</a></li>
+                            <li><a href="#quick-start">Quick Start with Docker</a></li>
+                            <li><a href="#docker-compose">Docker Compose Setup</a></li>
+                            <li><a href="#first-time">First Time Setup</a></li>
+                            <li><a href="#environment">Environment Variables</a></li>
+                            <li><a href="#volumes">Volume Mappings</a></li>
+                            <li><a href="#reverse-proxy">Reverse Proxy</a></li>
+                            <li><a href="#manual">Manual Installation</a></li>
+                            <li><a href="#updating">Updating</a></li>
+                            <li><a href="#troubleshooting">Troubleshooting</a></li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Main Content Area -->
+                <article class="content">
+                    <section id="installation">
+                        <h2>Installation Methods</h2>
+                        <p>BookShelf V2 can be installed in several ways:</p>
+
+                        <div class="card-grid">
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fab fa-docker"></i></div>
+                                <h4>Docker</h4>
+                                <p>Easiest setup with minimal dependencies. Recommended for most users.</p>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-layer-group"></i></div>
+                                <h4>Docker Compose</h4>
+                                <p>Full control over configuration with persistent volumes.</p>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-terminal"></i></div>
+                                <h4>Manual</h4>
+                                <p>For development or custom deployments on bare metal.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="quick-start">
+                        <h2>Quick Start with Docker</h2>
+                        <p>The fastest way to get BookShelf running:</p>
+
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="docker-run">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="docker-run"><code>docker run -d \
+  --name bookshelf \
+  -p 3000:3000 \
+  -v bookshelf-data:/data \
+  -v bookshelf-covers:/app/static/covers \
+  -v bookshelf-ebooks:/app/static/ebooks \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  -e ORIGIN=http://localhost:3000 \
+  ghcr.io/yourusername/bookshelf:latest</code></pre>
+                        </div>
+
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <strong>That's it!</strong>
+                                <p>Open <strong>http://localhost:3000</strong> in your browser.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="docker-compose">
+                        <h2>Docker Compose Setup</h2>
+                        <p>For a more permanent installation with easier management:</p>
+
+                        <h3>1. Create Project Directory</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="mkdir">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="mkdir"><code>mkdir bookshelf && cd bookshelf</code></pre>
+                        </div>
+
+                        <h3>2. Create docker-compose.yml</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-file-code"></i> docker-compose.yml</span>
+                                <button class="copy-btn" data-clipboard="compose">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="compose"><code>version: '3.8'
+
+services:
+  bookshelf:
+    image: ghcr.io/yourusername/bookshelf:latest
+    container_name: bookshelf
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ORIGIN=${ORIGIN:-http://localhost:3000}
+      - PORT=3000
+      - DATABASE_PATH=/data/bookshelf.sqlite
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    volumes:
+      - ./data:/data
+      - ./covers:/app/static/covers
+      - ./ebooks:/app/static/ebooks
+      - ./logs:/logs
+      - ./bookdrop:/app/bookdrop</code></pre>
+                        </div>
+
+                        <h3>3. Create Environment File</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="env">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="env"><code>cat > .env << EOF
+SESSION_SECRET=$(openssl rand -hex 32)
+ORIGIN=http://localhost:3000
+PUID=$(id -u)
+PGID=$(id -g)
+EOF</code></pre>
+                        </div>
+
+                        <h3>4. Start BookShelf</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="start">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="start"><code>docker compose up -d</code></pre>
+                        </div>
+
+                        <h3>5. View Logs</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="logs">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="logs"><code>docker compose logs -f</code></pre>
+                        </div>
+                    </section>
+
+                    <section id="first-time">
+                        <h2>First Time Setup</h2>
+                        <p>When you first access BookShelf, you'll be greeted with a setup wizard:</p>
+
+                        <div class="steps">
+                            <div class="step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>Create Admin Account</h4>
+                                    <ul>
+                                        <li>Enter your desired username</li>
+                                        <li>Set a strong password</li>
+                                        <li>Provide your email address</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>Configure Basic Settings</h4>
+                                    <ul>
+                                        <li>Set your library name</li>
+                                        <li>Choose your preferred date format</li>
+                                        <li>Select default language</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h4>Start Adding Books!</h4>
+                                    <p>You're ready to build your library.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="environment">
+                        <h2>Environment Variables</h2>
+                        <p>Configure BookShelf with these environment variables:</p>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Required</th>
+                                        <th>Default</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>SESSION_SECRET</code></td>
+                                        <td><span class="badge badge-required">Yes</span></td>
+                                        <td>-</td>
+                                        <td>Random string for session encryption</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>ORIGIN</code></td>
+                                        <td><span class="badge badge-required">Yes</span></td>
+                                        <td>http://localhost:3000</td>
+                                        <td>Your server's public URL</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PORT</code></td>
+                                        <td><span class="badge badge-optional">No</span></td>
+                                        <td>3000</td>
+                                        <td>Server port</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>DATABASE_PATH</code></td>
+                                        <td><span class="badge badge-optional">No</span></td>
+                                        <td>/data/bookshelf.sqlite</td>
+                                        <td>SQLite database location</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>PUID / PGID</code></td>
+                                        <td><span class="badge badge-optional">No</span></td>
+                                        <td>1000</td>
+                                        <td>User/group ID for file permissions</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>OPENAI_API_KEY</code></td>
+                                        <td><span class="badge badge-optional">No</span></td>
+                                        <td>-</td>
+                                        <td>OpenAI API key for AI recommendations</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>LOG_LEVEL</code></td>
+                                        <td><span class="badge badge-optional">No</span></td>
+                                        <td>info</td>
+                                        <td>Logging level (debug, info, warn, error)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3>Finding Your UID/GID</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="uid">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="uid"><code>id -u  # Shows your UID
+id -g  # Shows your GID</code></pre>
+                        </div>
+                    </section>
+
+                    <section id="volumes">
+                        <h2>Volume Mappings</h2>
+                        <p>BookShelf uses these directories:</p>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Container Path</th>
+                                        <th>Purpose</th>
+                                        <th>Host Path</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/data</code></td>
+                                        <td>SQLite database</td>
+                                        <td>./data</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/logs</code></td>
+                                        <td>Application logs</td>
+                                        <td>./logs</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/app/static/covers</code></td>
+                                        <td>Book cover images</td>
+                                        <td>./covers</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/app/static/ebooks</code></td>
+                                        <td>Uploaded ebook files</td>
+                                        <td>./ebooks</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/app/bookdrop</code></td>
+                                        <td>Auto-import folder</td>
+                                        <td>./bookdrop</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section id="reverse-proxy">
+                        <h2>Reverse Proxy Setup</h2>
+
+                        <h3>Nginx</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-file-code"></i> nginx.conf</span>
+                                <button class="copy-btn" data-clipboard="nginx">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="nginx"><code>server {
+    listen 80;
+    server_name books.example.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}</code></pre>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>
+                                <strong>Important</strong>
+                                <p>Update <code>ORIGIN</code> in your .env to match your domain: <code>ORIGIN=https://books.example.com</code></p>
+                            </div>
+                        </div>
+
+                        <h3>Traefik</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-file-code"></i> docker-compose.yml labels</span>
+                                <button class="copy-btn" data-clipboard="traefik">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="traefik"><code>labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.bookshelf.rule=Host(`books.example.com`)"
+  - "traefik.http.routers.bookshelf.entrypoints=websecure"
+  - "traefik.http.routers.bookshelf.tls.certresolver=letsencrypt"
+  - "traefik.http.services.bookshelf.loadbalancer.server.port=3000"</code></pre>
+                        </div>
+                    </section>
+
+                    <section id="manual">
+                        <h2>Manual Installation</h2>
+                        <p>For local development or custom deployments:</p>
+
+                        <h3>Prerequisites</h3>
+                        <ul>
+                            <li>Node.js 18+ and npm</li>
+                            <li>Git</li>
+                        </ul>
+
+                        <h3>Steps</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="manual">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="manual"><code># 1. Clone repository
+git clone https://github.com/yourusername/BookShelfV2.git
+cd BookShelfV2
+
+# 2. Install dependencies
+npm install
+
+# 3. Create environment file
+cp .env.example .env
+# Edit .env with your settings
+
+# 4. Build the application
+npm run build
+
+# 5. Start the server
+npm start</code></pre>
+                        </div>
+
+                        <p>For development with hot-reload:</p>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="dev">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="dev"><code>npm run dev</code></pre>
+                        </div>
+                        <p>Access at <strong>http://localhost:5173</strong> (Vite dev server)</p>
+                    </section>
+
+                    <section id="updating">
+                        <h2>Updating BookShelf</h2>
+
+                        <h3>Docker</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="update-docker">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="update-docker"><code>docker pull ghcr.io/yourusername/bookshelf:latest
+docker stop bookshelf
+docker rm bookshelf
+# Run your docker run command again</code></pre>
+                        </div>
+
+                        <h3>Docker Compose</h3>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span><i class="fas fa-terminal"></i> bash</span>
+                                <button class="copy-btn" data-clipboard="update-compose">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre id="update-compose"><code>docker compose pull
+docker compose up -d</code></pre>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <div>
+                                <strong>Data Safety</strong>
+                                <p>Your data is preserved in volumes, so updates are safe!</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="troubleshooting">
+                        <h2>Troubleshooting</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can't Access BookShelf</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Check if container is running:</strong></p>
+                                    <pre><code>docker ps</code></pre>
+                                    <p><strong>Check logs:</strong></p>
+                                    <pre><code>docker logs bookshelf</code></pre>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Permission Issues</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Make sure PUID/PGID match your user:</p>
+                                    <pre><code>id -u && id -g</code></pre>
+                                    <p>Update your <code>.env</code> file and restart.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Database Errors</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>If you see database errors after an update:</p>
+                                    <pre><code># Backup first!
+cp data/bookshelf.sqlite data/bookshelf.sqlite.backup
+
+# Then restart - migrations run automatically
+docker compose restart</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="next-steps">
+                        <h2>Next Steps</h2>
+                        <p>Now that BookShelf is running:</p>
+                        <div class="card-grid">
+                            <a href="user-guide.html#adding-books" class="link-card">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>Add your first books</span>
+                            </a>
+                            <a href="user-guide.html#reader" class="link-card">
+                                <i class="fas fa-book-reader"></i>
+                                <span>Explore the ebook reader</span>
+                            </a>
+                            <a href="user-guide.html#goals" class="link-card">
+                                <i class="fas fa-bullseye"></i>
+                                <span>Set up reading goals</span>
+                            </a>
+                            <a href="faq.html" class="link-card">
+                                <i class="fas fa-question-circle"></i>
+                                <span>Check the FAQ</span>
+                            </a>
+                        </div>
+                    </section>
+                </article>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div>
+                    <p><strong>BookShelf V2</strong></p>
+                    <p>MIT License</p>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/yourusername/BookShelfV2" target="_blank">
+                        <i class="fab fa-github"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

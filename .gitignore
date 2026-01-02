@@ -16,6 +16,9 @@ build/
 *.sqlite-wal
 *.sqlite-shm
 
+#Claude
+.claude/
+CLAUDE.MD
 # User content - covers, ebooks, and audiobooks
 static/covers/
 !static/covers/.gitkeep

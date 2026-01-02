@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Guide - BookShelf V2 Documentation</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="light">
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-book-open"></i>
+                <span>BookShelf V2</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="getting-started.html" class="nav-link">Getting Started</a>
+                <a href="user-guide.html" class="nav-link active">User Guide</a>
+                <a href="faq.html" class="nav-link">FAQ</a>
+                <a href="https://github.com/yourusername/BookShelfV2" class="nav-link" target="_blank">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+                <button id="theme-toggle" class="btn-icon" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+            <button id="mobile-menu-toggle" class="btn-icon mobile-only" aria-label="Toggle menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="mobile-menu">
+        <a href="index.html" class="mobile-link">Home</a>
+        <a href="getting-started.html" class="mobile-link">Getting Started</a>
+        <a href="user-guide.html" class="mobile-link active">User Guide</a>
+        <a href="faq.html" class="mobile-link">FAQ</a>
+        <a href="https://github.com/yourusername/BookShelfV2" class="mobile-link" target="_blank">GitHub</a>
+    </div>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1><i class="fas fa-book"></i> User Guide</h1>
+            <p class="lead">Everything you need to know about using BookShelf.</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="content-wrapper">
+                <!-- Sidebar Navigation -->
+                <aside class="sidebar">
+                    <nav class="toc">
+                        <h4>On This Page</h4>
+                        <ul>
+                            <li><a href="#adding-books">Adding Books</a></li>
+                            <li><a href="#organizing">Organizing Books</a></li>
+                            <li><a href="#smart-collections">Smart Collections</a></li>
+                            <li><a href="#reader">Ebook Reader</a></li>
+                            <li><a href="#goals">Reading Goals</a></li>
+                            <li><a href="#statistics">Statistics</a></li>
+                            <li><a href="#import-export">Import & Export</a></li>
+                            <li><a href="#admin">Admin Settings</a></li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Main Content Area -->
+                <article class="content">
+
+                    <!-- Adding Books Section -->
+                    <section id="adding-books">
+                        <h2><i class="fas fa-plus-circle"></i> Adding Books</h2>
+                        <p>There are multiple ways to add books to your library:</p>
+
+                        <h3>Manual Entry</h3>
+                        <p>Click the <strong>"+ Add Book"</strong> button to add a book manually with full details:</p>
+                        <ul>
+                            <li><strong>Basic Info:</strong> Title, authors (with roles), rating, status</li>
+                            <li><strong>Details:</strong> ISBN, ASIN, publisher, page count, language</li>
+                            <li><strong>Classification:</strong> Genre, format, series, tags</li>
+                            <li><strong>Dates:</strong> Release date, start/completion dates</li>
+                            <li><strong>Personal:</strong> Summary, notes, DNF tracking</li>
+                            <li><strong>Cover:</strong> Upload image or provide URL</li>
+                        </ul>
+
+                        <h3>ISBN Lookup</h3>
+                        <p>Save time by looking up books by ISBN:</p>
+                        <ol>
+                            <li>Click <strong>"+ Add Book"</strong></li>
+                            <li>Click the <strong>"ISBN Lookup"</strong> button</li>
+                            <li>Enter ISBN (10 or 13 digit)</li>
+                            <li>BookShelf searches multiple providers (Google Books, Open Library, Goodreads, Hardcover, Amazon, ComicVine)</li>
+                            <li>Review fetched metadata and select fields to include</li>
+                            <li>Save to create the book</li>
+                        </ol>
+
+                        <h3>Search & Add</h3>
+                        <p>Search for books online without an ISBN:</p>
+                        <ol>
+                            <li>Click <strong>"Metadata Search"</strong></li>
+                            <li>Enter book title and/or author</li>
+                            <li>Browse results from multiple providers</li>
+                            <li>Click a result to preview metadata</li>
+                            <li>Add to your library</li>
+                        </ol>
+
+                        <h3>BookDrop Auto-Import</h3>
+                        <p>Drop ebook files into a folder and have them automatically imported:</p>
+                        <ol>
+                            <li><strong>Enable BookDrop</strong> in Admin &rarr; BookDrop settings</li>
+                            <li><strong>Set watch folder</strong> (default: <code>/app/bookdrop</code> in Docker)</li>
+                            <li><strong>Drop files</strong> into the folder (EPUB, PDF, CBZ supported)</li>
+                            <li>BookShelf automatically detects, extracts metadata, creates entry, and moves file</li>
+                        </ol>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-lightbulb"></i>
+                            <div>
+                                <strong>Tip</strong>
+                                <p>For best results with BookDrop, name files like: <code>Title by Author.epub</code> or <code>Author - Title.epub</code></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Organizing Section -->
+                    <section id="organizing">
+                        <h2><i class="fas fa-folder-open"></i> Organizing Books</h2>
+
+                        <h3>Statuses</h3>
+                        <p>Books can have different statuses:</p>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th>Status</th><th>Description</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><strong>Read</strong></td><td>Finished books</td></tr>
+                                    <tr><td><strong>Currently Reading</strong></td><td>Books in progress</td></tr>
+                                    <tr><td><strong>Want to Read</strong></td><td>Wishlist/TBR pile</td></tr>
+                                    <tr><td><strong>Next</strong></td><td>Queued up to read next</td></tr>
+                                    <tr><td><strong>Parked</strong></td><td>Started but paused</td></tr>
+                                    <tr><td><strong>DNF</strong></td><td>Did Not Finish</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p>You can create custom statuses in <strong>Settings &rarr; Statuses</strong>.</p>
+
+                        <h3>Genres</h3>
+                        <p>Organize books by genre with custom colors and icons. Create custom genres beyond the built-in ones (Fiction, Non-Fiction, Fantasy, etc.).</p>
+
+                        <h3>Tags</h3>
+                        <p>Create flexible categorization with tags:</p>
+                        <ul>
+                            <li><strong>System Tags:</strong> Favorite, Wishlist (always available)</li>
+                            <li><strong>Custom Tags:</strong> Create your own with colors and icons</li>
+                            <li><strong>Bulk Tagging:</strong> Apply tags to multiple books at once</li>
+                        </ul>
+                        <p><strong>Example tags:</strong> "Beach Reads", "Book Club", "Library", "Gift", "2026 Challenge"</p>
+
+                        <h3>Series Tracking</h3>
+                        <p>Track reading order for series:</p>
+                        <ul>
+                            <li>Add books to series with book numbers (supports decimals like 2.5 for novellas)</li>
+                            <li>Book number ranges for omnibus editions</li>
+                            <li>Primary series designation for books in multiple series</li>
+                            <li>Series status tracking and gap detection</li>
+                        </ul>
+
+                        <h3>Multi-Author Support</h3>
+                        <p>Books can have multiple authors with different roles:</p>
+                        <ul>
+                            <li>Author, Co-Author, Editor, Translator, Illustrator, Narrator</li>
+                            <li>Designate primary author for sorting and display</li>
+                        </ul>
+                    </section>
+
+                    <!-- Smart Collections Section -->
+                    <section id="smart-collections">
+                        <h2><i class="fas fa-magic"></i> Smart Collections (Magic Shelves)</h2>
+                        <p>Create dynamic collections that automatically update based on rules you set.</p>
+
+                        <h3>Creating a Smart Collection</h3>
+                        <ol>
+                            <li>Go to <strong>Shelves</strong> &rarr; <strong>Create Smart Collection</strong></li>
+                            <li>Name your shelf (e.g., "Recent Favorites")</li>
+                            <li>Add rules (Field, Operator, Value)</li>
+                            <li>Combine rules with AND/OR logic</li>
+                            <li>Set display options (sort order, max items, show on dashboard)</li>
+                        </ol>
+
+                        <h3>Example Smart Collections</h3>
+                        <div class="card-grid">
+                            <div class="info-card">
+                                <h4>Recent Favorites</h4>
+                                <ul>
+                                    <li>Rating &ge; 4.5 stars</li>
+                                    <li>Read date in last 6 months</li>
+                                </ul>
+                            </div>
+                            <div class="info-card">
+                                <h4>Unfinished Series</h4>
+                                <ul>
+                                    <li>Series is not complete</li>
+                                    <li>Status is not "Want to Read"</li>
+                                </ul>
+                            </div>
+                            <div class="info-card">
+                                <h4>Quick Reads</h4>
+                                <ul>
+                                    <li>Page count &le; 300</li>
+                                    <li>Status is "Want to Read"</li>
+                                </ul>
+                            </div>
+                            <div class="info-card">
+                                <h4>5-Star Books</h4>
+                                <ul>
+                                    <li>Rating = 5 stars</li>
+                                    <li>Sort by: Date Read (desc)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Ebook Reader Section -->
+                    <section id="reader">
+                        <h2><i class="fas fa-book-reader"></i> Ebook Reader</h2>
+                        <p>Read your digital books directly in BookShelf.</p>
+
+                        <h3>Supported Formats</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th>Format</th><th>Type</th><th>Features</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>EPUB</strong></td>
+                                        <td>Ebook</td>
+                                        <td>Reflowable text, themes, bookmarks, TOC navigation</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>PDF</strong></td>
+                                        <td>Document</td>
+                                        <td>Page-based, zoom, scroll/page modes, search</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>CBZ/CBR</strong></td>
+                                        <td>Comics</td>
+                                        <td>Image-based, page navigation, fit-to-screen, manga mode</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3>EPUB Reader Features</h3>
+                        <ul>
+                            <li><strong>Themes:</strong> Light, Dark, Sepia, or Custom colors</li>
+                            <li><strong>Font:</strong> Size, family (including OpenDyslexic), line spacing</li>
+                            <li><strong>Navigation:</strong> Click edges, swipe, arrow keys, TOC</li>
+                            <li><strong>Bookmarks:</strong> Save and jump to marked positions</li>
+                            <li><strong>Progress:</strong> Auto-saved position and reading time tracking</li>
+                        </ul>
+
+                        <h3>Keyboard Shortcuts</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th>Key</th><th>Action</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><code>Esc</code></td><td>Close reader</td></tr>
+                                    <tr><td><code>F</code></td><td>Toggle fullscreen</td></tr>
+                                    <tr><td><code>&larr;</code> / <code>&rarr;</code></td><td>Previous / Next page</td></tr>
+                                    <tr><td><code>Home</code> / <code>End</code></td><td>First / Last page</td></tr>
+                                    <tr><td><code>+</code> / <code>-</code></td><td>Increase / Decrease font size (EPUB)</td></tr>
+                                    <tr><td><code>T</code></td><td>Toggle Table of Contents (EPUB)</td></tr>
+                                    <tr><td><code>B</code></td><td>Toggle Bookmarks (EPUB)</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3>Uploading Ebooks</h3>
+                        <ol>
+                            <li>Open book details</li>
+                            <li>Click <strong>"Upload Ebook"</strong> button</li>
+                            <li>Select file (EPUB, PDF, CBZ, CBR)</li>
+                            <li>Wait for upload</li>
+                            <li><strong>"Read"</strong> button appears when done</li>
+                        </ol>
+                    </section>
+
+                    <!-- Reading Goals Section -->
+                    <section id="goals">
+                        <h2><i class="fas fa-bullseye"></i> Reading Goals</h2>
+                        <p>Set and track reading goals to stay motivated. BookShelf supports 6 types of reading challenges:</p>
+
+                        <div class="card-grid">
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-books"></i></div>
+                                <h4>Total Books Goal</h4>
+                                <p>Read X books in a year (e.g., 52 books = one per week)</p>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-theater-masks"></i></div>
+                                <h4>Genre Challenge</h4>
+                                <p>Read X books from specific genres</p>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-user-edit"></i></div>
+                                <h4>Author Challenge</h4>
+                                <p>Read X different authors or X books by one author</p>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-headphones"></i></div>
+                                <h4>Format Challenge</h4>
+                                <p>Read X books in specific formats (e.g., 24 audiobooks)</p>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-file-alt"></i></div>
+                                <h4>Page Count Goal</h4>
+                                <p>Read X pages total (e.g., 15,000 pages)</p>
+                            </div>
+                            <div class="info-card">
+                                <div class="card-icon"><i class="fas fa-calendar-alt"></i></div>
+                                <h4>Monthly Challenge</h4>
+                                <p>Read X books every month</p>
+                            </div>
+                        </div>
+
+                        <h3>Goal Insights</h3>
+                        <ul>
+                            <li><span class="badge badge-success">On Track</span> Green indicator when ahead of pace</li>
+                            <li><span class="badge badge-warning">Behind</span> Yellow when slightly behind with catch-up suggestions</li>
+                            <li><span class="badge badge-danger">At Risk</span> Red when significantly behind with suggested pace</li>
+                        </ul>
+                    </section>
+
+                    <!-- Statistics Section -->
+                    <section id="statistics">
+                        <h2><i class="fas fa-chart-bar"></i> Statistics</h2>
+                        <p>View detailed statistics and visualizations of your reading habits.</p>
+
+                        <h3>Reading Heatmap</h3>
+                        <p>A GitHub-style contribution graph showing your reading activity over the last 365 days. Each square represents a day with color intensity showing books finished.</p>
+
+                        <h3>Dashboard Stats</h3>
+                        <ul>
+                            <li><strong>Library Size:</strong> Total books, by status, by format</li>
+                            <li><strong>Reading Activity:</strong> Books this year/month, current streak</li>
+                            <li><strong>Quick Stats:</strong> Average rating, most read genre/author</li>
+                        </ul>
+
+                        <h3>Analytics</h3>
+                        <ul>
+                            <li><strong>Timeline:</strong> Visual timeline of books read, grouped by month/year</li>
+                            <li><strong>Genre Analytics:</strong> Pie charts, distribution over time, ratings by genre</li>
+                            <li><strong>Author Analytics:</strong> Most read authors, favorites, discovery timeline</li>
+                            <li><strong>Format Analytics:</strong> Physical vs Digital vs Audio breakdown</li>
+                        </ul>
+
+                        <h3>DNF Tracking</h3>
+                        <p>Track books you didn't finish with reason, page stopped, and percentage read. View DNF analysis including rate, common reasons, and genres with highest DNF.</p>
+                    </section>
+
+                    <!-- Import Export Section -->
+                    <section id="import-export">
+                        <h2><i class="fas fa-exchange-alt"></i> Import & Export</h2>
+
+                        <h3>Importing Books</h3>
+
+                        <h4>CSV Import (Goodreads)</h4>
+                        <ol>
+                            <li>Export from Goodreads: My Books &rarr; Import/Export &rarr; Export Library</li>
+                            <li>In BookShelf: Import/Export &rarr; CSV Import</li>
+                            <li>Upload CSV, preview, map columns</li>
+                            <li>Configure options (skip duplicates, fetch metadata, download covers)</li>
+                            <li>Import!</li>
+                        </ol>
+
+                        <h4>Audible Import</h4>
+                        <ol>
+                            <li>Go to Audible.com &rarr; Library</li>
+                            <li>Save page as HTML</li>
+                            <li>Upload to BookShelf's Audible Import</li>
+                            <li>Review and import (narrator info preserved)</li>
+                        </ol>
+
+                        <h4>BookDrop (Automatic)</h4>
+                        <p>Enable BookDrop in Admin settings, then simply drop ebook files (EPUB, PDF, CBZ) into the watch folder. BookShelf automatically imports them.</p>
+
+                        <h3>Exporting Data</h3>
+                        <ul>
+                            <li><strong>CSV Export:</strong> For spreadsheets or other apps</li>
+                            <li><strong>JSON Backup:</strong> Complete backup of all data</li>
+                            <li><strong>Database File:</strong> SQLite file for direct access</li>
+                        </ul>
+
+                        <h3>Scheduled Backups</h3>
+                        <p>Automate backups with cron jobs. See <a href="getting-started.html">Getting Started</a> for backup scripts.</p>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>
+                                <strong>Best Practice</strong>
+                                <p>Create JSON backups monthly and before major changes!</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Admin Section -->
+                    <section id="admin">
+                        <h2><i class="fas fa-cog"></i> Admin Settings</h2>
+                        <p>Admin users can configure BookShelf from <strong>Admin &rarr; Settings</strong>:</p>
+
+                        <h3>General Settings</h3>
+                        <ul>
+                            <li><strong>Library Name:</strong> Display name in header</li>
+                            <li><strong>Branding:</strong> Custom logos and favicon</li>
+                            <li><strong>Items Per Page:</strong> 12-100 books per page</li>
+                            <li><strong>Date Format:</strong> US, EU, or ISO</li>
+                            <li><strong>Default View:</strong> Grid or list</li>
+                        </ul>
+
+                        <h3>Metadata Providers</h3>
+                        <p>Configure book metadata sources with priority ordering:</p>
+                        <ul>
+                            <li>Google Books</li>
+                            <li>Open Library</li>
+                            <li>Goodreads</li>
+                            <li>Hardcover (requires API key)</li>
+                            <li>Amazon</li>
+                            <li>ComicVine (requires API key)</li>
+                        </ul>
+
+                        <h3>OPDS Catalog</h3>
+                        <p>Serve your library to e-reader apps like Calibre, KOReader, Moon+ Reader:</p>
+                        <ul>
+                            <li>Enable/disable OPDS catalog</li>
+                            <li>Configure public access</li>
+                            <li>Auto-generated catalog URL</li>
+                        </ul>
+
+                        <h3>Email & Notifications</h3>
+                        <p>Configure SMTP for password resets and notifications.</p>
+
+                        <h3>Advanced Features</h3>
+                        <ul>
+                            <li><strong>BookDrop:</strong> Auto-import ebooks from folder</li>
+                            <li><strong>AI Features:</strong> OpenAI integration for recommendations</li>
+                            <li><strong>Widgets:</strong> Embeddable stats for websites</li>
+                            <li><strong>Database:</strong> Backup, maintenance, diagnostics</li>
+                        </ul>
+                    </section>
+
+                </article>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div>
+                    <p><strong>BookShelf V2</strong></p>
+                    <p>MIT License</p>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/yourusername/BookShelfV2" target="_blank">
+                        <i class="fab fa-github"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

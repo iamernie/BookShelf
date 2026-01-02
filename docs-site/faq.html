@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - BookShelf V2 Documentation</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="light">
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-book-open"></i>
+                <span>BookShelf V2</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="getting-started.html" class="nav-link">Getting Started</a>
+                <a href="user-guide.html" class="nav-link">User Guide</a>
+                <a href="faq.html" class="nav-link active">FAQ</a>
+                <a href="https://github.com/yourusername/BookShelfV2" class="nav-link" target="_blank">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+                <button id="theme-toggle" class="btn-icon" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+            <button id="mobile-menu-toggle" class="btn-icon mobile-only" aria-label="Toggle menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="mobile-menu">
+        <a href="index.html" class="mobile-link">Home</a>
+        <a href="getting-started.html" class="mobile-link">Getting Started</a>
+        <a href="user-guide.html" class="mobile-link">User Guide</a>
+        <a href="faq.html" class="mobile-link active">FAQ</a>
+        <a href="https://github.com/yourusername/BookShelfV2" class="mobile-link" target="_blank">GitHub</a>
+    </div>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1><i class="fas fa-question-circle"></i> Frequently Asked Questions</h1>
+            <p class="lead">Common questions and answers about BookShelf.</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="content-wrapper">
+                <!-- Sidebar Navigation -->
+                <aside class="sidebar">
+                    <nav class="toc">
+                        <h4>Categories</h4>
+                        <ul>
+                            <li><a href="#general">General</a></li>
+                            <li><a href="#installation">Installation & Setup</a></li>
+                            <li><a href="#using">Using BookShelf</a></li>
+                            <li><a href="#troubleshooting">Troubleshooting</a></li>
+                            <li><a href="#features">Features</a></li>
+                            <li><a href="#data">Data & Privacy</a></li>
+                            <li><a href="#contributing">Contributing</a></li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Main Content Area -->
+                <article class="content">
+
+                    <!-- General Section -->
+                    <section id="general">
+                        <h2>General</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>What is BookShelf?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>BookShelf is a self-hosted web application for managing your personal book library. It helps you organize books, track reading progress, and read ebooks&mdash;all from your own server.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Why self-host instead of using Goodreads?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Benefits of self-hosting:</strong></p>
+                                    <ul>
+                                        <li><strong>Privacy</strong> - Your data stays on your server</li>
+                                        <li><strong>Control</strong> - Customize features and appearance</li>
+                                        <li><strong>No ads</strong> - Clean interface without distractions</li>
+                                        <li><strong>Ebook reader</strong> - Read books directly in app</li>
+                                        <li><strong>OPDS support</strong> - Connect your e-reader devices</li>
+                                        <li><strong>Offline access</strong> - Works on your local network</li>
+                                    </ul>
+                                    <p>You can still import from Goodreads and keep both!</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Is it free?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! BookShelf is open source and released under the MIT License. You only pay for hosting (your own server or cloud provider).</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>What's the difference between V1 and V2?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>V2 is a complete rewrite with:</p>
+                                    <ul>
+                                        <li>Modern tech stack (SvelteKit, TypeScript)</li>
+                                        <li>Better performance and UX</li>
+                                        <li>Smart Collections (Magic Shelves)</li>
+                                        <li>Enhanced ebook reader</li>
+                                        <li>Improved statistics and heatmap</li>
+                                        <li>Cleaner, more intuitive interface</li>
+                                    </ul>
+                                    <p>V1 databases can be migrated to V2.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Installation Section -->
+                    <section id="installation">
+                        <h2>Installation & Setup</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>What are the system requirements?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Minimal:</strong></p>
+                                    <ul>
+                                        <li>512MB RAM</li>
+                                        <li>1GB storage (plus space for ebooks)</li>
+                                        <li>Docker support (recommended)</li>
+                                    </ul>
+                                    <p><strong>Recommended:</strong></p>
+                                    <ul>
+                                        <li>1GB+ RAM</li>
+                                        <li>10GB+ storage</li>
+                                        <li>Linux server (Raspberry Pi 4 works great!)</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I run it on a Raspberry Pi?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! BookShelf runs well on Raspberry Pi 3B+ or newer. Use the Docker image for easy setup.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Do I need a domain name?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>No, you can access via:</p>
+                                    <ul>
+                                        <li><code>http://localhost:3000</code> (local machine)</li>
+                                        <li><code>http://192.168.x.x:3000</code> (LAN IP)</li>
+                                        <li>Port forward for internet access (not recommended without HTTPS)</li>
+                                    </ul>
+                                    <p>A domain makes setup cleaner but isn't required.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>How do I enable HTTPS?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Use a reverse proxy like:</p>
+                                    <ul>
+                                        <li><strong>Nginx Proxy Manager</strong> (easiest, GUI-based)</li>
+                                        <li><strong>Traefik</strong> (Docker-native)</li>
+                                        <li><strong>Caddy</strong> (auto HTTPS with Let's Encrypt)</li>
+                                    </ul>
+                                    <p>See <a href="getting-started.html#reverse-proxy">Getting Started</a> for examples.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I access it from outside my home?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes, options include:</p>
+                                    <ol>
+                                        <li><strong>Port forwarding</strong> (with HTTPS!)</li>
+                                        <li><strong>VPN</strong> (Tailscale, WireGuard) - more secure</li>
+                                        <li><strong>Cloudflare Tunnel</strong> - no port forwarding needed</li>
+                                        <li><strong>Cloud hosting</strong> (DigitalOcean, AWS, etc.)</li>
+                                    </ol>
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        <div><strong>Don't expose port 3000 directly to internet without HTTPS!</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Using BookShelf Section -->
+                    <section id="using">
+                        <h2>Using BookShelf</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>How do I add books?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Multiple ways:</p>
+                                    <ol>
+                                        <li><strong>Manual entry</strong> - Fill out form</li>
+                                        <li><strong>ISBN lookup</strong> - Automatically fetch metadata</li>
+                                        <li><strong>CSV import</strong> - From Goodreads or spreadsheet</li>
+                                        <li><strong>Audible import</strong> - From library HTML export</li>
+                                        <li><strong>BookDrop</strong> - Drop ebook files in folder for auto-import</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I import from Goodreads?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! Export your Goodreads library as CSV, then use Import feature. Ratings, shelves (as tags), and read dates are preserved.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>What ebook formats are supported?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><strong>EPUB</strong> - Reflowable ebooks (best supported)</li>
+                                        <li><strong>PDF</strong> - Documents and fixed-layout books</li>
+                                        <li><strong>CBZ/CBR</strong> - Comic books and manga</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I read books on my e-reader?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes, via OPDS catalog! Most e-reader apps (Calibre, KOReader, Moon+ Reader, FBReader) support OPDS and can connect to your BookShelf.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>How do Smart Collections work?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Smart Collections (Magic Shelves) are dynamic - they auto-update based on rules you set.</p>
+                                    <p><strong>Example:</strong> "5-Star Sci-Fi"</p>
+                                    <ul>
+                                        <li>Genre = Science Fiction</li>
+                                        <li>Rating = 5 stars</li>
+                                        <li>Sort by: Date Read</li>
+                                    </ul>
+                                    <p>Any book matching these conditions appears automatically.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can multiple people use one instance?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! BookShelf supports multiple users with separate libraries or a shared library. Admin users manage the system while members manage their books.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Does it work offline?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes, once loaded in browser. Reading ebooks works offline. Adding/editing books requires the server to be running.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Troubleshooting Section -->
+                    <section id="troubleshooting">
+                        <h2>Troubleshooting</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>I forgot my admin password</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Reset via command line:</p>
+                                    <pre><code># Docker
+docker exec -it bookshelf npm run reset-password admin
+
+# Manual installation
+npm run reset-password admin</code></pre>
+                                    <p>Enter new password when prompted.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Books aren't showing up after import</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Check:</strong></p>
+                                    <ol>
+                                        <li>Import completed successfully (check notifications)</li>
+                                        <li>No filters applied (clear all filters)</li>
+                                        <li>Try different sort order</li>
+                                        <li>Check Admin &rarr; Data Cleanup for issues</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Covers not downloading</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Possible causes:</strong></p>
+                                    <ul>
+                                        <li>Network issue (check internet connection)</li>
+                                        <li>API rate limits (wait and retry)</li>
+                                        <li>Provider is down (try different provider)</li>
+                                        <li>Invalid ISBN (verify ISBN is correct)</li>
+                                    </ul>
+                                    <p><strong>Solution:</strong> Admin &rarr; Settings &rarr; Metadata Providers - enable multiple providers. Try manual cover upload as fallback.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Ebook won't open in reader</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Check:</strong></p>
+                                    <ol>
+                                        <li>File format is supported (EPUB, PDF, CBZ)</li>
+                                        <li>File isn't corrupted (try opening in another app)</li>
+                                        <li>File uploaded completely (check file size)</li>
+                                        <li>Browser JavaScript is enabled</li>
+                                    </ol>
+                                    <p><strong>Try:</strong> Re-upload the file, try different browser, check browser console for errors.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Permission errors in Docker</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Issue:</strong> Can't write files, database locked, etc.</p>
+                                    <p><strong>Solution:</strong> Set PUID/PGID to match your user:</p>
+                                    <pre><code>id -u  # Your UID
+id -g  # Your GID</code></pre>
+                                    <p>Update <code>.env</code> file:</p>
+                                    <pre><code>PUID=1000
+PGID=1000</code></pre>
+                                    <p>Restart: <code>docker compose restart</code></p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Database error after update</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Migrations should run automatically. If not:</p>
+                                    <pre><code># Docker
+docker exec -it bookshelf npm run db:migrate
+
+# Manual
+npm run db:migrate</code></pre>
+                                    <p><strong>If that fails:</strong></p>
+                                    <ol>
+                                        <li>Restore from backup</li>
+                                        <li>Check logs for specific error</li>
+                                        <li>Report issue on GitHub</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Features Section -->
+                    <section id="features">
+                        <h2>Features & Functionality</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I track audiobooks?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! Set format to "Audiobook" and optionally add narrator. Reading time tracking works for time spent in app.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I export my data?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! Multiple formats:</p>
+                                    <ul>
+                                        <li><strong>CSV</strong> - For spreadsheets or other apps</li>
+                                        <li><strong>JSON</strong> - Complete backup with all metadata</li>
+                                        <li><strong>Database file</strong> - SQLite file for direct access</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>How are "similar books" determined?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Based on:</p>
+                                    <ol>
+                                        <li>Shared authors</li>
+                                        <li>Same series</li>
+                                        <li>Common genres</li>
+                                        <li>Matching tags</li>
+                                    </ol>
+                                    <p>AI recommendations (optional, requires OpenAI API key) provide more advanced suggestions.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I track re-reads?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! Enable re-read counting in settings. Each completion is logged separately in reading history.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Is there a mobile app?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Not yet, but the web interface is fully responsive and works great on mobile browsers. Add to home screen for app-like experience!</p>
+                                    <p>Native iOS/Android apps are on the roadmap. OPDS support means your existing e-reader apps work now.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Data & Privacy Section -->
+                    <section id="data">
+                        <h2>Data & Privacy</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Where is my data stored?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Everything is stored locally on your server:</p>
+                                    <ul>
+                                        <li><strong>Database:</strong> SQLite file in <code>/data</code></li>
+                                        <li><strong>Covers:</strong> <code>/app/static/covers</code></li>
+                                        <li><strong>Ebooks:</strong> <code>/app/static/ebooks</code></li>
+                                        <li><strong>Logs:</strong> <code>/logs</code></li>
+                                    </ul>
+                                    <p>Nothing is sent to external servers except:</p>
+                                    <ul>
+                                        <li>Metadata lookups (when you explicitly fetch)</li>
+                                        <li>AI recommendations (if you enable OpenAI)</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can others see my library?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Only if you:</p>
+                                    <ol>
+                                        <li>Enable "Public Library" in settings</li>
+                                        <li>Share OPDS catalog publicly</li>
+                                        <li>Enable public widgets</li>
+                                    </ol>
+                                    <p>By default, login is required.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>How do I backup my data?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><strong>Regularly:</strong></p>
+                                    <ul>
+                                        <li>Export &rarr; JSON backup (includes metadata)</li>
+                                        <li>Copy database file</li>
+                                        <li>Backup cover and ebook folders</li>
+                                    </ul>
+                                    <p><strong>Automated:</strong></p>
+                                    <ul>
+                                        <li>Set up cron job to backup database</li>
+                                        <li>Use Docker volume backups</li>
+                                        <li>Sync to cloud storage (Dropbox, Google Drive)</li>
+                                    </ul>
+                                    <p>See <a href="user-guide.html#import-export">Import & Export</a> for scripts.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I migrate to another server?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! BookShelf is portable:</p>
+                                    <ol>
+                                        <li>Export JSON backup</li>
+                                        <li>Copy ebook and cover folders</li>
+                                        <li>Install BookShelf on new server</li>
+                                        <li>Import JSON backup</li>
+                                        <li>Copy ebook and cover folders to new location</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Contributing Section -->
+                    <section id="contributing">
+                        <h2>Development & Contributing</h2>
+
+                        <div class="accordion">
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I contribute?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes! BookShelf is open source. Contributions welcome:</p>
+                                    <ul>
+                                        <li>Report bugs</li>
+                                        <li>Suggest features</li>
+                                        <li>Submit pull requests</li>
+                                        <li>Improve documentation</li>
+                                        <li>Translate to other languages</li>
+                                    </ul>
+                                    <p>See <code>CONTRIBUTING.md</code> in the repository.</p>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>How do I report a bug?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p><a href="https://github.com/yourusername/BookShelfV2/issues" target="_blank">Open an issue on GitHub</a> with:</p>
+                                    <ul>
+                                        <li>BookShelf version</li>
+                                        <li>Environment (Docker, manual, OS)</li>
+                                        <li>Steps to reproduce</li>
+                                        <li>Expected vs actual behavior</li>
+                                        <li>Screenshots if applicable</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Where can I get help?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <ul>
+                                        <li><strong>Documentation:</strong> You're reading it!</li>
+                                        <li><strong>GitHub Issues:</strong> For bugs and feature requests</li>
+                                        <li><strong>GitHub Discussions:</strong> For questions and community help</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">
+                                    <span>Can I use this commercially?</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="accordion-content">
+                                    <p>Yes, MIT License allows commercial use. Attribution appreciated but not required.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Still Have Questions -->
+                    <section class="next-steps">
+                        <h2>Still Have Questions?</h2>
+                        <div class="card-grid">
+                            <a href="https://github.com/yourusername/BookShelfV2/discussions" class="link-card" target="_blank">
+                                <i class="fab fa-github"></i>
+                                <span>Ask on GitHub Discussions</span>
+                            </a>
+                            <a href="https://github.com/yourusername/BookShelfV2/issues" class="link-card" target="_blank">
+                                <i class="fas fa-bug"></i>
+                                <span>Report an Issue</span>
+                            </a>
+                            <a href="user-guide.html" class="link-card">
+                                <i class="fas fa-book"></i>
+                                <span>Read the User Guide</span>
+                            </a>
+                        </div>
+                    </section>
+
+                </article>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div>
+                    <p><strong>BookShelf V2</strong></p>
+                    <p>MIT License</p>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/yourusername/BookShelfV2" target="_blank">
+                        <i class="fab fa-github"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
