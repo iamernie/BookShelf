@@ -43,8 +43,40 @@
 	import LucideIcon from '$lib/components/ui/LucideIcon.svelte';
 	import AudioPlayer from '$lib/components/audiobook/AudioPlayer.svelte';
 	import InlineTagEditor from '$lib/components/tag/InlineTagEditor.svelte';
+	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
+	import { RefreshCw } from 'lucide-svelte';
+
+	import { browser } from '$app/environment';
 
 	let { data } = $props();
+
+	// Store the referrer URL for back navigation
+	// Only store if coming from a different page (not from edit)
+	let returnUrl = $state<string | null>(null);
+
+	$effect(() => {
+		if (browser) {
+			const stored = sessionStorage.getItem(`book-return-${data.book.id}`);
+			if (stored) {
+				returnUrl = stored;
+			} else {
+				// Get referrer and store it if it's not the edit page
+				const ref = document.referrer;
+				if (ref && !ref.includes(`/books/${data.book.id}/edit`)) {
+					try {
+						const refUrl = new URL(ref);
+						// Only store if from same origin and not the current book page
+						if (refUrl.origin === window.location.origin && !refUrl.pathname.endsWith(`/books/${data.book.id}`)) {
+							returnUrl = refUrl.pathname + refUrl.search;
+							sessionStorage.setItem(`book-return-${data.book.id}`, returnUrl);
+						}
+					} catch {
+						// Invalid URL, ignore
+					}
+				}
+			}
+		}
+	});
 
 	// Tab state - check URL for listen parameter
 	const initialTab = data.autoPlayAudiobook && data.linkedAudiobooks.length > 0 ? 'listen' : 'details';
@@ -173,6 +205,10 @@
 
 	let showDeleteConfirm = $state(false);
 	let permanentDelete = $state(false);
+
+	// Metadata update state
+	let showMetadataModal = $state(false);
+	let updatingMetadata = $state(false);
 
 	// Inline rating/status state
 	let currentRating = $state(data.book.rating ?? 0);
@@ -430,6 +466,96 @@
 		if (s.bookNumEnd) return `#${s.bookNum}-${s.bookNumEnd}`;
 		return `#${s.bookNum}`;
 	}
+
+	// Apply metadata from search modal
+	async function applyMetadataResult(result: any, selectedFields: string[]) {
+		updatingMetadata = true;
+		try {
+			const updates: Record<string, any> = {};
+			let coverDownloaded = false;
+
+			for (const field of selectedFields) {
+				switch (field) {
+					case 'title':
+						if (result.title) updates.title = result.title;
+						break;
+					case 'summary':
+						if (result.description) updates.summary = result.description;
+						break;
+					case 'coverUrl':
+						// Download the cover image
+						if (result.coverUrl) {
+							updates.originalCoverUrl = result.coverUrl;
+							try {
+								const res = await fetch('/api/covers/download', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ url: result.coverUrl, bookId: data.book.id })
+								});
+								if (res.ok) {
+									const coverData = await res.json();
+									updates.coverImageUrl = coverData.coverPath;
+									coverDownloaded = true;
+								}
+							} catch {
+								// Silently fail cover download, still save other fields
+							}
+						}
+						break;
+					case 'isbn13':
+						if (result.isbn13) updates.isbn13 = result.isbn13;
+						break;
+					case 'isbn10':
+						if (result.isbn10) updates.isbn10 = result.isbn10;
+						break;
+					case 'publisher':
+						if (result.publisher) updates.publisher = result.publisher;
+						break;
+					case 'publishYear':
+						if (result.publishYear) updates.publishYear = result.publishYear;
+						break;
+					case 'pageCount':
+						if (result.pageCount) updates.pageCount = result.pageCount;
+						break;
+					case 'language':
+						if (result.language) updates.language = result.language;
+						break;
+					case 'rating':
+						if (result.rating) updates.rating = result.rating;
+						break;
+				}
+			}
+
+			// Store provider IDs
+			if (result.provider === 'goodreads' && result.providerId) {
+				updates.goodreadsId = result.providerId;
+			} else if (result.provider === 'googlebooks' && result.providerId) {
+				updates.googleBooksId = result.providerId;
+			}
+
+			// Only save if we have updates
+			if (Object.keys(updates).length > 0) {
+				const res = await fetch(`/api/books/${data.book.id}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(updates)
+				});
+				if (res.ok) {
+					const coverMsg = coverDownloaded ? ' (cover downloaded)' : '';
+					toasts.success(`Updated ${selectedFields.length} fields from ${result.provider}${coverMsg}`);
+					showMetadataModal = false;
+					invalidateAll();
+				} else {
+					const err = await res.json();
+					toasts.error(err.message || 'Failed to update metadata');
+				}
+			}
+		} catch (err) {
+			toasts.error('Failed to apply metadata');
+		} finally {
+			updatingMetadata = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -444,7 +570,15 @@
 				type="button"
 				class="flex items-center gap-1 sm:gap-2 transition-colors flex-shrink-0"
 				style="color: var(--text-secondary);"
-				onclick={() => history.back()}
+				onclick={() => {
+					// Clear the stored return URL when leaving
+					if (browser) sessionStorage.removeItem(`book-return-${data.book.id}`);
+					if (returnUrl) {
+						goto(returnUrl);
+					} else {
+						history.back();
+					}
+				}}
 				onmouseenter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
 				onmouseleave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
 			>
@@ -496,6 +630,20 @@
 						</button>
 					{/if}
 				{/if}
+				<button
+					type="button"
+					class="btn-ghost flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
+					onclick={() => showMetadataModal = true}
+					disabled={updatingMetadata}
+					title="Update metadata from online sources"
+				>
+					{#if updatingMetadata}
+						<Loader2 class="w-4 h-4 animate-spin" />
+					{:else}
+						<RefreshCw class="w-4 h-4" />
+					{/if}
+					<span class="hidden sm:inline">Update</span>
+				</button>
 				<a
 					href="/books/{data.book.id}/edit"
 					class="btn-ghost flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
@@ -1683,6 +1831,16 @@
 		onEnded={handleAudiobookEnded}
 	/>
 {/if}
+
+<!-- Metadata Search Modal -->
+<MetadataSearchModal
+	open={showMetadataModal}
+	initialTitle={data.book.title}
+	initialAuthor={data.book.authors[0]?.name || ''}
+	initialIsbn={data.book.isbn13 || data.book.isbn10 || ''}
+	onClose={() => showMetadataModal = false}
+	onApply={applyMetadataResult}
+/>
 
 <style>
 	/* Inline Edit Button */

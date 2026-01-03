@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { tick } from 'svelte';
+	import { browser } from '$app/environment';
 	import {
 		ArrowLeft,
 		BookOpen,

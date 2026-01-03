@@ -151,8 +151,13 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 			// Convert to https and improve quality
 			if (coverUrl) {
 				coverUrl = coverUrl.replace('http://', 'https://');
-				coverUrl = coverUrl.replace('&zoom=1', '&zoom=2');
+				// Remove curl effect and set high zoom for best quality
 				coverUrl = coverUrl.replace('&edge=curl', '');
+				coverUrl = coverUrl.replace(/&zoom=\d/, '&zoom=3');
+				// Remove default zoom if it's zoom=1 (lowest quality)
+				if (!coverUrl.includes('&zoom=')) {
+					coverUrl = coverUrl + '&zoom=3';
+				}
 			}
 			if (thumbnailUrl) {
 				thumbnailUrl = thumbnailUrl.replace('http://', 'https://');

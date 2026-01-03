@@ -181,12 +181,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	await validateUrlSafety(parsedUrl);
 
 	try {
-		// Fetch the image
+		// Fetch the image with redirect following
 		const response = await fetch(url, {
 			headers: {
-				'User-Agent': 'BookShelf/2.0 (Book cover downloader)',
-				'Accept': 'image/*'
-			}
+				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+				'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+				'Accept-Language': 'en-US,en;q=0.9',
+				'Referer': 'https://books.google.com/'
+			},
+			redirect: 'follow'
 		});
 
 		if (!response.ok) {
@@ -200,6 +203,12 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Get image data
 		const buffer = Buffer.from(await response.arrayBuffer());
+
+		// Validate image is not too small (likely a placeholder)
+		// Google Books sometimes returns tiny placeholder images
+		if (buffer.length < 1000) {
+			throw error(400, 'Image too small - likely a placeholder image');
+		}
 
 		// Check file size (max 10MB)
 		if (buffer.length > 10 * 1024 * 1024) {
