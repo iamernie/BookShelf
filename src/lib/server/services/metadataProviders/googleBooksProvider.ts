@@ -139,7 +139,8 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 		let coverUrl: string | undefined;
 		let thumbnailUrl: string | undefined;
 		if (info.imageLinks) {
-			coverUrl =
+			// Prefer higher quality images if available
+			const bestImage =
 				info.imageLinks.extraLarge ||
 				info.imageLinks.large ||
 				info.imageLinks.medium ||
@@ -148,19 +149,25 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 
 			thumbnailUrl = info.imageLinks.thumbnail || info.imageLinks.smallThumbnail;
 
-			// Convert to https and improve quality
-			if (coverUrl) {
-				coverUrl = coverUrl.replace('http://', 'https://');
-				// Remove curl effect and set high zoom for best quality
+			// Process the cover URL
+			if (bestImage) {
+				coverUrl = bestImage.replace('http://', 'https://');
+				// Remove curl effect
 				coverUrl = coverUrl.replace('&edge=curl', '');
-				coverUrl = coverUrl.replace(/&zoom=\d/, '&zoom=3');
-				// Remove default zoom if it's zoom=1 (lowest quality)
-				if (!coverUrl.includes('&zoom=')) {
-					coverUrl = coverUrl + '&zoom=3';
-				}
+				// Use zoom=1 which is more reliable than higher zoom levels
+				// Higher zoom levels often return blank/placeholder images
+				coverUrl = coverUrl.replace(/&zoom=\d/, '&zoom=1');
 			}
+
+			// Process thumbnail URL
 			if (thumbnailUrl) {
 				thumbnailUrl = thumbnailUrl.replace('http://', 'https://');
+				thumbnailUrl = thumbnailUrl.replace('&edge=curl', '');
+			}
+
+			// If we only have thumbnail, use it as coverUrl too (better than nothing)
+			if (!coverUrl && thumbnailUrl) {
+				coverUrl = thumbnailUrl;
 			}
 		}
 

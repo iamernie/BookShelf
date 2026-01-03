@@ -402,11 +402,18 @@
 								<div class="flex gap-4">
 									<!-- Cover -->
 									<div class="w-24 h-36 rounded-lg overflow-hidden flex-shrink-0" style="background-color: var(--bg-tertiary);">
-										{#if selectedResult.coverUrl}
+										{#if selectedResult.coverUrl || selectedResult.thumbnailUrl}
 											<img
-												src={selectedResult.coverUrl}
+												src={selectedResult.coverUrl || selectedResult.thumbnailUrl}
 												alt=""
 												class="w-full h-full object-cover"
+												onerror={(e) => {
+													// If coverUrl fails, try thumbnailUrl
+													const img = e.currentTarget as HTMLImageElement;
+													if (selectedResult?.thumbnailUrl && img.src !== selectedResult.thumbnailUrl) {
+														img.src = selectedResult.thumbnailUrl;
+													}
+												}}
 											/>
 										{:else}
 											<div class="w-full h-full flex items-center justify-center">

@@ -483,14 +483,16 @@
 						if (result.description) updates.summary = result.description;
 						break;
 					case 'coverUrl':
-						// Download the cover image
-						if (result.coverUrl) {
-							updates.originalCoverUrl = result.coverUrl;
+						// Download the cover image - try coverUrl first, then thumbnailUrl as fallback
+						const urlsToTry = [result.coverUrl, result.thumbnailUrl].filter(Boolean);
+						for (const imageUrl of urlsToTry) {
+							if (coverDownloaded) break;
+							updates.originalCoverUrl = imageUrl;
 							try {
 								const res = await fetch('/api/covers/download', {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ url: result.coverUrl, bookId: data.book.id })
+									body: JSON.stringify({ url: imageUrl, bookId: data.book.id })
 								});
 								if (res.ok) {
 									const coverData = await res.json();
@@ -498,7 +500,7 @@
 									coverDownloaded = true;
 								}
 							} catch {
-								// Silently fail cover download, still save other fields
+								// Try next URL
 							}
 						}
 						break;

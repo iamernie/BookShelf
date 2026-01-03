@@ -330,26 +330,29 @@
 					if (result.description) summary = result.description;
 					break;
 				case 'coverUrl':
-					// Automatically download the cover image
-					if (result.coverUrl) {
-						originalCoverUrl = result.coverUrl;
+					// Automatically download the cover image - try coverUrl first, then thumbnailUrl
+					const urlsToTry = [result.coverUrl, result.thumbnailUrl].filter(Boolean);
+					if (urlsToTry.length > 0) {
 						downloadingCover = true;
-						try {
-							const res = await fetch('/api/covers/download', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ url: result.coverUrl, bookId: book.id })
-							});
-							if (res.ok) {
-								const data = await res.json();
-								coverImageUrl = data.coverPath;
-								coverDownloaded = true;
+						for (const imageUrl of urlsToTry) {
+							if (coverDownloaded) break;
+							originalCoverUrl = imageUrl;
+							try {
+								const res = await fetch('/api/covers/download', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ url: imageUrl, bookId: book.id })
+								});
+								if (res.ok) {
+									const data = await res.json();
+									coverImageUrl = data.coverPath;
+									coverDownloaded = true;
+								}
+							} catch {
+								// Try next URL
 							}
-						} catch {
-							// Silently fail, user can manually download later
-						} finally {
-							downloadingCover = false;
 						}
+						downloadingCover = false;
 					}
 					break;
 				case 'isbn13':
