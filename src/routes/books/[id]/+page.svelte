@@ -969,7 +969,7 @@
 									class="transition-colors"
 									style="color: var(--accent);"
 								>
-									{s.title}{#if s.bookNum} <span style="color: var(--text-secondary);">{formatSeriesNumber(s)}</span>{/if}
+									{s.title} {#if s.bookNum}<span style="color: var(--text-secondary);">{formatSeriesNumber(s)}</span>{/if}
 								</a>{#if i < data.book.series.length - 1}<span style="color: var(--text-muted);">,</span>{/if}
 							{/each}
 						</div>

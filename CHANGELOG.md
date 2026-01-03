@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.9] - 2026-01-03
+
+### Fixed
+- **Series Number Spacing** - Added missing space between series name and number on book view page (e.g., "Undying Mercenaries #24" instead of "Undying Mercenaries#24")
+
 ## [2.4.8] - 2026-01-03
 
 ### Changed
