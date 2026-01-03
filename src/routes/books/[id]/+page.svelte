@@ -523,7 +523,14 @@
 						if (result.language) updates.language = result.language;
 						break;
 					case 'rating':
-						if (result.rating) updates.rating = result.rating;
+						// Store as provider rating, not user rating
+						if (result.rating) {
+							updates.providerRating = result.rating;
+							updates.providerRatingSource = result.provider;
+							if (result.ratingCount) {
+								updates.providerRatingCount = result.ratingCount;
+							}
+						}
 						break;
 				}
 			}
@@ -874,6 +881,31 @@
 						</div>
 					{/if}
 				</div>
+
+				<!-- Provider Rating (from external sources like Goodreads) -->
+				{#if data.book.providerRating}
+					<div class="card p-3 mt-3">
+						<h4 class="text-xs font-semibold mb-2" style="color: var(--text-muted);">Community Rating</h4>
+						<div class="flex items-center gap-2">
+							<div class="flex items-center gap-0.5">
+								{#each [1, 2, 3, 4, 5] as star}
+									<Star
+										class="w-4 h-4 {data.book.providerRating >= star ? 'fill-yellow-400 text-yellow-400' : data.book.providerRating >= star - 0.5 ? 'fill-yellow-400/50 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}"
+									/>
+								{/each}
+							</div>
+							<span class="text-sm font-medium" style="color: var(--text-primary);">
+								{data.book.providerRating.toFixed(2)}
+							</span>
+						</div>
+						<div class="flex items-center justify-between mt-1.5 text-xs" style="color: var(--text-muted);">
+							<span class="capitalize">{data.book.providerRatingSource || 'External'}</span>
+							{#if data.book.providerRatingCount}
+								<span>{data.book.providerRatingCount.toLocaleString()} ratings</span>
+							{/if}
+						</div>
+					</div>
+				{/if}
 
 				<!-- Media Sources (where purchased) -->
 				{#if data.bookMediaSources && data.bookMediaSources.length > 0}

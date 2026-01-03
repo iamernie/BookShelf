@@ -23,6 +23,10 @@ export const books = sqliteTable('books', {
 	asin: text('asin'),
 	goodreadsId: text('goodreadsId'),
 	googleBooksId: text('googleBooksId'),
+	// Provider ratings (separate from user rating)
+	providerRating: real('providerRating'),
+	providerRatingSource: text('providerRatingSource'), // e.g., 'goodreads', 'googlebooks'
+	providerRatingCount: integer('providerRatingCount'),
 	pageCount: integer('pageCount'),
 	publisher: text('publisher'),
 	publishYear: integer('publishYear'),

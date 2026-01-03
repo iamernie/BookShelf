@@ -657,6 +657,11 @@ function runMigrations() {
 		safeAddColumn('books', 'dnfReason', 'VARCHAR(255)');
 		safeAddColumn('books', 'dnfDate', 'DATETIME');
 		safeAddColumn('books', 'dnfPercentComplete', 'INTEGER');
+
+		// Provider ratings (separate from user rating)
+		safeAddColumn('books', 'providerRating', 'REAL');
+		safeAddColumn('books', 'providerRatingSource', 'TEXT');
+		safeAddColumn('books', 'providerRatingCount', 'INTEGER');
 	}
 
 	// ========== Users table columns ==========

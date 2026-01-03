@@ -53,6 +53,9 @@
 	let summary = $state(book.summary || '');
 	let comments = $state(book.comments || '');
 	let rating = $state(book.rating?.toString() || '');
+	let providerRating = $state(book.providerRating?.toString() || '');
+	let providerRatingSource = $state(book.providerRatingSource || '');
+	let providerRatingCount = $state(book.providerRatingCount?.toString() || '');
 	let coverImageUrl = $state(book.coverImageUrl || '');
 	let originalCoverUrl = $state(book.originalCoverUrl || '');
 	let statusId = $state(book.statusId?.toString() || '');
@@ -374,7 +377,14 @@
 					if (result.language) language = result.language;
 					break;
 				case 'rating':
-					if (result.rating) rating = result.rating.toString();
+					// Store as provider rating, not user rating
+					if (result.rating) {
+						providerRating = result.rating.toString();
+						providerRatingSource = result.provider;
+						if (result.ratingCount) {
+							providerRatingCount = result.ratingCount.toString();
+						}
+					}
 					break;
 			}
 		}
@@ -601,6 +611,9 @@
 					summary: summary.trim() || null,
 					comments: comments.trim() || null,
 					rating: rating ? parseFloat(rating) : null,
+					providerRating: providerRating ? parseFloat(providerRating) : null,
+					providerRatingSource: providerRatingSource.trim() || null,
+					providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
 					coverImageUrl: coverImageUrl.trim() || null,
 					originalCoverUrl: originalCoverUrl.trim() || null,
 					statusId: statusId ? parseInt(statusId) : null,
