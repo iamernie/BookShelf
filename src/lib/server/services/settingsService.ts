@@ -627,7 +627,9 @@ export function resolvePathPattern(pattern: string, context: PathPatternContext)
 	for (const [placeholder, value] of Object.entries(replacements)) {
 		if (result.includes(placeholder)) {
 			const sanitized = value ? sanitizePathComponent(value) : '';
-			result = result.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), sanitized);
+			// Escape all regex special characters in placeholder, not just { and }
+			const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			result = result.replace(new RegExp(escapedPlaceholder, 'g'), sanitized);
 		}
 	}
 

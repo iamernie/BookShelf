@@ -194,3 +194,27 @@ export function decodeHtmlEntities(text: string | null | undefined): string | un
 
 	return decoded;
 }
+
+/**
+ * Safely strip HTML tags from text
+ * Uses a loop to handle nested/malformed tags like <<script>
+ */
+export function stripHtmlTags(html: string | null | undefined): string {
+	if (!html || typeof html !== 'string') return '';
+	let result = html;
+	let previous = '';
+	// Loop until no more changes (handles nested tags)
+	while (result !== previous) {
+		previous = result;
+		result = result.replace(/<[^>]*>/g, '');
+	}
+	return result.trim();
+}
+
+/**
+ * Escape a string for use in GraphQL query
+ * Escapes backslashes first, then double quotes
+ */
+export function escapeGraphQLString(str: string): string {
+	return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}

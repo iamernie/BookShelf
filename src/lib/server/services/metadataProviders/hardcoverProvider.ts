@@ -10,7 +10,7 @@ import type {
 	MetadataSearchRequest,
 	BookMetadataResult
 } from './types';
-import { decodeHtmlEntities, extractYear } from './types';
+import { decodeHtmlEntities, extractYear, escapeGraphQLString } from './types';
 
 const HARDCOVER_API_URL = 'https://api.hardcover.app/v1/graphql';
 
@@ -115,7 +115,7 @@ export class HardcoverProvider implements MetadataProviderInterface {
 			const perPage = Math.min(limit, 20);
 			const graphqlQuery = `
 				query SearchBooks {
-					search(query: "${searchTerm.replace(/"/g, '\\"')}", query_type: "Book", per_page: ${perPage}, page: 1) {
+					search(query: "${escapeGraphQLString(searchTerm)}", query_type: "Book", per_page: ${perPage}, page: 1) {
 						results
 					}
 				}

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.12] - 2026-01-03
+
+### Security
+- **Fixed Code Scanning Alerts** - Resolved 13 high-severity security issues flagged by GitHub CodeQL
+  - **Incomplete multi-character sanitization**: Added `stripHtmlTags()` utility that loops until all HTML tags are removed, preventing bypass with nested tags like `<<script>`
+  - **Incomplete string escaping**: Added `escapeGraphQLString()` utility that escapes both backslashes and quotes for GraphQL queries
+  - **Double escaping vulnerability**: Fixed XML entity decoder to decode `&amp;` last, preventing double-decode attacks
+  - Affected services: goodreadsProvider, amazonProvider, comicVineProvider, hardcoverProvider, wikipediaService, narratorService, emailService, ebookMetadataService, settingsService
+
 ## [2.4.11] - 2026-01-03
 
 ### Security

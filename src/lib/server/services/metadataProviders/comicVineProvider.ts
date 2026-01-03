@@ -10,7 +10,7 @@ import type {
 	MetadataSearchRequest,
 	BookMetadataResult
 } from './types';
-import { extractYear } from './types';
+import { extractYear, stripHtmlTags } from './types';
 
 const COMICVINE_API_URL = 'https://comicvine.gamespot.com/api';
 
@@ -43,7 +43,8 @@ async function rateLimitedFetch(url: string): Promise<Response> {
  */
 function stripHtml(html: string | null | undefined): string | undefined {
 	if (!html) return undefined;
-	return html.replace(/<[^>]*>/g, '').trim() || undefined;
+	const result = stripHtmlTags(html);
+	return result || undefined;
 }
 
 export class ComicVineProvider implements MetadataProviderInterface {

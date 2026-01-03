@@ -12,7 +12,7 @@ import type {
 	MetadataSearchRequest,
 	BookMetadataResult
 } from './types';
-import { decodeHtmlEntities } from './types';
+import { decodeHtmlEntities, stripHtmlTags } from './types';
 
 // Supported Amazon domains
 type AmazonDomain = 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in';
@@ -86,7 +86,7 @@ function extractText(html: string, patterns: RegExp[]): string | undefined {
  * Clean HTML tags from text
  */
 function stripHtml(html: string): string {
-	return html.replace(/<[^>]*>/g, '').trim();
+	return stripHtmlTags(html);
 }
 
 /**
@@ -221,10 +221,8 @@ function parseBookDetails(html: string, asin: string): BookMetadataResult | null
 	let description = extractText(html, descPatterns);
 	if (description) {
 		// Clean up HTML in description
-		description = description
-			.replace(/<br\s*\/?>/gi, '\n')
-			.replace(/<[^>]*>/g, '')
-			.trim();
+		description = description.replace(/<br\s*\/?>/gi, '\n');
+		description = stripHtmlTags(description);
 	}
 
 	// Extract cover image

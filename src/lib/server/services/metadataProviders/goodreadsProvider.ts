@@ -13,7 +13,7 @@ import type {
 	BookMetadataResult,
 	BookReview
 } from './types';
-import { decodeHtmlEntities } from './types';
+import { decodeHtmlEntities, stripHtmlTags } from './types';
 
 const GOODREADS_BASE = 'https://www.goodreads.com';
 const SEARCH_URL = `${GOODREADS_BASE}/search?q=`;
@@ -95,7 +95,7 @@ function parseSearchResults(html: string): GoodreadsSearchResult[] {
 
 		const href = linkMatch[1] || '';
 		// Strip any HTML tags from the title (in case of nested elements)
-		let title: string = (linkMatch[2] || '').replace(/<[^>]*>/g, '').trim();
+		let title: string = stripHtmlTags(linkMatch[2] || '');
 		title = decodeHtmlEntities(title) || title;
 
 		const goodreadsId = parseGoodreadsId(href);
@@ -109,7 +109,7 @@ function parseSearchResults(html: string): GoodreadsSearchResult[] {
 		}
 		let author: string | undefined;
 		if (authorMatch) {
-			author = authorMatch[1].replace(/<[^>]*>/g, '').trim();
+			author = stripHtmlTags(authorMatch[1]);
 			author = decodeHtmlEntities(author);
 		}
 
@@ -348,7 +348,7 @@ export class GoodreadsProvider implements MetadataProviderInterface {
 				if (!reviewData?.text) continue;
 
 				// Strip HTML from review text
-				const plainText = reviewData.text.replace(/<[^>]*>/g, '').trim();
+				const plainText = stripHtmlTags(reviewData.text);
 				if (!plainText) continue;
 
 				// Get reviewer name

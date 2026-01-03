@@ -1,5 +1,6 @@
 import { db, narrators, books, narratorTags, tags, audiobooks } from '$lib/server/db';
 import { eq, like, asc, desc, sql, and, or, inArray } from 'drizzle-orm';
+import { stripHtmlTags } from './metadataProviders/types';
 
 // Infer Narrator type from schema
 type NarratorType = typeof narrators.$inferSelect;
@@ -478,7 +479,7 @@ export async function searchWikipedia(query: string): Promise<WikipediaSearchRes
 
 		return data.query.search.map((result: { title: string; snippet: string; pageid: number }) => ({
 			title: result.title,
-			description: result.snippet.replace(/<[^>]*>/g, ''), // Strip HTML
+			description: stripHtmlTags(result.snippet),
 			pageId: result.pageid
 		}));
 	} catch (error) {

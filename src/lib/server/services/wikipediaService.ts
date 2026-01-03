@@ -6,6 +6,8 @@
  * which is useful for genre authors who may not have Wikipedia articles.
  */
 
+import { stripHtmlTags } from './metadataProviders/types';
+
 // API base URLs
 const WIKI_API_BASE = 'https://en.wikipedia.org/w/api.php';
 const FANDOM_API_BASE = 'https://speculativefiction.fandom.com/api.php';
@@ -150,7 +152,7 @@ export async function searchWikipedia(
 						seen.add(item.pageid);
 						allResults.push({
 							title: item.title,
-							snippet: item.snippet.replace(/<[^>]*>/g, ''), // Strip HTML
+							snippet: stripHtmlTags(item.snippet),
 							pageId: item.pageid,
 							source: 'wikipedia',
 							priority
@@ -365,11 +367,12 @@ function parseTextDate(dateStr: string): string | null {
  * Clean wikitext markup from a string
  */
 function cleanWikitext(text: string): string {
-	return text
+	let result = text
 		.replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2') // [[link|text]] -> text
 		.replace(/'''?/g, '') // Remove bold/italic
-		.replace(/\{\{[^}]+\}\}/g, '') // Remove templates
-		.replace(/<[^>]+>/g, '') // Remove HTML
+		.replace(/\{\{[^}]+\}\}/g, ''); // Remove templates
+	result = stripHtmlTags(result); // Remove HTML tags safely
+	return result
 		.replace(/&nbsp;/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();

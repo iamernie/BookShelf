@@ -11,6 +11,7 @@
 import nodemailer from 'nodemailer';
 import { createLogger } from './loggerService';
 import { getEmailSettings } from './settingsService';
+import { stripHtmlTags } from './metadataProviders/types';
 
 const log = createLogger('email');
 
@@ -126,7 +127,7 @@ export async function sendEmail(
 			to,
 			subject,
 			html,
-			text: text || html.replace(/<[^>]*>/g, '')
+			text: text || stripHtmlTags(html)
 		});
 		log.info('Email sent successfully', { to, subject });
 		return true;

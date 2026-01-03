@@ -148,14 +148,15 @@ function parseOPF(opfContent: string): EbookMetadata {
 }
 
 function decodeXmlEntities(str: string): string {
+	// Decode &amp; LAST to prevent double-decoding (e.g., &amp;lt; -> &lt; -> <)
 	return str
-		.replace(/&amp;/g, '&')
 		.replace(/&lt;/g, '<')
 		.replace(/&gt;/g, '>')
 		.replace(/&quot;/g, '"')
 		.replace(/&apos;/g, "'")
 		.replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num, 10)))
-		.replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+		.replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+		.replace(/&amp;/g, '&'); // Must be last to avoid double-decoding
 }
 
 // Extract metadata from EPUB file
