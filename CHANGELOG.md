@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.11] - 2026-01-03
+
+### Security
+- **Fixed Dependabot Vulnerabilities** - Resolved 2 security alerts
+  - Updated `drizzle-kit` to 0.31.8 (fixes esbuild vulnerability)
+  - Added npm overrides for `cookie` (^0.7.0) and `esbuild` (^0.25.0) to patch transitive dependencies
+
 ## [2.4.10] - 2026-01-03
 
 ### Changed
