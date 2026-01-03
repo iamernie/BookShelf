@@ -644,14 +644,14 @@
 					class="btn-ghost flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
 					onclick={() => showMetadataModal = true}
 					disabled={updatingMetadata}
-					title="Update metadata from online sources"
+					title="Lookup metadata from online sources"
 				>
 					{#if updatingMetadata}
 						<Loader2 class="w-4 h-4 animate-spin" />
 					{:else}
 						<RefreshCw class="w-4 h-4" />
 					{/if}
-					<span class="hidden sm:inline">Update</span>
+					<span class="hidden sm:inline">Lookup</span>
 				</button>
 				<a
 					href="/books/{data.book.id}/edit"

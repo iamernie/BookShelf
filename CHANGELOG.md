@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.8] - 2026-01-03
+
+### Changed
+- **Metadata Lookup Button** - Renamed "Update" to "Lookup" for clarity on book view page
+
+## [2.4.7] - 2026-01-03
+
+### Added
+- **Provider Ratings** - Imported ratings from metadata providers (Google Books, Goodreads, etc.) are now stored separately from your personal rating
+  - New "Community Rating" card on book view page shows the provider's rating, source, and rating count
+  - Your personal star rating is never overwritten by metadata imports
+  - Provider rating includes source name (e.g., "googlebooks", "goodreads") and total rating count
+
+## [2.4.6] - 2026-01-03
+
+### Fixed
+- **Google Books Cover Import** - Fixed blank/placeholder images when importing covers
+  - Changed to use zoom=1 (more reliable than higher zoom levels)
+  - Added fallback to thumbnail URL if main cover fails
+  - Added minimum file size check to reject placeholder images
+
+## [2.4.5] - 2026-01-03
+
+### Added
+- **Metadata Lookup Button** - Added "Lookup" button directly on book view page header
+  - Quickly search and apply metadata from Google Books, Goodreads, etc. without going to edit page
+- **Improved Back Navigation** - After editing a book, back button returns to where you came from (e.g., series page, author page) instead of always going to books list
+
 ## [2.4.0] - 2025-12-31
 
 ### Added
