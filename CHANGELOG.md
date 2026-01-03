@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.10] - 2026-01-03
+
+### Changed
+- **Sidebar Logo Size** - Increased logo size from 32px to 40px for better visibility
+
 ## [2.4.9] - 2026-01-03
 
 ### Fixed
