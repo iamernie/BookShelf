@@ -1,5 +1,5 @@
-# BookShelf V2 - Personal Book Management Application
-# https://github.com/iamernie/BookShelfV2
+# BookShelf - Personal Book Management Application
+# https://github.com/iamernie/BookShelf
 
 # Use Node.js 20 LTS (Alpine for smaller image)
 FROM node:20-alpine AS builder
@@ -26,8 +26,8 @@ RUN npm run build
 FROM node:20-alpine
 
 # Set labels for GitHub Container Registry
-LABEL org.opencontainers.image.source="https://github.com/iamernie/BookShelfV2"
-LABEL org.opencontainers.image.description="BookShelf V2 - A self-hosted personal book management application"
+LABEL org.opencontainers.image.source="https://github.com/iamernie/BookShelf"
+LABEL org.opencontainers.image.description="BookShelf - A self-hosted personal book management application"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Install su-exec for running as non-root user

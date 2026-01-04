@@ -1,10 +1,10 @@
-# CLAUDE.md - BookShelf V2
+# CLAUDE.md - BookShelf
 
 This file provides guidance for AI assistants working with the BookShelf codebase.
 
 ## Project Overview
 
-BookShelf V2 is a self-hosted personal book library management application built with SvelteKit. It enables users to organize books, track reading progress, manage ebooks (EPUB/PDF/CBZ), and view reading statistics.
+BookShelf is a self-hosted personal book library management application built with SvelteKit. It enables users to organize books, track reading progress, manage ebooks (EPUB/PDF/CBZ), and view reading statistics.
 
 **Key Features:**
 - Book library organization with authors, series, genres, tags

@@ -1,6 +1,6 @@
 # BookShelf Documentation Site
 
-Modern documentation site for BookShelf V2, designed to match the application's design language.
+Modern documentation site for BookShelf, designed to match the application's design language.
 
 ## Features
 
@@ -71,9 +71,9 @@ The documentation uses the same colors as BookShelf:
 Before deploying, update these placeholders throughout the HTML files:
 
 - `yourusername` - Your GitHub username
-- `BookShelfV2` - Your repository name (if different)
+- `BookShelf` - Your repository name (if different)
 - GitHub repository URLs
 
 ## License
 
-MIT - Same as BookShelf V2
+MIT - Same as BookShelf

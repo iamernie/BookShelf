@@ -26,14 +26,14 @@ grep -r "yourusername" docs/
 ```yaml
 # Before:
 url: https://yourusername.github.io
-baseurl: /BookShelfV2
+baseurl: /BookShelf
 
 # After (if your username is "ernie"):
 url: https://ernie.github.io
 baseurl: /BookShelf
 ```
 
-**Note:** Also update repository name if it's not "BookShelfV2"
+**Note:** Also update repository name if it's not "BookShelf"
 
 ### Step 2: Enable GitHub Pages
 

@@ -1,6 +1,6 @@
-# BookShelf V2 Roadmap
+# BookShelf Roadmap
 
-This document outlines planned features, improvements, and future direction for BookShelf V2.
+This document outlines planned features, improvements, and future direction for BookShelf.
 
 ## Completed
 
@@ -150,7 +150,7 @@ Users can optionally share their library with other users (e.g., family members 
 
 ## Audiobook Support (Inspired by Audiobookshelf)
 
-A comprehensive audiobook playback system integrated into BookShelf V2, allowing users to upload, manage, and play audiobooks directly in the browser with progress sync across devices.
+A comprehensive audiobook playback system integrated into BookShelf, allowing users to upload, manage, and play audiobooks directly in the browser with progress sync across devices.
 
 **Key Design Decision:** Audiobooks are attached to books, not standalone items. The book is the single source of truth for all metadata (title, author, series, etc.). This unified approach means you manage one book entry whether you have an ebook, audiobook, or both.
 

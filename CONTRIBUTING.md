@@ -1,6 +1,6 @@
 # Contributing to BookShelf
 
-Thank you for your interest in contributing to BookShelf V2!
+Thank you for your interest in contributing to BookShelf!
 
 ## Development Setup
 
@@ -13,8 +13,8 @@ Thank you for your interest in contributing to BookShelf V2!
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/BookShelfV2.git
-   cd BookShelfV2
+   git clone https://github.com/iamernie/BookShelf.git
+   cd BookShelf
    ```
 
 2. **Install dependencies**

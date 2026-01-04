@@ -1,5 +1,5 @@
 #!/bin/sh
-# BookShelf V2 Docker Entrypoint
+# BookShelf Docker Entrypoint
 # Handles PUID/PGID for proper file ownership
 
 set -e
@@ -12,7 +12,7 @@ PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 
 echo "============================================"
-echo "  BookShelf V2 - v${VERSION}"
+echo "  BookShelf - v${VERSION}"
 echo "============================================"
 echo "Starting with UID: $PUID, GID: $PGID"
 

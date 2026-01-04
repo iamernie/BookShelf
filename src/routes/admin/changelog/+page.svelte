@@ -66,7 +66,7 @@
 			<h1 class="text-3xl font-bold" style="color: var(--text-primary);">Changelog</h1>
 		</div>
 		<p class="text-lg" style="color: var(--text-muted);">
-			All notable changes to BookShelf V2
+			All notable changes to BookShelf
 		</p>
 	</div>
 

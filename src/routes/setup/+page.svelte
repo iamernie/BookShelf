@@ -365,7 +365,7 @@
 
 		<!-- Footer -->
 		<p class="text-center mt-6 text-sm" style="color: var(--text-muted);">
-			BookShelf v2.0 - Your personal book library
+			BookShelf - Your personal book library
 		</p>
 	</div>
 </div>

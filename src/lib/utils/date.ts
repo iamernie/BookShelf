@@ -1,5 +1,5 @@
 /**
- * Centralized date formatting utilities for BookShelf V2
+ * Centralized date formatting utilities for BookShelf
  *
  * Database stores dates as ISO strings with timezone: "2023-12-12 00:00:00.000 +00:00"
  * HTML date inputs require: "YYYY-MM-DD"

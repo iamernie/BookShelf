@@ -1,11 +1,22 @@
 # Changelog
 
-All notable changes to BookShelf V2 will be documented in this file.
+All notable changes to BookShelf will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [2.4.18] - 2026-01-04
+
+### Changed
+- **Rebranding** - Renamed "BookShelf V2" to "BookShelf" throughout all documentation
+  - Updated package.json name from "bookshelf-v2" to "bookshelf"
+  - Updated all docs-site HTML pages with correct GitHub and Docker image URLs
+  - Updated README, CONTRIBUTING, ROADMAP, and other documentation
+  - Updated Dockerfile labels and docker-compose configurations
+  - Standardized GitHub repo URL to `iamernie/BookShelf`
+  - Standardized Docker image to `ghcr.io/iamernie/bookshelf`
 
 ## [2.4.17] - 2026-01-04
 

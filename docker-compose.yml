@@ -1,5 +1,5 @@
-# BookShelf V2 Docker Compose Configuration
-# https://github.com/iamernie/BookShelfV2
+# BookShelf Docker Compose Configuration
+# https://github.com/iamernie/BookShelf
 #
 # Quick Start:
 #   1. Copy .env.example to .env and configure your settings
@@ -17,7 +17,7 @@
 services:
   bookshelf:
     # Use the GitHub Container Registry image
-    image: ghcr.io/iamernie/bookshelfv2:latest
+    image: ghcr.io/iamernie/bookshelf:latest
     # Or build locally:
     # build: .
 

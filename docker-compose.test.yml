@@ -1,4 +1,4 @@
-# BookShelf V2 Docker Compose - Testing Configuration
+# BookShelf Docker Compose - Testing Configuration
 # Use this to test Docker builds locally before deploying to production
 #
 # Usage:

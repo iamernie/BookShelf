@@ -1,4 +1,4 @@
-# BookShelf V2
+# BookShelf
 
 **Your personal book library, beautifully organized.**
 
@@ -57,7 +57,7 @@ BookShelf is a self-hosted web app for book lovers who want to track their readi
 
 ## 📚 Documentation
 
-**[View Full Documentation →](https://yourusername.github.io/BookShelfV2/)**
+**[View Full Documentation →](https://iamernie.github.io/BookShelf/)**
 
 Complete user guides, installation instructions, and API reference available on our documentation site.
 
@@ -72,7 +72,7 @@ The easiest way to run BookShelf:
 mkdir bookshelf && cd bookshelf
 
 # 2. Download the compose file
-curl -O https://raw.githubusercontent.com/yourusername/BookShelfV2/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/iamernie/BookShelf/main/docker-compose.yml
 
 # 3. Create your .env file
 cat > .env << EOF
@@ -123,8 +123,8 @@ BookShelf stores data in these locations:
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/BookShelfV2.git
-cd BookShelfV2
+git clone https://github.com/iamernie/BookShelf.git
+cd BookShelf
 npm install
 
 # Set up environment

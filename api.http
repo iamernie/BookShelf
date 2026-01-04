@@ -1,4 +1,4 @@
-### BookShelf V2 API Testing
+### BookShelf API Testing
 ### Use with REST Client VS Code extension (humao.rest-client)
 
 @baseUrl = http://localhost:5173/api

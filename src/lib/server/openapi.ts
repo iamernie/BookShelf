@@ -1,10 +1,10 @@
 /**
- * OpenAPI 3.0 Specification for BookShelf V2 API
+ * OpenAPI 3.0 Specification for BookShelf API
  */
 export const openApiSpec = {
 	openapi: '3.0.0',
 	info: {
-		title: 'BookShelf V2 API',
+		title: 'BookShelf API',
 		version: '1.0.0',
 		description: 'API for managing your book collection'
 	},

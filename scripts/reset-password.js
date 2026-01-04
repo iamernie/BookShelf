@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * BookShelf V2 - Password Reset Script
+ * BookShelf - Password Reset Script
  *
  * Usage:
  *   node scripts/reset-password.js <email> <new-password>

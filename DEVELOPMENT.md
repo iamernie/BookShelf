@@ -1,4 +1,4 @@
-# BookShelf V2 - Development Standards Guide
+# BookShelf - Development Standards Guide
 
 ## Documentation Index
 
@@ -14,7 +14,7 @@ This project uses split documentation for better organization:
 
 ## Project Overview
 
-BookShelf V2 is a complete rewrite of the BookShelf book library management application.
+BookShelf is a complete rewrite of the previous book library management application.
 
 **Stack:**
 - SvelteKit (framework)
@@ -28,7 +28,7 @@ BookShelf V2 is a complete rewrite of the BookShelf book library management appl
 ## Project Structure
 
 ```
-BookShelfV2/
+BookShelf/
 ├── src/
 │   ├── lib/
 │   │   ├── server/              # Server-only code
