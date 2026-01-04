@@ -331,10 +331,11 @@ function runMigrations() {
 	safeCreateTable('genres', `
 		CREATE TABLE genres (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE,
+			name TEXT NOT NULL,
+			description TEXT,
 			color TEXT,
 			icon TEXT,
-			description TEXT,
+			slug TEXT UNIQUE,
 			displayOrder INTEGER DEFAULT 0,
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
@@ -360,10 +361,11 @@ function runMigrations() {
 	safeCreateTable('seriesstatuses', `
 		CREATE TABLE seriesstatuses (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE,
-			color TEXT,
-			icon TEXT,
-			sortOrder INTEGER DEFAULT 0,
+			name TEXT NOT NULL,
+			key TEXT,
+			isSystem INTEGER DEFAULT 0,
+			color TEXT DEFAULT '#6c757d',
+			icon TEXT DEFAULT 'fas fa-bookmark',
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 		)
@@ -375,13 +377,13 @@ function runMigrations() {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
 			bio TEXT,
-			website TEXT,
-			photoUrl TEXT,
 			birthDate TEXT,
 			deathDate TEXT,
-			nationality TEXT,
+			birthPlace TEXT,
+			photoUrl TEXT,
+			website TEXT,
 			wikipediaUrl TEXT,
-			goodreadsUrl TEXT,
+			comments TEXT,
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 		)
@@ -391,11 +393,12 @@ function runMigrations() {
 	safeCreateTable('series', `
 		CREATE TABLE series (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
+			title TEXT NOT NULL,
 			description TEXT,
-			status TEXT DEFAULT 'ongoing',
-			color TEXT,
-			icon TEXT,
+			numBooks INTEGER,
+			comments TEXT,
+			statusId INTEGER REFERENCES seriesstatuses(id),
+			genreId INTEGER REFERENCES genres(id),
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 		)
@@ -406,8 +409,9 @@ function runMigrations() {
 		CREATE TABLE tags (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL UNIQUE,
-			color TEXT,
+			color TEXT DEFAULT '#6c757d',
 			icon TEXT,
+			isSystem INTEGER DEFAULT 0,
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 		)

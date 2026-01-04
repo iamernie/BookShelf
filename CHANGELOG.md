@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.21] - 2026-01-04
+
+### Fixed
+- **Fresh Install Schema Errors** - Fixed additional table schema mismatches preventing fresh installations
+  - Added missing `slug` column to genres table
+  - Fixed series table: uses `title` field (not `name`), added `numBooks`, `comments`, `statusId`, `genreId`
+  - Fixed authors table: added `birthPlace` and `comments` columns
+  - Fixed seriesstatuses table: added `key` and `isSystem` columns
+  - Fixed tags table: added `isSystem` column
+  - All raw SQL table definitions now match Drizzle ORM schema
+
 ## [2.4.20] - 2026-01-04
 
 ### Fixed
