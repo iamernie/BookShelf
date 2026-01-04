@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.23] - 2026-01-04
+
+### Fixed
+- **HTTP Access on Local Networks** - Fixed login not working when accessing via IP address over HTTP
+  - Session cookies now use `secure` flag based on ORIGIN setting (https:// = secure, http:// = not secure)
+  - Allows self-hosted users to access BookShelf via local IP without HTTPS
+  - Created shared cookie utility for consistent cookie settings across all auth endpoints
+
 ## [2.4.22] - 2026-01-04
 
 ### Fixed

@@ -10,7 +10,7 @@ import {
 	type OidcState
 } from '$lib/server/services/oidcService';
 import { env } from '$env/dynamic/private';
-import { dev } from '$app/environment';
+import { getSessionCookieOptions, shouldUseSecureCookies } from '$lib/server/utils/cookies';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
 	// Get authorization code and state from query params
@@ -102,13 +102,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			await updateLastLogin(existingLink.link.id);
 			const { sessionId } = await createSessionForUser(existingLink.user, provider.id);
 
-			cookies.set('session', sessionId, {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: !dev,
-				maxAge: 60 * 60 * 24 * 7 // 7 days
-			});
+			cookies.set('session', sessionId, getSessionCookieOptions());
 
 			throw redirect(302, stateData.returnUrl || '/');
 		}
@@ -133,7 +127,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'lax',
-			secure: !dev,
+			secure: shouldUseSecureCookies(),
 			maxAge: 60 * 15 // 15 minutes
 		});
 

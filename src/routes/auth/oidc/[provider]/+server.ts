@@ -8,7 +8,7 @@ import {
 	type OidcState
 } from '$lib/server/services/oidcService';
 import { env } from '$env/dynamic/private';
-import { dev } from '$app/environment';
+import { shouldUseSecureCookies } from '$lib/server/utils/cookies';
 
 export const GET: RequestHandler = async ({ params, cookies, url, locals }) => {
 	const { provider: providerSlug } = params;
@@ -45,7 +45,7 @@ export const GET: RequestHandler = async ({ params, cookies, url, locals }) => {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: !dev,
+		secure: shouldUseSecureCookies(),
 		maxAge: 60 * 10 // 10 minutes
 	});
 

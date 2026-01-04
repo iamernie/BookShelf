@@ -1,9 +1,9 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { dev } from '$app/environment';
 import { login, isEmailVerified, getUserByEmail, getUserApprovalStatus } from '$lib/server/services/authService';
 import { getSetting } from '$lib/server/services/settingsService';
 import { loginLimiter } from '$lib/server/middleware/rateLimiter';
+import { getSessionCookieOptions } from '$lib/server/utils/cookies';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	// Check rate limit first
@@ -52,14 +52,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 	}
 
-	// Set session cookie
-	cookies.set('session', result.sessionId!, {
-		path: '/',
-		httpOnly: true,
-		sameSite: 'lax',
-		secure: !dev, // Secure in production (HTTPS), allow HTTP in development
-		maxAge: 60 * 60 * 24 * 7 // 7 days
-	});
+	// Set session cookie with options appropriate for self-hosted deployments
+	cookies.set('session', result.sessionId!, getSessionCookieOptions());
 
 	return json({ user: result.user });
 };

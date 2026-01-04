@@ -1,6 +1,5 @@
 import type { PageServerLoad, Actions } from './$types';
 import { redirect, fail } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { getUserByEmail, verifyPassword, hashPassword } from '$lib/server/services/authService';
 import { getSetting } from '$lib/server/services/settingsService';
 import {
@@ -9,6 +8,7 @@ import {
 	createSessionForUser
 } from '$lib/server/services/oidcService';
 import { db, users } from '$lib/server/db';
+import { getSessionCookieOptions } from '$lib/server/utils/cookies';
 
 interface OidcPendingData {
 	providerId: number;
@@ -114,13 +114,7 @@ export const actions: Actions = {
 		cookies.delete('oidc_pending', { path: '/' });
 
 		// Set session cookie
-		cookies.set('session', sessionId, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: !dev,
-			maxAge: 60 * 60 * 24 * 7
-		});
+		cookies.set('session', sessionId, getSessionCookieOptions());
 
 		throw redirect(302, pendingData.returnUrl || '/');
 	},
@@ -215,13 +209,7 @@ export const actions: Actions = {
 			cookies.delete('oidc_pending', { path: '/' });
 
 			// Set session cookie
-			cookies.set('session', sessionId, {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: !dev,
-				maxAge: 60 * 60 * 24 * 7
-			});
+			cookies.set('session', sessionId, getSessionCookieOptions());
 
 			throw redirect(302, pendingData.returnUrl || '/');
 		} catch (e) {
