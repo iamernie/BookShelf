@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.24] - 2026-01-04
+
+### Added
+- **Compact Books Toolbar** - Redesigned the books page toolbar to be more space-efficient
+  - All controls now fit on a single line (search, sort, view toggle, book count, items per page, pagination)
+  - New items-per-page selector: choose between 12, 24, 48, or 96 books per page
+  - Inline pagination controls in the toolbar header
+  - Reduced vertical space usage for more room to display books
+
+### Fixed
+- **OPDS Ebook Downloads** - Fixed ebook downloads not working from OPDS clients (e-readers)
+  - Created dedicated OPDS download endpoint at `/opds/download/[id]` with Basic Auth support
+  - E-readers can now successfully download ebooks using the same credentials as the OPDS catalog
+
 ## [2.4.23] - 2026-01-04
 
 ### Fixed

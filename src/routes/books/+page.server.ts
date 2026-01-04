@@ -3,6 +3,9 @@ import { getBooks, getStatuses, getGenres, getFormats, getNarrators, getTags, ge
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
+	const limitParam = parseInt(url.searchParams.get('limit') || '24');
+	// Constrain limit to valid values
+	const limit = [12, 24, 48, 96].includes(limitParam) ? limitParam : 24;
 	const search = url.searchParams.get('search') || undefined;
 	const statusId = url.searchParams.get('status') ? parseInt(url.searchParams.get('status')!) : undefined;
 	const genreId = url.searchParams.get('genre') ? parseInt(url.searchParams.get('genre')!) : undefined;
@@ -18,7 +21,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const userId = locals.user?.id;
 
 	const [booksResult, statuses, genres, formats, narrators, tags, authors, series] = await Promise.all([
-		getBooks({ page, limit: 24, search, statusId, genreId, formatId, tagId, authorId, seriesId, sort, order, userId, filterMode }),
+		getBooks({ page, limit, search, statusId, genreId, formatId, tagId, authorId, seriesId, sort, order, userId, filterMode }),
 		getStatuses(),
 		getGenres(),
 		getFormats(),

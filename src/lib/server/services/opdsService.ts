@@ -160,10 +160,10 @@ function bookEntry(config: OPDSConfig, book: BookEntry): string {
 		entry += `    <link rel="http://opds-spec.org/image/thumbnail" href="${escapeXml(coverUrl)}" type="image/jpeg"/>\n`;
 	}
 
-	// Acquisition link (download)
+	// Acquisition link (download) - uses OPDS-specific endpoint with Basic Auth
 	if (book.ebookPath) {
 		const mime = getEbookMime(book.ebookFormat);
-		entry += `    <link rel="http://opds-spec.org/acquisition" href="${escapeXml(config.baseUrl)}/api/ebooks/${book.id}/download" type="${mime}"/>\n`;
+		entry += `    <link rel="http://opds-spec.org/acquisition" href="${escapeXml(config.baseUrl)}/opds/download/${book.id}" type="${mime}"/>\n`;
 	}
 
 	entry += `  </entry>\n`;

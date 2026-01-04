@@ -368,29 +368,29 @@
 				</div>
 			</div>
 
-			<!-- Search & View Toggle Bar -->
-			<div class="card p-4 mb-6">
-				<div class="flex flex-col sm:flex-row gap-4">
+			<!-- Compact Toolbar -->
+			<div class="card p-2 mb-4">
+				<div class="flex flex-wrap items-center gap-2">
 					<!-- Search -->
-					<form onsubmit={(e) => { e.preventDefault(); handleSearch(); }} class="flex-1 relative">
+					<form onsubmit={(e) => { e.preventDefault(); handleSearch(); }} class="relative flex-shrink-0" style="min-width: 180px; max-width: 280px; flex: 1;">
 						<button
 							type="submit"
-							class="absolute left-3 top-1/2 -translate-y-1/2 p-0 bg-transparent border-none cursor-pointer hover:opacity-80"
+							class="absolute left-2.5 top-1/2 -translate-y-1/2 p-0 bg-transparent border-none cursor-pointer hover:opacity-80"
 							title="Search"
 						>
-							<Search class="w-5 h-5" style="color: var(--text-muted);" />
+							<Search class="w-4 h-4" style="color: var(--text-muted);" />
 						</button>
 						<input
 							type="text"
-							placeholder="Search books..."
-							class="input pl-10"
+							placeholder="Search..."
+							class="input pl-8 py-1.5 text-sm"
 							bind:value={searchInput}
 						/>
 					</form>
 
 					<!-- Sort -->
 					<select
-						class="select"
+						class="select py-1.5 text-sm flex-shrink-0"
 						value={`${data.sort}-${data.order}`}
 						onchange={(e) => {
 							const [sort, order] = e.currentTarget.value.split('-');
@@ -411,10 +411,10 @@
 					</select>
 
 					<!-- View Toggle -->
-					<div class="flex items-center gap-1 rounded-lg p-1" style="background-color: var(--bg-tertiary);">
+					<div class="flex items-center gap-0.5 rounded-md p-0.5 flex-shrink-0" style="background-color: var(--bg-tertiary);">
 						<button
 							type="button"
-							class="p-2 rounded transition-colors"
+							class="p-1.5 rounded transition-colors"
 							style="background-color: {viewMode === 'grid' ? 'var(--bg-secondary)' : 'transparent'}; color: {viewMode === 'grid' ? 'var(--text-primary)' : 'var(--text-muted)'};"
 							onclick={() => viewMode = 'grid'}
 							title="Grid view"
@@ -423,7 +423,7 @@
 						</button>
 						<button
 							type="button"
-							class="p-2 rounded transition-colors"
+							class="p-1.5 rounded transition-colors"
 							style="background-color: {viewMode === 'series' ? 'var(--bg-secondary)' : 'transparent'}; color: {viewMode === 'series' ? 'var(--text-primary)' : 'var(--text-muted)'};"
 							onclick={() => viewMode = 'series'}
 							title="Series view"
@@ -432,7 +432,7 @@
 						</button>
 						<button
 							type="button"
-							class="p-2 rounded transition-colors"
+							class="p-1.5 rounded transition-colors"
 							style="background-color: {viewMode === 'list' ? 'var(--bg-secondary)' : 'transparent'}; color: {viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-muted)'};"
 							onclick={() => viewMode = 'list'}
 							title="List view"
@@ -440,11 +440,69 @@
 							<List class="w-4 h-4" />
 						</button>
 					</div>
+
+					<!-- Spacer -->
+					<div class="flex-1 hidden sm:block"></div>
+
+					<!-- Book Count -->
+					<span class="text-sm flex-shrink-0 hidden sm:inline" style="color: var(--text-secondary);">
+						{data.total} {data.total === 1 ? 'book' : 'books'}
+						{#if data.search}
+							<span class="hidden md:inline">for "{data.search}"</span>
+						{/if}
+					</span>
+
+					<!-- Items per page -->
+					<select
+						class="select py-1.5 text-sm flex-shrink-0"
+						style="width: auto;"
+						value={data.limit}
+						onchange={(e) => {
+							const params = new URLSearchParams($page.url.searchParams);
+							params.set('limit', e.currentTarget.value);
+							params.delete('page');
+							goto(`/books?${params.toString()}`);
+						}}
+					>
+						<option value="12">12</option>
+						<option value="24">24</option>
+						<option value="48">48</option>
+						<option value="96">96</option>
+					</select>
+
+					<!-- Inline Pagination -->
+					{#if totalPages > 1}
+						<div class="flex items-center gap-1 flex-shrink-0">
+							<button
+								type="button"
+								class="p-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+								style="color: var(--text-secondary);"
+								disabled={data.page <= 1}
+								onclick={() => goToPage(data.page - 1)}
+								title="Previous page"
+							>
+								<ChevronLeft class="w-4 h-4" />
+							</button>
+							<span class="text-sm px-1 tabular-nums" style="color: var(--text-secondary);">
+								{data.page}/{totalPages}
+							</span>
+							<button
+								type="button"
+								class="p-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+								style="color: var(--text-secondary);"
+								disabled={data.page >= totalPages}
+								onclick={() => goToPage(data.page + 1)}
+								title="Next page"
+							>
+								<ChevronRight class="w-4 h-4" />
+							</button>
+						</div>
+					{/if}
 				</div>
 			</div>
 
-			<!-- Results info -->
-			<p class="text-sm mb-4" style="color: var(--text-secondary);">
+			<!-- Mobile book count (shown below toolbar on small screens) -->
+			<p class="text-sm mb-3 sm:hidden" style="color: var(--text-secondary);">
 				{data.total} {data.total === 1 ? 'book' : 'books'}
 				{#if data.search}
 					matching "{data.search}"
