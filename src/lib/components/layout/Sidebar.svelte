@@ -37,7 +37,9 @@
 		Inbox,
 		LayoutDashboard,
 		ShoppingBag,
-		Merge
+		Merge,
+		Github,
+		FileText
 	} from 'lucide-svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import { APP_CONFIG } from '$lib/config/app';
@@ -405,6 +407,32 @@
 				<span>Collapse</span>
 			{/if}
 		</button>
+
+		<!-- External Links -->
+		<div class="mt-2 space-y-1">
+			<a
+				href={APP_CONFIG.links.github}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="sidebar-item text-sm"
+				class:collapsed
+				title={collapsed ? 'GitHub' : undefined}
+			>
+				<Github class="w-4 h-4 flex-shrink-0" />
+				{#if !collapsed}<span>GitHub</span>{/if}
+			</a>
+			<a
+				href={APP_CONFIG.links.docs}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="sidebar-item text-sm"
+				class:collapsed
+				title={collapsed ? 'Documentation' : undefined}
+			>
+				<FileText class="w-4 h-4 flex-shrink-0" />
+				{#if !collapsed}<span>Documentation</span>{/if}
+			</a>
+		</div>
 
 		<!-- Version and Copyright -->
 		{#if !collapsed}

@@ -53,10 +53,13 @@
 	// Store the referrer URL for back navigation
 	// Only store if coming from a different page (not from edit)
 	let returnUrl = $state<string | null>(null);
+	let returnUrlInitialized = false;
 
 	$effect(() => {
-		if (browser) {
-			const stored = sessionStorage.getItem(`book-return-${data.book.id}`);
+		if (browser && !returnUrlInitialized) {
+			returnUrlInitialized = true;
+			const storageKey = `book-return-${data.book.id}`;
+			const stored = sessionStorage.getItem(storageKey);
 			if (stored) {
 				returnUrl = stored;
 			} else {
@@ -68,7 +71,7 @@
 						// Only store if from same origin and not the current book page
 						if (refUrl.origin === window.location.origin && !refUrl.pathname.endsWith(`/books/${data.book.id}`)) {
 							returnUrl = refUrl.pathname + refUrl.search;
-							sessionStorage.setItem(`book-return-${data.book.id}`, returnUrl);
+							sessionStorage.setItem(storageKey, returnUrl);
 						}
 					} catch {
 						// Invalid URL, ignore
@@ -585,7 +588,9 @@
 					if (returnUrl) {
 						goto(returnUrl);
 					} else {
-						history.back();
+						// Fall back to books list instead of history.back()
+						// which can be unreliable after page interactions
+						goto('/books');
 					}
 				}}
 				onmouseenter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}

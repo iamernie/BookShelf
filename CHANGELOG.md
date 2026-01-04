@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.16] - 2026-01-04
+
+### Added
+- **GitHub & Documentation Links** - Added links to GitHub repo and documentation in sidebar footer
+  - Links appear below the collapse button
+  - Work in both expanded and collapsed sidebar modes
+
+## [2.4.15] - 2026-01-04
+
+### Fixed
+- **HTML Stripping in Metadata** - Book descriptions from metadata providers now have HTML tags stripped
+  - Converts `<br>` tags to newlines for proper paragraph formatting
+  - Converts `</p>` tags to double newlines for paragraph breaks
+  - Applied to all metadata providers: Google Books, Open Library, Goodreads, Hardcover, Amazon, ComicVine
+
+## [2.4.14] - 2026-01-04
+
+### Fixed
+- **Back Button Navigation** - Fixed issue where back button on book detail page would navigate to dashboard instead of the page you came from
+  - Now properly stores return URL when navigating from books list (including page number)
+  - Falls back to `/books` instead of unpredictable `history.back()`
+
 ## [2.4.13] - 2026-01-04
 
 ### Changed

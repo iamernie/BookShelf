@@ -12,7 +12,8 @@ import {
 	normalizeIsbn,
 	extractYear,
 	mapLanguageCode,
-	decodeHtmlEntities
+	decodeHtmlEntities,
+	stripHtmlTags
 } from './types';
 
 const GOOGLE_BOOKS_API_URL = 'https://www.googleapis.com/books/v1/volumes';
@@ -187,7 +188,7 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 			title: decodeHtmlEntities(info.title),
 			subtitle: decodeHtmlEntities(info.subtitle),
 			authors: info.authors,
-			description: decodeHtmlEntities(info.description),
+			description: stripHtmlTags(decodeHtmlEntities(info.description)),
 			publisher: info.publisher,
 			publishedDate: info.publishedDate,
 			publishYear: extractYear(info.publishedDate),

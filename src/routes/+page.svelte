@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import {
 		BookOpen,
 		TrendingUp,
@@ -53,6 +54,10 @@
 	}
 
 	function handleBookClick(book: BookCardData) {
+		// Store return URL before navigating (back to dashboard)
+		if (browser) {
+			sessionStorage.setItem(`book-return-${book.id}`, '/');
+		}
 		goto(`/books/${book.id}`);
 	}
 

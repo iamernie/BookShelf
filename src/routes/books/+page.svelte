@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
 	import { BookOpen, Plus, Grid, List, Search, ChevronLeft, ChevronRight, SlidersHorizontal, SquareCheck, Library } from 'lucide-svelte';
 	import BookCard from '$lib/components/book/BookCard.svelte';
 	import BookGrid from '$lib/components/book/BookGrid.svelte';
@@ -178,6 +179,11 @@
 			selectedBooks.toggle(bookItem.id);
 			return;
 		}
+		// Store return URL before navigating
+		if (browser) {
+			const returnUrl = $page.url.pathname + $page.url.search;
+			sessionStorage.setItem(`book-return-${bookItem.id}`, returnUrl);
+		}
 		goto(`/books/${bookItem.id}`);
 	}
 
@@ -185,6 +191,11 @@
 		if (selectMode) {
 			selectedBooks.toggle(book.id);
 			return;
+		}
+		// Store return URL before navigating
+		if (browser) {
+			const returnUrl = $page.url.pathname + $page.url.search;
+			sessionStorage.setItem(`book-return-${book.id}`, returnUrl);
 		}
 		goto(`/books/${book.id}`);
 	}

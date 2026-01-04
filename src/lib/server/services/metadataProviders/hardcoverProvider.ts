@@ -10,7 +10,7 @@ import type {
 	MetadataSearchRequest,
 	BookMetadataResult
 } from './types';
-import { decodeHtmlEntities, extractYear, escapeGraphQLString } from './types';
+import { decodeHtmlEntities, extractYear, escapeGraphQLString, stripHtmlTags } from './types';
 
 const HARDCOVER_API_URL = 'https://api.hardcover.app/v1/graphql';
 
@@ -214,7 +214,7 @@ export class HardcoverProvider implements MetadataProviderInterface {
 			title: decodeHtmlEntities(doc.title),
 			subtitle: decodeHtmlEntities(doc.subtitle),
 			authors: doc.author_names ? [...doc.author_names] : undefined,
-			description: decodeHtmlEntities(doc.description),
+			description: stripHtmlTags(decodeHtmlEntities(doc.description)),
 			publishYear: doc.release_year || extractYear(doc.release_date),
 			publishedDate: doc.release_date,
 			pageCount: doc.pages,

@@ -12,6 +12,10 @@ export const APP_CONFIG = {
 		owner: 'Ernie',
 		year: 2026
 	},
+	links: {
+		github: 'https://github.com/iamernie/BookShelf',
+		docs: 'https://bookshelf.ernieverse.net/docs'
+	},
 	// Formatted strings for display
 	get versionString() {
 		return `v${this.version}`;

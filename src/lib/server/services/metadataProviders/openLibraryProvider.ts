@@ -12,7 +12,8 @@ import {
 	normalizeIsbn,
 	extractYear,
 	mapLanguageCode,
-	decodeHtmlEntities
+	decodeHtmlEntities,
+	stripHtmlTags
 } from './types';
 
 const OPEN_LIBRARY_API = 'https://openlibrary.org';
@@ -150,7 +151,7 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 				providerId,
 				title: decodeHtmlEntities(workData.title),
 				authors: authorNames.length > 0 ? authorNames : undefined,
-				description: decodeHtmlEntities(description),
+				description: stripHtmlTags(decodeHtmlEntities(description)),
 				subjects: workData.subjects?.slice(0, 10),
 				coverUrl: workData.covers?.[0]
 					? `https://covers.openlibrary.org/b/id/${workData.covers[0]}-L.jpg`
@@ -211,7 +212,7 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 			publishedDate: bookData.publish_date,
 			pageCount: bookData.number_of_pages,
 			language: mapLanguageCode(bookData.languages?.[0]?.key?.split('/').pop()),
-			description: decodeHtmlEntities(bookData.notes),
+			description: stripHtmlTags(decodeHtmlEntities(bookData.notes)),
 			subjects: bookData.subjects?.slice(0, 5).map((s: { name: string }) => s.name),
 			coverUrl,
 			isbn13: isbn.length === 13 ? isbn : undefined,

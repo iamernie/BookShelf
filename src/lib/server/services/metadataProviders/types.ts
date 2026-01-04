@@ -198,16 +198,24 @@ export function decodeHtmlEntities(text: string | null | undefined): string | un
 /**
  * Safely strip HTML tags from text
  * Uses a loop to handle nested/malformed tags like <<script>
+ * Converts <br> tags and </p> tags to newlines for better formatting
  */
 export function stripHtmlTags(html: string | null | undefined): string {
 	if (!html || typeof html !== 'string') return '';
 	let result = html;
+	// Convert <br> and <br/> and <br /> to newlines
+	result = result.replace(/<br\s*\/?>/gi, '\n');
+	// Convert </p> to double newline for paragraph breaks
+	result = result.replace(/<\/p>/gi, '\n\n');
+	// Strip all remaining HTML tags
 	let previous = '';
 	// Loop until no more changes (handles nested tags)
 	while (result !== previous) {
 		previous = result;
 		result = result.replace(/<[^>]*>/g, '');
 	}
+	// Clean up excessive newlines (more than 2 in a row)
+	result = result.replace(/\n{3,}/g, '\n\n');
 	return result.trim();
 }
 

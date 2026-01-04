@@ -315,7 +315,7 @@ export class GoodreadsProvider implements MetadataProviderInterface {
 				title: this.cleanString(title),
 				subtitle: this.cleanString(subtitle),
 				authors,
-				description: this.cleanString(bookData.description),
+				description: stripHtmlTags(this.cleanString(bookData.description)),
 				publisher: this.cleanString(details.publisher),
 				publishYear,
 				publishedDate,
