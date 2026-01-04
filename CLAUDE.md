@@ -216,6 +216,26 @@ This folder is gitignored. Use it to store anything you don't want committed.
 
 The version should be updated as part of the same commit as the changes.
 
+## "Push It" Workflow
+
+When the user says **"push it"**, perform the complete release workflow:
+
+1. **Update CHANGELOG.md** - Add entry for the new version with today's date and description of changes
+2. **Update version** in `package.json` (if not already done)
+3. **Update documentation** if the feature affects user-facing docs (ROADMAP.md, README.md, etc.)
+4. **Commit** all changes with a descriptive commit message
+5. **Create git tag** for the new version: `git tag -a vX.X.X -m "vX.X.X - Brief description"`
+6. **Push** commits and tags: `git push && git push --tags`
+
+Example:
+```bash
+# After updating CHANGELOG.md, package.json, and any docs
+git add -A
+git commit -m "Feature description"
+git tag -a v2.4.13 -m "v2.4.13 - Feature description"
+git push && git push --tags
+```
+
 ## Gotchas
 
 - `$lib/server/` code cannot be imported in client-side code
