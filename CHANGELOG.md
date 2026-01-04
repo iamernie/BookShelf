@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.13] - 2026-01-04
+
+### Changed
+- **Improved Cover Image Display** - Book covers now use a modern blur-background technique
+  - Full cover image is always visible without cropping (uses `object-contain`)
+  - Blurred version of cover fills the background for non-standard aspect ratios
+  - Adds subtle drop shadow for depth
+  - Applied to BookCard grid, book detail page, similar books, and edit page preview
+
 ## [2.4.12] - 2026-01-03
 
 ### Security

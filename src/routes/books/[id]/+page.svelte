@@ -699,12 +699,22 @@
 		<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 			<!-- Left Column: Cover + Quick Info -->
 			<div class="lg:col-span-1">
-				<!-- Cover -->
+				<!-- Cover with blurred background -->
 				<div class="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg mb-3" style="background-color: var(--bg-tertiary);">
+					<!-- Blurred background image -->
+					{#if data.book.coverImageUrl}
+						<img
+							src={data.book.coverImageUrl}
+							alt=""
+							class="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-60"
+							aria-hidden="true"
+						/>
+					{/if}
+					<!-- Main cover image (contained) -->
 					<img
 						src={data.book.coverImageUrl || '/placeholder.png'}
 						alt={data.book.title}
-						class="w-full h-full object-cover"
+						class="relative w-full h-full object-contain drop-shadow-lg"
 						onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
 					/>
 
@@ -1659,11 +1669,21 @@
 									class="group rounded-lg overflow-hidden transition-shadow hover:shadow-lg"
 									style="background-color: var(--bg-tertiary);"
 								>
-									<div class="aspect-[2/3] relative">
+									<div class="aspect-[2/3] relative overflow-hidden">
+										<!-- Blurred background -->
+										{#if book.coverImageUrl}
+											<img
+												src={book.coverImageUrl}
+												alt=""
+												class="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-60"
+												loading="lazy"
+												aria-hidden="true"
+											/>
+										{/if}
 										<img
 											src={book.coverImageUrl || '/placeholder.png'}
 											alt={book.title}
-											class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+											class="relative w-full h-full object-contain group-hover:scale-105 transition-transform drop-shadow-md"
 											loading="lazy"
 										/>
 									</div>

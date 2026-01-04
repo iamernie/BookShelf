@@ -210,12 +210,23 @@
 	role="button"
 	tabindex="0"
 >
-	<!-- Cover Image -->
+	<!-- Cover Image with blurred background -->
 	<div class="relative aspect-[2/3] overflow-hidden" style="background-color: var(--bg-tertiary);">
+		<!-- Blurred background image -->
+		{#if book.coverImageUrl}
+			<img
+				src={book.coverImageUrl}
+				alt=""
+				class="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-60"
+				loading="lazy"
+				aria-hidden="true"
+			/>
+		{/if}
+		<!-- Main cover image (contained) -->
 		<img
 			src={book.coverImageUrl || '/placeholder.png'}
 			alt={book.title}
-			class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+			class="relative w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-lg"
 			loading="lazy"
 			onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
 		/>

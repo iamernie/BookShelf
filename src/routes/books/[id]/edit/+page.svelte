@@ -734,12 +734,21 @@
 			<!-- Sidebar with Cover Preview -->
 			<div class="hidden lg:block w-44 flex-shrink-0">
 				<div class="sticky top-20 space-y-3">
-					<!-- Cover Preview -->
-					<div class="rounded-lg overflow-hidden shadow-md" style="background-color: var(--bg-tertiary);">
+					<!-- Cover Preview with blurred background -->
+					<div class="rounded-lg overflow-hidden shadow-md relative aspect-[2/3]" style="background-color: var(--bg-tertiary);">
+						<!-- Blurred background -->
+						{#if coverPreviewUrl}
+							<img
+								src={coverPreviewUrl}
+								alt=""
+								class="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-60"
+								aria-hidden="true"
+							/>
+						{/if}
 						<img
 							src={coverPreviewUrl || '/placeholder.png'}
 							alt="Cover Preview"
-							class="w-full aspect-[2/3] object-cover"
+							class="relative w-full h-full object-contain drop-shadow-lg"
 							onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
 						/>
 					</div>
