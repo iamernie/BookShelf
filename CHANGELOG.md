@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.17] - 2026-01-04
+
+### Changed
+- **Sidebar & Profile Menu Redesign** - Cleaner layout for links
+  - GitHub icon now appears inline next to version number in sidebar footer
+  - Documentation link moved to profile dropdown menu (with external link indicator)
+  - Docs URL now points to GitHub Pages
+
 ## [2.4.16] - 2026-01-04
 
 ### Added

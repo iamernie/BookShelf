@@ -24,8 +24,11 @@
 		Users,
 		Sliders,
 		UserCog,
-		Ticket
+		Ticket,
+		FileText,
+		ExternalLink
 	} from 'lucide-svelte';
+	import { APP_CONFIG } from '$lib/config/app';
 	import GlobalSearch from '$lib/components/search/GlobalSearch.svelte';
 	import { theme } from '$lib/stores/theme';
 
@@ -228,6 +231,18 @@
 								<span>Diagnostics</span>
 							</a>
 						{/if}
+						<div class="border-t my-1" style="border-color: var(--border-color);"></div>
+						<a
+							href={APP_CONFIG.links.docs}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="dropdown-item"
+							onclick={closeMenus}
+						>
+							<FileText class="w-4 h-4" />
+							<span>Documentation</span>
+							<ExternalLink class="w-3 h-3 ml-auto" style="color: var(--text-muted);" />
+						</a>
 						<div class="border-t my-1" style="border-color: var(--border-color);"></div>
 						<form action="/logout" method="POST" class="contents">
 							<button type="submit" class="dropdown-item w-full text-left" style="color: #ef4444;">

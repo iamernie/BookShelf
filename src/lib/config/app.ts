@@ -14,7 +14,7 @@ export const APP_CONFIG = {
 	},
 	links: {
 		github: 'https://github.com/iamernie/BookShelf',
-		docs: 'https://bookshelf.ernieverse.net/docs'
+		docs: 'https://iamernie.github.io/BookShelf'
 	},
 	// Formatted strings for display
 	get versionString() {

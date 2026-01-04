@@ -38,8 +38,7 @@
 		LayoutDashboard,
 		ShoppingBag,
 		Merge,
-		Github,
-		FileText
+		Github
 	} from 'lucide-svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import { APP_CONFIG } from '$lib/config/app';
@@ -408,42 +407,39 @@
 			{/if}
 		</button>
 
-		<!-- External Links -->
-		<div class="mt-2 space-y-1">
-			<a
-				href={APP_CONFIG.links.github}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="sidebar-item text-sm"
-				class:collapsed
-				title={collapsed ? 'GitHub' : undefined}
-			>
-				<Github class="w-4 h-4 flex-shrink-0" />
-				{#if !collapsed}<span>GitHub</span>{/if}
-			</a>
-			<a
-				href={APP_CONFIG.links.docs}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="sidebar-item text-sm"
-				class:collapsed
-				title={collapsed ? 'Documentation' : undefined}
-			>
-				<FileText class="w-4 h-4 flex-shrink-0" />
-				{#if !collapsed}<span>Documentation</span>{/if}
-			</a>
+		<!-- Version, GitHub, and Copyright -->
+		<div class="mt-3 pt-2 border-t" style="border-color: var(--border-color);">
+			{#if !collapsed}
+				<div class="flex items-center justify-center gap-2">
+					<span class="text-[10px]" style="color: var(--text-muted);">
+						{APP_CONFIG.versionString}
+					</span>
+					<a
+						href={APP_CONFIG.links.github}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="transition-colors hover:opacity-80"
+						style="color: var(--text-muted);"
+						title="View on GitHub"
+					>
+						<Github class="w-3.5 h-3.5" />
+					</a>
+				</div>
+				<p class="text-[10px] text-center" style="color: var(--text-muted);">
+					&copy; {APP_CONFIG.copyrightString}
+				</p>
+			{:else}
+				<a
+					href={APP_CONFIG.links.github}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex justify-center transition-colors hover:opacity-80"
+					style="color: var(--text-muted);"
+					title="View on GitHub"
+				>
+					<Github class="w-4 h-4" />
+				</a>
+			{/if}
 		</div>
-
-		<!-- Version and Copyright -->
-		{#if !collapsed}
-		<div class="mt-3 pt-2 border-t text-center" style="border-color: var(--border-color);">
-			<p class="text-[10px]" style="color: var(--text-muted);">
-				{APP_CONFIG.versionString}
-			</p>
-			<p class="text-[10px]" style="color: var(--text-muted);">
-				&copy; {APP_CONFIG.copyrightString}
-			</p>
-		</div>
-		{/if}
 	</div>
 </aside>
