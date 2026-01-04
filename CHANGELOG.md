@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.19] - 2026-01-04
+
+### Added
+- **Update Available Banner** - Non-intrusive notification when a new version is released
+  - Slim banner appears at the top of the page when an update is available
+  - Shows current version and latest version with link to release notes
+  - Dismissible - won't show again until a newer version is released
+  - Checks GitHub Releases API (cached for 24 hours to minimize API calls)
+  - Respects theme colors with accent gradient background
+
 ## [2.4.18] - 2026-01-04
 
 ### Changed
