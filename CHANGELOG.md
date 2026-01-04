@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.22] - 2026-01-04
+
+### Fixed
+- **Setup Wizard Email Verification** - First admin user created during setup is now automatically email-verified
+  - Eliminates chicken-and-egg problem where email isn't configured yet during initial setup
+  - Admin can log in immediately after completing the setup wizard
+
 ## [2.4.21] - 2026-01-04
 
 ### Fixed

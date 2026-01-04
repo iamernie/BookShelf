@@ -74,7 +74,7 @@ export async function createAdminUser(data: {
 		// Hash password
 		const hashedPassword = await hashPassword(data.password);
 
-		// Create admin user
+		// Create admin user - automatically verified since email isn't configured during setup
 		const result = await db.insert(users).values({
 			username: data.username,
 			email: data.email,
@@ -82,6 +82,8 @@ export async function createAdminUser(data: {
 			role: 'admin',
 			firstName: data.firstName || null,
 			lastName: data.lastName || null,
+			emailVerified: true,
+			approvalStatus: 'approved',
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		});
