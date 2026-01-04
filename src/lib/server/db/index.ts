@@ -305,15 +305,23 @@ function runMigrations() {
 	safeCreateTable('users', `
 		CREATE TABLE users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT NOT NULL UNIQUE,
 			email TEXT NOT NULL UNIQUE,
-			passwordHash TEXT NOT NULL,
+			password TEXT NOT NULL,
+			role TEXT DEFAULT 'member',
 			firstName TEXT,
 			lastName TEXT,
-			role TEXT DEFAULT 'user',
 			failedLoginAttempts INTEGER DEFAULT 0,
 			lockoutUntil TEXT,
-			passwordResetToken TEXT,
-			passwordResetExpires TEXT,
+			resetToken TEXT,
+			resetTokenExpires TEXT,
+			emailVerified INTEGER DEFAULT 0,
+			emailVerificationToken TEXT,
+			emailVerificationExpires TEXT,
+			approvalStatus TEXT DEFAULT 'approved',
+			approvedBy INTEGER,
+			approvedAt TEXT,
+			inviteCodeUsed TEXT,
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 		)

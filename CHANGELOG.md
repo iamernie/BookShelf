@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.20] - 2026-01-04
+
+### Fixed
+- **Fresh Install Setup Error** - Fixed "NOT NULL constraint failed: users.passwordHash" error on new installations
+  - Updated database migration to use correct column name (`password` instead of `passwordHash`)
+  - Added missing `username` column to users table creation script
+  - Synchronized raw SQL schema with Drizzle ORM schema
+
 ## [2.4.19] - 2026-01-04
 
 ### Added

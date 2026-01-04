@@ -226,6 +226,7 @@ When the user says **"push it"**, perform the complete release workflow:
 4. **Commit** all changes with a descriptive commit message
 5. **Create git tag** for the new version: `git tag -a vX.X.X -m "vX.X.X - Brief description"`
 6. **Push** commits and tags: `git push && git push --tags`
+7. **Create GitHub release**: `gh release create vX.X.X --title "vX.X.X" --notes "Brief description of changes"`
 
 Example:
 ```bash
@@ -234,6 +235,7 @@ git add -A
 git commit -m "Feature description"
 git tag -a v2.4.13 -m "v2.4.13 - Feature description"
 git push && git push --tags
+gh release create v2.4.13 --title "v2.4.13" --notes "Brief description of changes"
 ```
 
 ## Gotchas
