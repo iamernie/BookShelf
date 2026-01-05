@@ -156,6 +156,11 @@
 	let koreaderUsername = $state('');
 	let koreaderPassword = $state('');
 	let showKoreaderPassword = $state(false);
+	let linkingProgressId = $state<number | null>(null);
+	let showLinkModal = $state(false);
+	let linkSearchQuery = $state('');
+	let linkSearchResults = $state<Array<{ id: number; title: string; author?: string }>>([]);
+	let linkSearching = $state(false);
 
 	// Format relative time for recent activity
 	function formatRelativeTime(dateStr: string | null, timestamp: number | null): string {
@@ -285,6 +290,66 @@
 			toasts.success(`${label} copied to clipboard`);
 		} catch {
 			toasts.error('Failed to copy');
+		}
+	}
+
+	// Open link modal for an unlinked progress entry
+	function openLinkModal(progressId: number) {
+		linkingProgressId = progressId;
+		linkSearchQuery = '';
+		linkSearchResults = [];
+		showLinkModal = true;
+	}
+
+	// Search for books to link to
+	async function searchBooksForLink() {
+		if (!linkSearchQuery.trim()) {
+			linkSearchResults = [];
+			return;
+		}
+
+		linkSearching = true;
+		try {
+			const res = await fetch(`/api/books?q=${encodeURIComponent(linkSearchQuery)}&limit=10`);
+			if (res.ok) {
+				const result = await res.json();
+				linkSearchResults = result.books.map((b: { id: number; title: string; author?: string }) => ({
+					id: b.id,
+					title: b.title,
+					author: b.author
+				}));
+			}
+		} catch {
+			toasts.error('Failed to search books');
+		} finally {
+			linkSearching = false;
+		}
+	}
+
+	// Link progress entry to a book
+	async function linkProgressToBook(bookId: number) {
+		if (!linkingProgressId) return;
+
+		try {
+			const res = await fetch(`/api/koreader/progress/${linkingProgressId}/link`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ bookId })
+			});
+
+			if (res.ok) {
+				const result = await res.json();
+				toasts.success(`Linked to "${result.bookTitle}"`);
+				showLinkModal = false;
+				linkingProgressId = null;
+				// Refresh settings to show updated activity
+				await loadKoreaderSettings();
+			} else {
+				const err = await res.json();
+				toasts.error(err.message || 'Failed to link');
+			}
+		} catch {
+			toasts.error('An error occurred');
 		}
 	}
 
@@ -1051,11 +1116,15 @@
 								{#each koreaderSettings.recentActivity as activity}
 									<div class="flex items-center gap-3 p-2 rounded-lg text-sm" style="background-color: var(--bg-tertiary);">
 										<div class="flex-shrink-0">
-											<BookIcon class="w-4 h-4" style="color: var(--accent);" />
+											{#if activity.bookId}
+												<BookIcon class="w-4 h-4" style="color: var(--accent);" />
+											{:else}
+												<Unlink class="w-4 h-4" style="color: var(--text-muted);" />
+											{/if}
 										</div>
 										<div class="flex-1 min-w-0">
 											<div class="truncate" style="color: var(--text-primary);">
-												{activity.bookTitle || `Document ${activity.documentHash}`}
+												{activity.bookTitle || `Document ${activity.documentHash.substring(0, 8)}...`}
 											</div>
 											<div class="flex items-center gap-2 text-xs" style="color: var(--text-muted);">
 												{#if activity.percentage !== null}
@@ -1076,6 +1145,18 @@
 													style="width: {Math.round(activity.percentage * 100)}%; background-color: var(--accent);"
 												></div>
 											</div>
+										{/if}
+										{#if !activity.bookId}
+											<button
+												type="button"
+												class="flex-shrink-0 text-xs px-2 py-1 rounded transition-colors flex items-center gap-1"
+												style="background-color: var(--bg-secondary); color: var(--accent);"
+												onclick={() => openLinkModal(activity.id)}
+												title="Link to a book in your library"
+											>
+												<Link class="w-3 h-3" />
+												Link
+											</button>
 										{/if}
 									</div>
 								{/each}
@@ -1388,6 +1469,92 @@
 						<UserPlus class="w-4 h-4" />
 					{/if}
 					Share Library
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Link to Book Modal -->
+{#if showLinkModal}
+	<div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+		<div class="rounded-xl shadow-2xl w-full max-w-md" style="background-color: var(--bg-secondary);">
+			<div class="flex items-center justify-between px-6 py-4 border-b" style="border-color: var(--border-color);">
+				<h2 class="text-lg font-semibold" style="color: var(--text-primary);">Link to Book</h2>
+				<button
+					type="button"
+					class="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
+					onclick={() => { showLinkModal = false; linkingProgressId = null; }}
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--text-muted);">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			<div class="p-6 space-y-4">
+				<p class="text-sm" style="color: var(--text-muted);">
+					Search for a book in your library to link this reading progress to.
+				</p>
+
+				<!-- Search Input -->
+				<div class="flex gap-2">
+					<input
+						type="text"
+						class="form-input flex-1"
+						placeholder="Search by title or author..."
+						bind:value={linkSearchQuery}
+						onkeydown={(e) => e.key === 'Enter' && searchBooksForLink()}
+					/>
+					<button
+						type="button"
+						class="btn-primary px-4"
+						onclick={searchBooksForLink}
+						disabled={linkSearching}
+					>
+						{#if linkSearching}
+							<Loader2 class="w-4 h-4 animate-spin" />
+						{:else}
+							Search
+						{/if}
+					</button>
+				</div>
+
+				<!-- Search Results -->
+				{#if linkSearchResults.length > 0}
+					<div class="max-h-60 overflow-y-auto space-y-2">
+						{#each linkSearchResults as book}
+							<button
+								type="button"
+								class="w-full text-left p-3 rounded-lg transition-colors flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700"
+								style="background-color: var(--bg-tertiary);"
+								onclick={() => linkProgressToBook(book.id)}
+							>
+								<BookIcon class="w-5 h-5 flex-shrink-0" style="color: var(--accent);" />
+								<div class="flex-1 min-w-0">
+									<div class="font-medium truncate" style="color: var(--text-primary);">{book.title}</div>
+									{#if book.author}
+										<div class="text-xs truncate" style="color: var(--text-muted);">{book.author}</div>
+									{/if}
+								</div>
+								<Link class="w-4 h-4 flex-shrink-0" style="color: var(--text-muted);" />
+							</button>
+						{/each}
+					</div>
+				{:else if linkSearchQuery && !linkSearching}
+					<p class="text-sm text-center py-4" style="color: var(--text-muted);">
+						No books found. Try a different search term.
+					</p>
+				{/if}
+			</div>
+
+			<div class="flex justify-end px-6 py-4 border-t" style="border-color: var(--border-color);">
+				<button
+					type="button"
+					class="btn-ghost"
+					onclick={() => { showLinkModal = false; linkingProgressId = null; }}
+				>
+					Cancel
 				</button>
 			</div>
 		</div>

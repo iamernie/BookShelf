@@ -37,7 +37,9 @@ export const GET: RequestHandler = async ({ locals }) => {
 		progressEntries: progress.length,
 		recentActivity: recentActivity.map((entry) => ({
 			id: entry.id,
-			documentHash: entry.documentHash.substring(0, 8) + '...', // Shortened for display
+			documentHash: entry.bookId
+				? entry.documentHash.substring(0, 8) + '...' // Shortened for linked entries
+				: entry.documentHash, // Full hash for unlinked entries (needed for manual linking)
 			percentage: entry.percentage,
 			device: entry.device,
 			timestamp: entry.timestamp,

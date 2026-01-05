@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.6] - 2026-01-05
+
+### Added
+- **Manual KOReader Progress Linking** - Link unlinked KOReader sync entries to books in your library
+  - Useful when the same ebook has different MD5 hashes (e.g., sideloaded vs OPDS-downloaded versions)
+  - Unlinked entries show a "Link" button in Account Settings → KOReader Sync
+  - Search for books by title or author to link
+  - Linking also updates the book's MD5 hash for future automatic syncing
+
 ## [2.5.5] - 2026-01-05
 
 ### Added
