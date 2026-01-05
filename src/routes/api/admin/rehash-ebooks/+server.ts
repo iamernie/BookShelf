@@ -1,9 +1,11 @@
 /**
- * Admin API to compute MD5 hashes for existing ebooks
+ * Admin API to compute KOReader-compatible MD5 hashes for existing ebooks
  *
  * POST /api/admin/rehash-ebooks - Compute MD5 hashes for all ebooks without one
+ * POST /api/admin/rehash-ebooks?force=true - Regenerate ALL ebook hashes (use after algorithm change)
  *
- * This is needed for KOReader sync to work with books uploaded before the feature was added
+ * This is needed for KOReader sync to work with books uploaded before the feature was added,
+ * or when the hashing algorithm changes (e.g., switching from full-file to partial MD5)
  */
 
 import { json, error } from '@sveltejs/kit';
@@ -11,16 +13,21 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { books } from '$lib/server/db/schema';
 import { eq, and, isNull, isNotNull } from 'drizzle-orm';
-import { computeFileMd5, getEbookPath } from '$lib/server/services/ebookService';
+import { computeFileKoreaderMd5, getEbookPath } from '$lib/server/services/ebookService';
 
-export const POST: RequestHandler = async ({ locals }) => {
+export const POST: RequestHandler = async ({ locals, url }) => {
 	// Admin only
 	if (!locals.user || locals.user.role !== 'admin') {
 		throw error(403, 'Admin access required');
 	}
 
-	// Find all books with ebooks but no MD5 hash
-	const booksWithoutHash = await db
+	// Check if force regeneration is requested (regenerate ALL hashes)
+	const force = url.searchParams.get('force') === 'true';
+
+	// Find books to process
+	// - If force=true: all books with ebooks (regenerate all)
+	// - Otherwise: only books with ebooks but no MD5 hash
+	const booksToProcess = await db
 		.select({
 			id: books.id,
 			title: books.title,
@@ -28,19 +35,22 @@ export const POST: RequestHandler = async ({ locals }) => {
 		})
 		.from(books)
 		.where(
-			and(
-				isNotNull(books.ebookPath),
-				isNull(books.ebookMd5)
-			)
+			force
+				? isNotNull(books.ebookPath)
+				: and(
+						isNotNull(books.ebookPath),
+						isNull(books.ebookMd5)
+					)
 		);
 
 	const results = {
-		total: booksWithoutHash.length,
+		total: booksToProcess.length,
 		updated: 0,
+		force,
 		errors: [] as { id: number; title: string; error: string }[]
 	};
 
-	for (const book of booksWithoutHash) {
+	for (const book of booksToProcess) {
 		if (!book.ebookPath) continue;
 
 		try {
@@ -54,7 +64,8 @@ export const POST: RequestHandler = async ({ locals }) => {
 				continue;
 			}
 
-			const md5 = await computeFileMd5(filepath);
+			// Use KOReader-compatible partial MD5 hash
+			const md5 = await computeFileKoreaderMd5(filepath);
 			if (!md5) {
 				results.errors.push({
 					id: book.id,

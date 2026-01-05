@@ -382,12 +382,13 @@
 		}
 	}
 
-	async function generateMd5Hashes() {
+	async function generateMd5Hashes(force: boolean = false) {
 		generatingHashes = true;
 		hashResult = null;
 
 		try {
-			const res = await fetch('/api/admin/rehash-ebooks', {
+			const url = force ? '/api/admin/rehash-ebooks?force=true' : '/api/admin/rehash-ebooks';
+			const res = await fetch(url, {
 				method: 'POST'
 			});
 
@@ -1146,12 +1147,12 @@
 							</div>
 						{/if}
 
-						<div class="flex items-center gap-3">
+						<div class="flex flex-wrap items-center gap-3">
 							<button
 								type="button"
 								class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
 								style="background: var(--accent); color: white;"
-								onclick={generateMd5Hashes}
+								onclick={() => generateMd5Hashes(false)}
 								disabled={generatingHashes || (hashStats && hashStats.needsHash === 0)}
 							>
 								{#if generatingHashes}
@@ -1161,6 +1162,21 @@
 									<Hash class="w-4 h-4" />
 									Generate Missing Hashes
 								{/if}
+							</button>
+							<button
+								type="button"
+								class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+								onclick={() => generateMd5Hashes(true)}
+								disabled={generatingHashes || !hashStats || hashStats.withEbook === 0}
+								title="Regenerate all hashes using KOReader-compatible partial MD5 algorithm"
+							>
+								{#if generatingHashes}
+									<Loader2 class="w-4 h-4 animate-spin" />
+								{:else}
+									<Hash class="w-4 h-4" />
+								{/if}
+								Regenerate All Hashes
 							</button>
 							{#if hashStats && hashStats.needsHash === 0}
 								<span class="flex items-center gap-1.5 text-sm" style="color: #22c55e;">

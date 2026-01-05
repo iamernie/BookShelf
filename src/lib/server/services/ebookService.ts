@@ -75,19 +75,70 @@ function validateEbook(filename: string, size: number): { valid: boolean; error?
 }
 
 /**
- * Compute MD5 hash of a buffer
+ * Compute MD5 hash of a buffer (full file hash)
+ * Note: This is NOT compatible with KOReader - use computeKoreaderMd5 instead
  */
 export function computeMd5(buffer: Buffer): string {
 	return createHash('md5').update(buffer).digest('hex');
 }
 
 /**
- * Compute MD5 hash of a file by path
+ * Compute KOReader-compatible partial MD5 hash
+ *
+ * KOReader uses a partial file sampling algorithm that reads 1024-byte chunks
+ * at specific offsets calculated as: 1024 << (2 * i) where i goes from -1 to 10
+ *
+ * Offsets: 512, 2048, 8192, 32768, 131072, 524288, 2097152, 8388608, 33554432, 134217728, 536870912
+ *
+ * This is more efficient for large files and produces the same hash that KOReader
+ * generates, allowing progress sync to work correctly.
+ *
+ * Reference: https://github.com/koreader/koreader/discussions/14448
+ */
+export function computeKoreaderMd5(buffer: Buffer): string {
+	const md5 = createHash('md5');
+	const blockSize = 1024;
+	const base = 1024;
+
+	for (let i = -1; i <= 10; i++) {
+		const offset = base << (2 * i); // 1024 * 4^i
+
+		if (offset >= buffer.length) {
+			break;
+		}
+
+		// Read up to blockSize bytes from the offset
+		const end = Math.min(offset + blockSize, buffer.length);
+		const chunk = buffer.subarray(offset, end);
+
+		if (chunk.length > 0) {
+			md5.update(chunk);
+		}
+	}
+
+	return md5.digest('hex');
+}
+
+/**
+ * Compute MD5 hash of a file by path (full file hash)
+ * Note: This is NOT compatible with KOReader - use computeFileKoreaderMd5 instead
  */
 export async function computeFileMd5(filepath: string): Promise<string | null> {
 	try {
 		const buffer = await readFile(filepath);
 		return computeMd5(buffer);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Compute KOReader-compatible partial MD5 hash of a file by path
+ */
+export async function computeFileKoreaderMd5(filepath: string): Promise<string | null> {
+	try {
+		const buffer = await readFile(filepath);
+		return computeKoreaderMd5(buffer);
 	} catch {
 		return null;
 	}
@@ -115,8 +166,8 @@ export async function saveEbook(
 	try {
 		const buffer = Buffer.from(await file.arrayBuffer());
 
-		// Compute MD5 hash for KOReader sync
-		const md5 = computeMd5(buffer);
+		// Compute KOReader-compatible partial MD5 hash for sync
+		const md5 = computeKoreaderMd5(buffer);
 
 		await writeFile(filepath, buffer);
 
