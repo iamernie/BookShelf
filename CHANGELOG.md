@@ -7,10 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.17] - 2026-01-05
+
+### Fixed
+- **KOReader MD5 Hash Algorithm** - Match KOReader's actual Lua implementation
+  - KOReader uses `bit.lshift(1024, 2*i)` for i = -1 to 10
+  - In Lua, negative shift amounts act as right shift: lshift(1024, -2) = 256
+  - Offsets: 256, 1024, 4096, 16384, 65536, 262144, 1048576, ...
+  - This matches what KOReader actually calculates, not Booklore's interpretation
+  - Reference: https://github.com/koreader/koreader/discussions/14448
+  - **IMPORTANT**: After upgrading, run "POST /api/admin/rehash-ebooks?force=true"
+
 ## [2.5.16] - 2026-01-05
 
 ### Fixed
-- **KOReader MD5 Hash Algorithm** - Use Booklore's proven implementation
+- **KOReader MD5 Hash Algorithm** - Use Booklore's proven implementation (superseded by 2.5.17)
   - Matches Booklore's Java FileFingerprint.java exactly
   - Offsets: 1024, 4096, 16384, 65536, ... (starting at i=0)
   - This implementation is known to work with KOReader devices
