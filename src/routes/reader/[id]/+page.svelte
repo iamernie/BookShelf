@@ -264,7 +264,7 @@
 		if (!currentLocation) return;
 
 		try {
-			await fetch(`/api/ebooks/${data.book.id}/progress`, {
+			const res = await fetch(`/api/ebooks/${data.book.id}/progress`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -273,6 +273,12 @@
 					chapter: chapterTitle
 				})
 			});
+			const result = await res.json();
+			if (result.koreaderSynced) {
+				console.log('[KOReader Sync] Progress synced to KOReader:', Math.round(currentLocation.start.percentage * 100) + '%');
+			} else {
+				console.log('[KOReader Sync] Not synced (no credentials, disabled, or missing MD5 hash)');
+			}
 		} catch (err) {
 			console.error('Error saving progress:', err);
 		}

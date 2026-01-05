@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.4] - 2026-01-05
+
+### Added
+- **Browser console logging for KOReader sync** - See sync status directly in browser DevTools console
+  - Shows `[KOReader Sync] Progress synced to KOReader: XX%` when sync succeeds
+  - Shows `[KOReader Sync] Not synced (no credentials, disabled, or missing MD5 hash)` when sync fails
+- API now returns `koreaderSynced` boolean in progress save response
+
 ## [2.5.3] - 2026-01-05
 
 ### Fixed

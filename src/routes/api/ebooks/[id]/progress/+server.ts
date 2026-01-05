@@ -99,6 +99,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	return json({
 		success: true,
-		progress
+		progress,
+		koreaderSynced
 	});
 };
