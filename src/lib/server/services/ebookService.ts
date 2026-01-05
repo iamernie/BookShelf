@@ -86,29 +86,33 @@ export function computeMd5(buffer: Buffer): string {
  * Compute KOReader-compatible partial MD5 hash
  *
  * KOReader uses LuaJIT's bit.lshift(1024, 2*i) for i = -1 to 10.
- * IMPORTANT: LuaJIT bit.lshift uses only lower 5 bits of shift count.
- * So lshift(1024, -2) = lshift(1024, 30) = huge number beyond file size.
- * This means i=-1 is effectively skipped for any reasonable file size.
+ * LuaJIT bit.lshift uses lower 5 bits of shift count: -2 & 31 = 30
+ * And 1024 << 30 = 0 in 32-bit signed arithmetic (overflow wraps to 0)!
  *
- * Effective offsets: 1024, 4096, 16384, 65536, 262144, 1048576, ...
- * (calculated as 1024 << (2 * i) for i = 0 to 10)
+ * So when i=-1: lshift(1024, -2) = lshift(1024, 30) = 0
+ * KOReader seeks to position 0 first, then 1024, 4096, 16384...
+ *
+ * Offsets: 0, 1024, 4096, 16384, 65536, 262144, 1048576, ...
  *
  * Reference: http://bitop.luajit.org/api.html
- * "Only the lower 5 bits of the shift count are used (reduces to the range [0..31])."
  */
 export function computeKoreaderMd5(buffer: Buffer): string {
 	const md5 = createHash('md5');
 	const blockSize = 1024;
 	const base = 1024;
 
-	// KOReader loops i from -1 to 10, but i=-1 produces lshift(1024, -2)
-	// which in LuaJIT uses (-2 & 31) = 30, giving offset 1024 << 30 (huge).
-	// So we effectively start at i=0 (offset 1024).
-	for (let i = 0; i <= 10; i++) {
-		const offset = base << (2 * i); // 1024, 4096, 16384, 65536, ...
+	// KOReader loops i from -1 to 10
+	// i=-1: lshift(1024, -2) = lshift(1024, 30) = 0 (32-bit signed overflow)
+	// i=0:  lshift(1024, 0) = 1024
+	// i=1:  lshift(1024, 2) = 4096, etc.
+	for (let i = -1; i <= 10; i++) {
+		// Simulate LuaJIT's bit.lshift behavior with 32-bit signed overflow
+		const shift = 2 * i;
+		const maskedShift = ((shift % 32) + 32) % 32; // Mask to 0-31 range
+		const offset = (base << maskedShift) | 0; // Force 32-bit signed result
 
 		if (offset >= buffer.length) {
-			break;
+			continue; // KOReader continues the loop, doesn't break
 		}
 
 		// Read up to blockSize bytes from the offset

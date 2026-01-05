@@ -7,14 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.19] - 2026-01-05
+
+### Fixed
+- **KOReader MD5 Hash Algorithm** - Finally correct! 32-bit overflow means offset 0 first
+  - LuaJIT `lshift(1024, 30)` = 0 due to 32-bit signed integer overflow
+  - So i=-1 produces offset 0, not a huge number that gets skipped
+  - **Correct offsets**: 0, 1024, 4096, 16384, 65536, 262144, 1048576, ...
+  - Verified by downloading epub and comparing hash with KOReader's actual hash
+  - **IMPORTANT**: After upgrading, run "POST /api/admin/rehash-ebooks?force=true"
+
 ## [2.5.18] - 2026-01-05
 
 ### Fixed
-- **KOReader MD5 Hash Algorithm** - Correct understanding of LuaJIT bit.lshift behavior
-  - LuaJIT bit.lshift uses only lower 5 bits of shift count: `-2 & 31 = 30`
-  - So `lshift(1024, -2)` = `lshift(1024, 30)` = huge number (skipped for any file)
-  - Effective offsets: 1024, 4096, 16384, 65536, ... (starting at i=0)
-  - This is the same as Booklore's implementation (v2.5.16 was correct)
+- **KOReader MD5 Hash Algorithm** - Wrong assumption about overflow (superseded by 2.5.19)
+  - Assumed `1024 << 30` was huge, but it's actually 0 in 32-bit signed
+  - Effective offsets: 1024, 4096, 16384, 65536, ... (missing offset 0)
   - Reference: http://bitop.luajit.org/api.html
   - **IMPORTANT**: After upgrading, run "POST /api/admin/rehash-ebooks?force=true"
 
