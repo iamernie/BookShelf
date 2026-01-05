@@ -154,6 +154,11 @@ export async function deleteKoreaderUser(userId: number): Promise<void> {
 
 /**
  * Get reading progress for a document
+ *
+ * IMPORTANT: KOReader can only navigate using XPointer format for EPUBs.
+ * The browser uses EPUB CFI format which is incompatible.
+ * We only return progress data if we have a valid XPointer that KOReader can use.
+ * Otherwise, return null so KOReader doesn't show a misleading sync prompt.
  */
 export async function getProgress(
 	userId: number,
@@ -175,14 +180,25 @@ export async function getProgress(
 	}
 
 	// KOReader uses XPointer format for EPUB positions (starts with /)
-	// If progress was set by browser (CFI or percentage string), return empty
-	// so KOReader won't try to GotoXPointer with invalid data
+	// Browser uses EPUB CFI format (epubcfi...) which KOReader can't navigate
+	// Only return progress if we have a valid XPointer, otherwise KOReader
+	// would show "sync to X%?" prompt but fail navigation when user confirms
 	const progressValue = progress.progress || '';
 	const isValidXPointer = progressValue.startsWith('/');
 
+	if (!isValidXPointer) {
+		// No valid XPointer - don't advertise progress to KOReader
+		// KOReader will sync its own progress TO us when user reads on device
+		console.log(
+			`[KOReader GET] No valid XPointer for document ${documentHash.substring(0, 8)}... ` +
+				`(progress="${progressValue.substring(0, 20)}...") - returning null`
+		);
+		return null;
+	}
+
 	return {
 		document: progress.documentHash,
-		progress: isValidXPointer ? progressValue : '',
+		progress: progressValue,
 		percentage: progress.percentage || 0,
 		device: progress.device || 'BookShelf',
 		device_id: progress.deviceId || 'bookshelf',
@@ -473,43 +489,52 @@ export async function syncProgressFromBrowser(
 	if (existing) {
 		// Update existing progress - only if browser timestamp is newer
 		if (!existing.timestamp || timestamp >= existing.timestamp) {
-			// IMPORTANT: Don't overwrite progress field with EPUB CFI - KOReader uses XPointer format
-			// If KOReader previously set an XPointer, keep it. KOReader will use percentage to navigate.
-			// Only update progress if it was never set or was set by browser (starts with 'epubcfi')
-			const shouldUpdateProgress = !existing.progress || existing.progress.startsWith('epubcfi');
+			// Check if we have a valid XPointer from KOReader
+			const hasValidXPointer = existing.progress && existing.progress.startsWith('/');
 
+			// IMPORTANT: KOReader can only navigate using XPointer format
+			// If we don't have a valid XPointer, we shouldn't update the timestamp
+			// because KOReader would show "sync to X%?" prompt but can't actually navigate there
 			await db
 				.update(koreaderProgress)
 				.set({
-					// Keep existing XPointer if set by KOReader, otherwise store percentage as string
-					progress: shouldUpdateProgress ? String(koreaderPercentage) : existing.progress,
+					// NEVER touch progress field - keep whatever KOReader set
 					percentage: koreaderPercentage,
 					device: 'BookShelf Browser',
 					deviceId: 'bookshelf-browser',
-					timestamp,
+					// Only update timestamp if we have a valid XPointer KOReader can use
+					// This prevents KOReader from showing false sync prompts
+					timestamp: hasValidXPointer ? timestamp : existing.timestamp,
 					updatedAt: now
 				})
 				.where(eq(koreaderProgress.id, existing.id));
-			console.log(`[KOReader Sync] Updated progress for book ${bookId} (${book.title}): ${percentage}% browser → ${koreaderPercentage} KOReader format, timestamp=${timestamp}`);
+
+			if (hasValidXPointer) {
+				console.log(`[KOReader Sync] Updated progress for book ${bookId} (${book.title}): ${percentage}% → ${koreaderPercentage}, keeping XPointer`);
+			} else {
+				console.log(`[KOReader Sync] Updated percentage only for book ${bookId} (${book.title}): ${percentage}% (no XPointer - won't trigger KOReader sync prompt)`);
+			}
 		} else {
 			console.log(`[KOReader Sync] Skipped update for book ${bookId} - existing timestamp ${existing.timestamp} is newer than ${timestamp}`);
 		}
 	} else {
 		// Create new progress entry linked to this book
-		// Store percentage as progress string since we don't have XPointer from KOReader yet
+		// Leave progress field empty - only KOReader should set XPointer
+		// Use timestamp 0 so KOReader doesn't see this as a sync target
+		// (KOReader will only sync TO us, not FROM us, until it sets its own XPointer)
 		await db.insert(koreaderProgress).values({
 			userId,
 			bookId,
 			documentHash: book.ebookMd5,
-			progress: String(koreaderPercentage), // Use percentage, not EPUB CFI
+			progress: '', // Empty - only KOReader sets XPointer
 			percentage: koreaderPercentage,
 			device: 'BookShelf Browser',
 			deviceId: 'bookshelf-browser',
-			timestamp,
+			timestamp: 0, // Use 0 so KOReader always considers its own progress newer
 			createdAt: now,
 			updatedAt: now
 		});
-		console.log(`[KOReader Sync] Created new progress entry for book ${bookId} (${book.title}) at ${Math.round(koreaderPercentage * 100)}%`);
+		console.log(`[KOReader Sync] Created progress entry for book ${bookId} (${book.title}) at ${Math.round(koreaderPercentage * 100)}% (no XPointer - KOReader will sync TO this, not FROM it)`);
 	}
 
 	return { synced: true, reason: 'success' };

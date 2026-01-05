@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.22] - 2026-01-05
+
+### Fixed
+- **KOReader Sync** - Prevent false sync prompts when browser can't provide navigation data
+  - KOReader uses XPointer format for EPUB navigation; browser uses EPUB CFI (incompatible)
+  - When no valid XPointer exists, return null so KOReader doesn't show misleading prompts
+  - Browser progress is still stored internally but not advertised until KOReader provides XPointer
+  - **How sync works now**:
+    - KOReader → Browser: Works perfectly (browser uses percentage)
+    - Browser → KOReader: Only prompts if KOReader previously set an XPointer (navigates to last KOReader position)
+    - If you only read in browser, KOReader won't prompt until you also read on device
+
 ## [2.5.21] - 2026-01-05
 
 ### Fixed
