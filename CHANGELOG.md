@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.11] - 2026-01-05
+
+### Fixed
+- **Chapter Title Update Error** - Fixed "Cannot read properties of undefined (reading 'then')" error
+  - `book.navigation.get()` can return undefined or a synchronous value, not always a Promise
+  - Now checks if result is a Promise before calling `.then()` on it
+  - Handles both async and sync navigation results correctly
+
 ## [2.5.10] - 2026-01-05
 
 ### Fixed

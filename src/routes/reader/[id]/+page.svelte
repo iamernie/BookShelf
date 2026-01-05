@@ -258,15 +258,28 @@
 
 			// Fallback: try book.navigation.get (if available and href exists)
 			if (book?.navigation?.get && location.start.href) {
-				book.navigation.get(location.start.href).then((chapter: any) => {
-					if (chapter?.label) {
-						chapterTitle = chapter.label;
+				try {
+					const result = book.navigation.get(location.start.href);
+					// Check if it's a Promise (has .then method) or a direct value
+					if (result && typeof result.then === 'function') {
+						result.then((chapter: any) => {
+							if (chapter?.label) {
+								chapterTitle = chapter.label;
+							} else {
+								chapterTitle = 'Reading...';
+							}
+						}).catch(() => {
+							chapterTitle = 'Reading...';
+						});
+					} else if (result?.label) {
+						// Synchronous result
+						chapterTitle = result.label;
 					} else {
 						chapterTitle = 'Reading...';
 					}
-				}).catch(() => {
+				} catch {
 					chapterTitle = 'Reading...';
-				});
+				}
 			} else {
 				// No navigation available, just show generic text
 				chapterTitle = 'Reading...';
