@@ -844,6 +844,47 @@ export const bookMediaSourcesRelations = relations(bookMediaSources, ({ one }) =
 }));
 
 // ============================================
+// KOReader Sync Tables
+// ============================================
+
+// KOReader user credentials (separate from main user auth)
+export const koreaderUsers = sqliteTable('koreader_users', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id).unique(),
+	username: text('username').notNull().unique(),
+	password: text('password').notNull(), // Plain text for user reference
+	passwordMd5: text('passwordMd5').notNull(), // MD5 hash for KOReader auth
+	syncEnabled: integer('syncEnabled', { mode: 'boolean' }).default(true),
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+// KOReader reading progress sync
+export const koreaderProgress = sqliteTable('koreader_progress', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id),
+	bookId: integer('bookId').references(() => books.id), // Nullable - linked after hash matching
+	documentHash: text('documentHash').notNull(), // MD5 hash of the document used by KOReader
+	progress: text('progress'), // Location string (e.g., page/position)
+	percentage: real('percentage'), // 0.0 to 1.0
+	device: text('device'), // Device name
+	deviceId: text('deviceId'), // Device identifier
+	timestamp: integer('timestamp'), // Unix timestamp from KOReader
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+// KOReader relations
+export const koreaderUsersRelations = relations(koreaderUsers, ({ one }) => ({
+	user: one(users, { fields: [koreaderUsers.userId], references: [users.id] })
+}));
+
+export const koreaderProgressRelations = relations(koreaderProgress, ({ one }) => ({
+	user: one(users, { fields: [koreaderProgress.userId], references: [users.id] }),
+	book: one(books, { fields: [koreaderProgress.bookId], references: [books.id] })
+}));
+
+// ============================================
 // Type exports
 // ============================================
 
@@ -910,6 +951,12 @@ export type MediaSource = typeof mediaSources.$inferSelect;
 export type NewMediaSource = typeof mediaSources.$inferInsert;
 export type BookMediaSource = typeof bookMediaSources.$inferSelect;
 export type NewBookMediaSource = typeof bookMediaSources.$inferInsert;
+
+// KOReader types
+export type KoreaderUser = typeof koreaderUsers.$inferSelect;
+export type NewKoreaderUser = typeof koreaderUsers.$inferInsert;
+export type KoreaderProgress = typeof koreaderProgress.$inferSelect;
+export type NewKoreaderProgress = typeof koreaderProgress.$inferInsert;
 
 // Library type values
 export type LibraryType = 'personal' | 'public';

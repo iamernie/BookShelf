@@ -41,6 +41,14 @@ const PUBLIC_PATHS = [
 	'/api/system/migration-status'
 ];
 
+// KOReader sync routes that use header-based auth (x-auth-user, x-auth-key)
+// These are handled by the endpoints themselves, so we skip session auth for them
+const KOREADER_SYNC_PATHS = [
+	'/api/koreader/users/auth',
+	'/api/koreader/users/create',
+	'/api/koreader/syncs/progress'
+];
+
 // Handle Basic Auth for OPDS routes
 async function handleOPDSAuth(event: Parameters<Handle>[0]['event']): Promise<boolean> {
 	const authHeader = event.request.headers.get('Authorization');
@@ -107,6 +115,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 			opdsWithHeaders.headers.set(header, value);
 		}
 		return opdsWithHeaders;
+	}
+
+	// Handle KOReader sync routes - these use custom header auth (x-auth-user, x-auth-key)
+	// Authentication is handled by the endpoints themselves
+	const isKoreaderRoute = KOREADER_SYNC_PATHS.some((path) => event.url.pathname.startsWith(path));
+	if (isKoreaderRoute) {
+		const koreaderResponse = await resolve(event);
+		// Add security headers
+		const koreaderWithHeaders = new Response(koreaderResponse.body, koreaderResponse);
+		for (const [header, value] of Object.entries(securityHeaders)) {
+			koreaderWithHeaders.headers.set(header, value);
+		}
+		return koreaderWithHeaders;
 	}
 
 	const sessionId = event.cookies.get('session');

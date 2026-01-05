@@ -26,7 +26,10 @@
 		Eye,
 		Edit,
 		KeyRound,
-		AlertCircle
+		AlertCircle,
+		Tablet,
+		Copy,
+		RefreshCw
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { theme as themeStore, type Theme } from '$lib/stores/theme';
@@ -127,6 +130,132 @@
 	let unlinkingProvider = $state<number | null>(null);
 	let testingNotification = $state(false);
 	let notificationTestResult = $state<{ success: boolean; error?: string } | null>(null);
+
+	// KOReader sync state
+	let koreaderLoading = $state(true);
+	let koreaderSaving = $state(false);
+	let koreaderSettings = $state<{
+		configured: boolean;
+		username: string | null;
+		password: string | null;
+		syncEnabled: boolean;
+		progressEntries: number;
+	} | null>(null);
+	let koreaderUsername = $state('');
+	let koreaderPassword = $state('');
+	let showKoreaderPassword = $state(false);
+
+	// Load KOReader settings
+	async function loadKoreaderSettings() {
+		try {
+			const res = await fetch('/api/koreader/settings');
+			if (res.ok) {
+				koreaderSettings = await res.json();
+				if (koreaderSettings?.username) {
+					koreaderUsername = koreaderSettings.username;
+				}
+				if (koreaderSettings?.password) {
+					koreaderPassword = koreaderSettings.password;
+				}
+			}
+		} catch {
+			// Failed to load
+		} finally {
+			koreaderLoading = false;
+		}
+	}
+
+	// Save KOReader credentials
+	async function saveKoreaderCredentials() {
+		if (!koreaderUsername || koreaderUsername.length < 3) {
+			toasts.error('Username must be at least 3 characters');
+			return;
+		}
+		if (!koreaderPassword || koreaderPassword.length < 6) {
+			toasts.error('Password must be at least 6 characters');
+			return;
+		}
+
+		koreaderSaving = true;
+		try {
+			const res = await fetch('/api/koreader/settings', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ username: koreaderUsername, password: koreaderPassword })
+			});
+
+			if (res.ok) {
+				toasts.success('KOReader credentials saved');
+				await loadKoreaderSettings();
+			} else {
+				const result = await res.json();
+				toasts.error(result.message || 'Failed to save credentials');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		} finally {
+			koreaderSaving = false;
+		}
+	}
+
+	// Toggle KOReader sync
+	async function toggleKoreaderSync() {
+		if (!koreaderSettings) return;
+
+		try {
+			const res = await fetch('/api/koreader/settings', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ syncEnabled: !koreaderSettings.syncEnabled })
+			});
+
+			if (res.ok) {
+				koreaderSettings.syncEnabled = !koreaderSettings.syncEnabled;
+				toasts.success(koreaderSettings.syncEnabled ? 'Sync enabled' : 'Sync disabled');
+			} else {
+				toasts.error('Failed to update sync setting');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		}
+	}
+
+	// Delete KOReader credentials
+	async function deleteKoreaderCredentials() {
+		if (!confirm('Are you sure you want to remove your KOReader credentials? This will stop syncing progress from your e-reader.')) {
+			return;
+		}
+
+		try {
+			const res = await fetch('/api/koreader/settings', { method: 'DELETE' });
+
+			if (res.ok) {
+				koreaderSettings = { configured: false, username: null, password: null, syncEnabled: false, progressEntries: 0 };
+				koreaderUsername = '';
+				koreaderPassword = '';
+				toasts.success('KOReader credentials removed');
+			} else {
+				toasts.error('Failed to remove credentials');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		}
+	}
+
+	// Copy to clipboard
+	async function copyToClipboard(text: string, label: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			toasts.success(`${label} copied to clipboard`);
+		} catch {
+			toasts.error('Failed to copy');
+		}
+	}
+
+	// Load KOReader settings on mount
+	$effect(() => {
+		loadKoreaderSettings();
+	});
 
 	// Theme options
 	const themeOptions = [
@@ -778,6 +907,192 @@
 				</div>
 			</section>
 		{/if}
+
+		<!-- KOReader Sync Section -->
+		<section class="card p-6">
+			<div class="flex items-center justify-between mb-4">
+				<div class="flex items-center gap-2">
+					<Tablet class="w-5 h-5" style="color: var(--accent);" />
+					<h2 class="text-lg font-semibold" style="color: var(--text-primary);">KOReader Sync</h2>
+				</div>
+				{#if koreaderSettings?.configured}
+					<button
+						type="button"
+						class="text-sm px-3 py-1.5 rounded-lg transition-colors"
+						style="background-color: {koreaderSettings.syncEnabled ? 'var(--accent)' : 'var(--bg-tertiary)'}; color: {koreaderSettings.syncEnabled ? 'white' : 'var(--text-muted)'};"
+						onclick={toggleKoreaderSync}
+					>
+						{koreaderSettings.syncEnabled ? 'Sync Enabled' : 'Sync Disabled'}
+					</button>
+				{/if}
+			</div>
+
+			<p class="text-sm mb-4" style="color: var(--text-muted);">
+				Sync your reading progress from KOReader on your e-reader (Kobo, Kindle, etc.) to BookShelf.
+			</p>
+
+			{#if koreaderLoading}
+				<div class="flex items-center justify-center py-8">
+					<Loader2 class="w-6 h-6 animate-spin" style="color: var(--text-muted);" />
+				</div>
+			{:else if koreaderSettings?.configured}
+				<!-- Configured - show credentials and sync URL -->
+				<div class="space-y-4">
+					<!-- Sync Server URL -->
+					<div class="p-4 rounded-lg" style="background-color: var(--bg-tertiary);">
+						<div class="flex items-center justify-between mb-2">
+							<span class="text-sm font-medium" style="color: var(--text-secondary);">Sync Server URL</span>
+							<button
+								type="button"
+								class="p-1.5 rounded transition-colors hover:bg-black/10"
+								onclick={() => copyToClipboard(`${window.location.origin}/api/koreader`, 'URL')}
+								title="Copy URL"
+							>
+								<Copy class="w-4 h-4" style="color: var(--text-muted);" />
+							</button>
+						</div>
+						<code class="text-sm break-all" style="color: var(--text-primary);">
+							{typeof window !== 'undefined' ? `${window.location.origin}/api/koreader` : '/api/koreader'}
+						</code>
+					</div>
+
+					<!-- Credentials -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div class="p-4 rounded-lg" style="background-color: var(--bg-tertiary);">
+							<div class="flex items-center justify-between mb-2">
+								<span class="text-sm font-medium" style="color: var(--text-secondary);">Username</span>
+								<button
+									type="button"
+									class="p-1.5 rounded transition-colors hover:bg-black/10"
+									onclick={() => copyToClipboard(koreaderSettings?.username || '', 'Username')}
+									title="Copy username"
+								>
+									<Copy class="w-4 h-4" style="color: var(--text-muted);" />
+								</button>
+							</div>
+							<code class="text-sm" style="color: var(--text-primary);">{koreaderSettings.username}</code>
+						</div>
+
+						<div class="p-4 rounded-lg" style="background-color: var(--bg-tertiary);">
+							<div class="flex items-center justify-between mb-2">
+								<span class="text-sm font-medium" style="color: var(--text-secondary);">Password</span>
+								<div class="flex items-center gap-1">
+									<button
+										type="button"
+										class="p-1.5 rounded transition-colors hover:bg-black/10"
+										onclick={() => showKoreaderPassword = !showKoreaderPassword}
+										title={showKoreaderPassword ? 'Hide password' : 'Show password'}
+									>
+										<Eye class="w-4 h-4" style="color: var(--text-muted);" />
+									</button>
+									<button
+										type="button"
+										class="p-1.5 rounded transition-colors hover:bg-black/10"
+										onclick={() => copyToClipboard(koreaderSettings?.password || '', 'Password')}
+										title="Copy password"
+									>
+										<Copy class="w-4 h-4" style="color: var(--text-muted);" />
+									</button>
+								</div>
+							</div>
+							<code class="text-sm" style="color: var(--text-primary);">
+								{showKoreaderPassword ? koreaderSettings.password : '••••••••'}
+							</code>
+						</div>
+					</div>
+
+					<!-- Progress info -->
+					{#if koreaderSettings.progressEntries > 0}
+						<p class="text-sm" style="color: var(--text-muted);">
+							{koreaderSettings.progressEntries} reading progress {koreaderSettings.progressEntries === 1 ? 'entry' : 'entries'} synced
+						</p>
+					{/if}
+
+					<!-- Actions -->
+					<div class="flex items-center gap-3 pt-2">
+						<button
+							type="button"
+							class="btn-ghost text-sm flex items-center gap-2"
+							onclick={() => { koreaderSettings = null; koreaderLoading = false; }}
+						>
+							<Edit class="w-4 h-4" />
+							Edit Credentials
+						</button>
+						<button
+							type="button"
+							class="text-sm flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors hover:bg-red-500/10"
+							style="color: #ef4444;"
+							onclick={deleteKoreaderCredentials}
+						>
+							<Trash2 class="w-4 h-4" />
+							Remove
+						</button>
+					</div>
+				</div>
+			{:else}
+				<!-- Not configured - show setup form -->
+				<div class="space-y-4">
+					<div class="p-4 rounded-lg" style="background-color: var(--bg-tertiary);">
+						<p class="text-sm mb-4" style="color: var(--text-secondary);">
+							Create credentials to use with KOReader's sync feature. These are separate from your BookShelf login.
+						</p>
+
+						<div class="space-y-3">
+							<div>
+								<label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+									Username
+								</label>
+								<input
+									type="text"
+									class="input w-full"
+									placeholder="e.g., koreader_user"
+									bind:value={koreaderUsername}
+									minlength="3"
+								/>
+							</div>
+
+							<div>
+								<label class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">
+									Password
+								</label>
+								<input
+									type="password"
+									class="input w-full"
+									placeholder="At least 6 characters"
+									bind:value={koreaderPassword}
+									minlength="6"
+								/>
+							</div>
+
+							<button
+								type="button"
+								class="btn-primary w-full flex items-center justify-center gap-2"
+								onclick={saveKoreaderCredentials}
+								disabled={koreaderSaving}
+							>
+								{#if koreaderSaving}
+									<Loader2 class="w-4 h-4 animate-spin" />
+									Saving...
+								{:else}
+									<Save class="w-4 h-4" />
+									Save Credentials
+								{/if}
+							</button>
+						</div>
+					</div>
+
+					<div class="text-sm" style="color: var(--text-muted);">
+						<p class="font-medium mb-2">How to set up KOReader:</p>
+						<ol class="list-decimal list-inside space-y-1">
+							<li>Create credentials above</li>
+							<li>On your e-reader, go to KOReader Settings → Cloud Storage → Progress Sync</li>
+							<li>Enter the sync server URL and your credentials</li>
+							<li>Enable sync and your reading progress will sync automatically</li>
+						</ol>
+					</div>
+				</div>
+			{/if}
+		</section>
 
 		<!-- Library Sharing Section -->
 		<section class="card p-6">

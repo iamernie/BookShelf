@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-01-05
+
+### Added
+- **KOReader Sync** - Sync reading progress from KOReader on e-readers (Kobo, Kindle, etc.)
+  - Compatible with KOReader's built-in sync protocol (KOSync)
+  - Configure KOReader credentials in Account Settings → KOReader Sync
+  - Progress syncs automatically when reading on your e-reader
+  - Separate credentials from your BookShelf login (username/password for KOReader)
+  - Enable/disable sync per user
+  - Instructions for configuring KOReader included in the UI
+
 ## [2.4.24] - 2026-01-04
 
 ### Added

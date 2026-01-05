@@ -1501,6 +1501,48 @@ function runMigrations() {
 		}
 	}
 
+	// ========== KOReader Sync Tables ==========
+	updateStatus('Creating KOReader sync tables...');
+
+	safeCreateTable('koreader_users', `
+		CREATE TABLE koreader_users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+			username TEXT NOT NULL UNIQUE,
+			password TEXT NOT NULL,
+			passwordMd5 TEXT NOT NULL,
+			syncEnabled INTEGER DEFAULT 1,
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
+
+	safeCreateTable('koreader_progress', `
+		CREATE TABLE koreader_progress (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			bookId INTEGER REFERENCES books(id) ON DELETE SET NULL,
+			documentHash TEXT NOT NULL,
+			progress TEXT,
+			percentage REAL,
+			device TEXT,
+			deviceId TEXT,
+			timestamp INTEGER,
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
+
+	// Create indexes for KOReader tables
+	try {
+		sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_koreader_progress_user_doc ON koreader_progress(userId, documentHash)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_koreader_progress_hash ON koreader_progress(documentHash)');
+	} catch {
+		// Indexes may already exist
+	}
+
+	completeStep('Creating KOReader sync tables');
+
 	// ========== Migrate owned books to user_books table ==========
 	// For users who own books (via ownerId), ensure those books appear in their personal library (user_books)
 	if (tableExists('user_books') && tableExists('books') && columnExists('books', 'ownerId')) {
