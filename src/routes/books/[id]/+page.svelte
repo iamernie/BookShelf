@@ -206,6 +206,40 @@
 		activeTab = 'listen';
 	}
 
+	// Parse ebook reading progress
+	interface ReadingProgress {
+		location: string;
+		percentage: number;
+		chapter?: string;
+		savedAt?: string;
+		source?: string;
+	}
+
+	const ebookProgress = $derived.by(() => {
+		if (!data.book.readingProgress) return null;
+		try {
+			return JSON.parse(data.book.readingProgress) as ReadingProgress;
+		} catch {
+			return null;
+		}
+	});
+
+	// Format relative time (e.g., "2 hours ago", "3 days ago")
+	function formatRelativeTime(dateStr: string): string {
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffMins = Math.floor(diffMs / 60000);
+		const diffHours = Math.floor(diffMs / 3600000);
+		const diffDays = Math.floor(diffMs / 86400000);
+
+		if (diffMins < 1) return 'Just now';
+		if (diffMins < 60) return `${diffMins}m ago`;
+		if (diffHours < 24) return `${diffHours}h ago`;
+		if (diffDays < 7) return `${diffDays}d ago`;
+		return formatDate(dateStr);
+	}
+
 	let showDeleteConfirm = $state(false);
 	let permanentDelete = $state(false);
 
@@ -1524,6 +1558,25 @@
 											<p class="text-xs sm:text-sm" style="color: var(--text-muted);">
 												{data.book.format?.name || 'Ebook'} • {data.book.pageCount ? `${data.book.pageCount} pages` : 'Digital format'}
 											</p>
+											<!-- Reading progress -->
+											{#if ebookProgress && ebookProgress.percentage > 0}
+												<div class="flex items-center gap-2 mt-1.5">
+													<div class="flex-1 h-1.5 rounded-full overflow-hidden" style="background: var(--bg-tertiary);">
+														<div
+															class="h-full rounded-full transition-all"
+															style="width: {Math.min(ebookProgress.percentage, 100)}%; background: var(--accent);"
+														></div>
+													</div>
+													<span class="text-xs font-medium" style="color: var(--accent);">
+														{Math.round(ebookProgress.percentage)}%
+													</span>
+												</div>
+												{#if data.book.lastReadAt}
+													<p class="text-xs mt-0.5" style="color: var(--text-muted);">
+														Last read {formatRelativeTime(data.book.lastReadAt)}
+													</p>
+												{/if}
+											{/if}
 										</div>
 									</div>
 									<div class="flex items-center gap-2 w-full sm:w-auto">
@@ -1533,7 +1586,11 @@
 											style="background: var(--accent);"
 										>
 											<BookOpen class="w-4 h-4" />
-											Read
+											{#if ebookProgress && ebookProgress.percentage > 0 && ebookProgress.percentage < 100}
+												Continue
+											{:else}
+												Read
+											{/if}
 										</a>
 										<a
 											href="/api/ebooks/{data.book.id}/download"
@@ -1620,6 +1677,11 @@
 													<div class="mt-2 h-1 rounded-full overflow-hidden" style="background: var(--bg-tertiary);">
 														<div class="h-full rounded-full" style="width: {getProgressPercent(audiobook)}%; background: var(--accent);"></div>
 													</div>
+												{/if}
+												{#if audiobook.userProgress?.lastPlayedAt}
+													<p class="text-xs mt-1" style="color: var(--text-muted);">
+														Last listened {formatRelativeTime(audiobook.userProgress.lastPlayedAt)}
+													</p>
 												{/if}
 											</div>
 										</div>
