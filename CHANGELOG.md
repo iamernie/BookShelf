@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.24] - 2026-01-05
+
+### Fixed
+- **Ebook Download** - Fixed 404 error when downloading ebooks from the media page
+  - Added missing `/api/ebooks/[id]/download` endpoint
+  - Downloads now trigger proper file download (attachment) instead of inline viewing
+
 ## [2.5.23] - 2026-01-05
 
 ### Added
