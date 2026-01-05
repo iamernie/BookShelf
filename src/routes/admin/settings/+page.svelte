@@ -2,7 +2,7 @@
 	import {
 		Settings, FolderOpen, BookOpen, Monitor, Rss, Upload, Save, Check,
 		AlertCircle, Loader2, Database, Sparkles, Eye, EyeOff, FileText,
-		HelpCircle, UserPlus, KeyRound, Users, Shield, Mail, Send, Bell
+		HelpCircle, UserPlus, KeyRound, Users, Shield, Mail, Send, Bell, Hash
 	} from 'lucide-svelte';
 
 	interface Placeholder {
@@ -93,6 +93,11 @@
 	// ntfy test state
 	let testingNtfy = $state(false);
 	let ntfyTestResult = $state<{ success: boolean; message: string } | null>(null);
+
+	// MD5 hash generation state
+	let generatingHashes = $state(false);
+	let hashStats = $state<{ withEbook: number; withHash: number; needsHash: number } | null>(null);
+	let hashResult = $state<{ total: number; updated: number; errors: { id: number; title: string; error: string }[] } | null>(null);
 
 	// Fetch placeholders on mount
 	$effect(() => {
@@ -365,6 +370,51 @@
 			testingNtfy = false;
 		}
 	}
+
+	async function fetchHashStats() {
+		try {
+			const res = await fetch('/api/admin/rehash-ebooks');
+			if (res.ok) {
+				hashStats = await res.json();
+			}
+		} catch (e) {
+			console.error('Failed to fetch hash stats:', e);
+		}
+	}
+
+	async function generateMd5Hashes() {
+		generatingHashes = true;
+		hashResult = null;
+
+		try {
+			const res = await fetch('/api/admin/rehash-ebooks', {
+				method: 'POST'
+			});
+
+			if (!res.ok) {
+				throw new Error('Failed to generate hashes');
+			}
+
+			hashResult = await res.json();
+			// Refresh stats after generation
+			await fetchHashStats();
+		} catch (e) {
+			hashResult = {
+				total: 0,
+				updated: 0,
+				errors: [{ id: 0, title: 'Error', error: e instanceof Error ? e.message : 'Unknown error' }]
+			};
+		} finally {
+			generatingHashes = false;
+		}
+	}
+
+	// Fetch hash stats when switching to storage tab
+	$effect(() => {
+		if (activeTab === 'storage' && data.isAdmin) {
+			fetchHashStats();
+		}
+	});
 </script>
 
 <svelte:head>
@@ -1062,6 +1112,93 @@
 					</div>
 				{/if}
 			{/each}
+
+			<!-- MD5 Hash Generation Section -->
+			{#if activeTab === 'storage' && data.isAdmin}
+				<div class="rounded-xl overflow-hidden" style="background: var(--bg-secondary);">
+					<div class="p-4 border-b flex items-center gap-3" style="border-color: var(--border-color);">
+						<div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--bg-tertiary);">
+							<Hash class="w-5 h-5" style="color: var(--accent);" />
+						</div>
+						<div>
+							<h2 class="text-lg font-semibold" style="color: var(--text-primary);">Ebook MD5 Hashes</h2>
+							<p class="text-sm" style="color: var(--text-muted);">Required for KOReader sync to match ebooks</p>
+						</div>
+					</div>
+
+					<div class="p-4">
+						{#if hashStats}
+							<div class="grid grid-cols-3 gap-4 mb-4">
+								<div class="p-3 rounded-lg" style="background: var(--bg-tertiary);">
+									<div class="text-2xl font-bold" style="color: var(--text-primary);">{hashStats.withEbook}</div>
+									<div class="text-sm" style="color: var(--text-muted);">Books with ebooks</div>
+								</div>
+								<div class="p-3 rounded-lg" style="background: var(--bg-tertiary);">
+									<div class="text-2xl font-bold" style="color: #22c55e;">{hashStats.withHash}</div>
+									<div class="text-sm" style="color: var(--text-muted);">Have MD5 hash</div>
+								</div>
+								<div class="p-3 rounded-lg" style="background: var(--bg-tertiary);">
+									<div class="text-2xl font-bold" style="color: {hashStats.needsHash > 0 ? '#f59e0b' : 'var(--text-muted)'};">
+										{hashStats.needsHash}
+									</div>
+									<div class="text-sm" style="color: var(--text-muted);">Need MD5 hash</div>
+								</div>
+							</div>
+						{/if}
+
+						<div class="flex items-center gap-3">
+							<button
+								type="button"
+								class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+								style="background: var(--accent); color: white;"
+								onclick={generateMd5Hashes}
+								disabled={generatingHashes || (hashStats && hashStats.needsHash === 0)}
+							>
+								{#if generatingHashes}
+									<Loader2 class="w-4 h-4 animate-spin" />
+									Generating...
+								{:else}
+									<Hash class="w-4 h-4" />
+									Generate Missing Hashes
+								{/if}
+							</button>
+							{#if hashStats && hashStats.needsHash === 0}
+								<span class="flex items-center gap-1.5 text-sm" style="color: #22c55e;">
+									<Check class="w-4 h-4" />
+									All ebooks have MD5 hashes
+								</span>
+							{/if}
+						</div>
+
+						{#if hashResult}
+							<div class="mt-4 p-3 rounded-lg" style="background: var(--bg-tertiary);">
+								{#if hashResult.updated > 0}
+									<p class="text-sm" style="color: #22c55e;">
+										Successfully generated {hashResult.updated} MD5 hash{hashResult.updated === 1 ? '' : 'es'}.
+									</p>
+								{:else if hashResult.total === 0}
+									<p class="text-sm" style="color: var(--text-muted);">
+										All ebooks already have MD5 hashes.
+									</p>
+								{/if}
+								{#if hashResult.errors.length > 0}
+									<p class="text-sm mt-2" style="color: #ef4444;">
+										{hashResult.errors.length} error{hashResult.errors.length === 1 ? '' : 's'} occurred.
+									</p>
+									<ul class="mt-1 text-xs space-y-1" style="color: var(--text-muted);">
+										{#each hashResult.errors.slice(0, 5) as error}
+											<li>• {error.title}: {error.error}</li>
+										{/each}
+										{#if hashResult.errors.length > 5}
+											<li>• ... and {hashResult.errors.length - 5} more</li>
+										{/if}
+									</ul>
+								{/if}
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
 
 			<!-- Storage info box -->
 			{#if activeTab === 'storage'}

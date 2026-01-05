@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.5] - 2026-01-05
+
+### Added
+- **MD5 Hash Generation UI** - Admin button in Settings → Storage to generate missing ebook MD5 hashes
+  - Shows stats: how many ebooks have hashes vs need them
+  - One-click generation for all missing hashes
+  - Required for KOReader sync to match ebooks uploaded before v2.5.2
+- **Detailed KOReader sync error messages** - Browser console now shows specific failure reasons
+  - `No KOReader credentials configured` - Need to set up credentials in Account Settings
+  - `KOReader sync is disabled` - Need to enable sync in Account Settings
+  - `Book has no MD5 hash` - Run the hash generation in Admin Settings
+
 ## [2.5.4] - 2026-01-05
 
 ### Added

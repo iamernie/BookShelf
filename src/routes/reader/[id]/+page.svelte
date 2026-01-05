@@ -275,9 +275,16 @@
 			});
 			const result = await res.json();
 			if (result.koreaderSynced) {
-				console.log('[KOReader Sync] Progress synced to KOReader:', Math.round(currentLocation.start.percentage * 100) + '%');
+				console.log('[KOReader Sync] ✓ Progress synced to KOReader:', Math.round(currentLocation.start.percentage * 100) + '%');
 			} else {
-				console.log('[KOReader Sync] Not synced (no credentials, disabled, or missing MD5 hash)');
+				const reasons: Record<string, string> = {
+					'no_credentials': '✗ No KOReader credentials configured. Go to Account Settings → KOReader Sync',
+					'sync_disabled': '✗ KOReader sync is disabled. Enable it in Account Settings → KOReader Sync',
+					'no_md5_hash': '✗ Book has no MD5 hash. Run POST /api/admin/rehash-ebooks as admin',
+					'error': '✗ Sync error occurred',
+					'': '✗ Not synced (unknown reason)'
+				};
+				console.log('[KOReader Sync]', reasons[result.koreaderSyncReason] || reasons['']);
 			}
 		} catch (err) {
 			console.error('Error saving progress:', err);

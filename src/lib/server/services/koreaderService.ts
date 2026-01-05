@@ -403,6 +403,11 @@ export async function linkProgressToBook(
 		);
 }
 
+export interface SyncResult {
+	synced: boolean;
+	reason: 'success' | 'no_credentials' | 'sync_disabled' | 'no_md5_hash' | 'error';
+}
+
 /**
  * Sync browser reader progress to KOReader
  * Called when user reads in the browser and we want KOReader to pick up the progress
@@ -414,16 +419,16 @@ export async function syncProgressFromBrowser(
 	bookId: number,
 	percentage: number,
 	location: string
-): Promise<boolean> {
+): Promise<SyncResult> {
 	// First, check if the user has KOReader sync enabled
 	const koreaderUser = await getKoreaderUser(userId);
 	if (!koreaderUser) {
 		console.log(`[KOReader Sync] User ${userId} has no KOReader credentials configured`);
-		return false;
+		return { synced: false, reason: 'no_credentials' };
 	}
 	if (!koreaderUser.syncEnabled) {
 		console.log(`[KOReader Sync] User ${userId} has KOReader sync disabled`);
-		return false;
+		return { synced: false, reason: 'sync_disabled' };
 	}
 
 	// Get the book's MD5 hash to find the corresponding KOReader progress entry
@@ -436,7 +441,7 @@ export async function syncProgressFromBrowser(
 	if (!book?.ebookMd5) {
 		// Book doesn't have an MD5 hash (no ebook file or hash not computed)
 		console.log(`[KOReader Sync] Book ${bookId} (${book?.title}) has no MD5 hash - run POST /api/admin/rehash-ebooks to fix`);
-		return false;
+		return { synced: false, reason: 'no_md5_hash' };
 	}
 
 	const now = new Date().toISOString();
@@ -489,5 +494,5 @@ export async function syncProgressFromBrowser(
 		console.log(`[KOReader Sync] Created new progress entry for book ${bookId} (${book.title}) at ${Math.round(koreaderPercentage * 100)}%`);
 	}
 
-	return true;
+	return { synced: true, reason: 'success' };
 }
