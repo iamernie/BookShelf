@@ -7,14 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.18] - 2026-01-05
+
+### Fixed
+- **KOReader MD5 Hash Algorithm** - Correct understanding of LuaJIT bit.lshift behavior
+  - LuaJIT bit.lshift uses only lower 5 bits of shift count: `-2 & 31 = 30`
+  - So `lshift(1024, -2)` = `lshift(1024, 30)` = huge number (skipped for any file)
+  - Effective offsets: 1024, 4096, 16384, 65536, ... (starting at i=0)
+  - This is the same as Booklore's implementation (v2.5.16 was correct)
+  - Reference: http://bitop.luajit.org/api.html
+  - **IMPORTANT**: After upgrading, run "POST /api/admin/rehash-ebooks?force=true"
+
 ## [2.5.17] - 2026-01-05
 
 ### Fixed
-- **KOReader MD5 Hash Algorithm** - Match KOReader's actual Lua implementation
-  - KOReader uses `bit.lshift(1024, 2*i)` for i = -1 to 10
-  - In Lua, negative shift amounts act as right shift: lshift(1024, -2) = 256
-  - Offsets: 256, 1024, 4096, 16384, 65536, 262144, 1048576, ...
-  - This matches what KOReader actually calculates, not Booklore's interpretation
+- **KOReader MD5 Hash Algorithm** - Incorrect assumption about Lua lshift (superseded by 2.5.18)
+  - Incorrectly assumed negative shift acts as right shift
+  - Offsets: 256, 1024, 4096... was wrong
   - Reference: https://github.com/koreader/koreader/discussions/14448
   - **IMPORTANT**: After upgrading, run "POST /api/admin/rehash-ebooks?force=true"
 
