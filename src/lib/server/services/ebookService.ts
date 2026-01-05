@@ -86,23 +86,35 @@ export function computeMd5(buffer: Buffer): string {
  * Compute KOReader-compatible partial MD5 hash
  *
  * KOReader uses a partial file sampling algorithm that reads 1024-byte chunks
- * at specific offsets. This implementation matches Booklore's Java implementation
- * which is known to work with KOReader devices.
+ * at specific offsets using Lua's lshift function: lshift(1024, 2*i) for i=-1 to 10.
  *
- * Offsets: 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824
- * (calculated as 1024 << (2 * i) for i = 0 to 10)
+ * In Lua, lshift with negative shift amounts performs a RIGHT shift, so:
+ * - i=-1: lshift(1024, -2) = 1024 >> 2 = 256
+ * - i=0:  lshift(1024, 0) = 1024
+ * - i=1:  lshift(1024, 2) = 4096
+ * - i=2:  lshift(1024, 4) = 16384
+ * - etc.
  *
- * Reference: https://github.com/koreader/koreader/discussions/14448
+ * Offsets: 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824
+ *
+ * Reference: https://github.com/koreader/koreader/blob/master/frontend/util.lua (partialMD5 function)
  */
 export function computeKoreaderMd5(buffer: Buffer): string {
 	const md5 = createHash('md5');
 	const blockSize = 1024;
-	const base = 1024;
+	const step = 1024;
 
-	// Match Booklore's Java implementation: start at i=0 (offset 1024)
-	// In Java, i=-1 causes an overflow that immediately breaks the loop
-	for (let i = 0; i <= 10; i++) {
-		const offset = base << (2 * i); // 1024, 4096, 16384, 65536, ...
+	// Match KOReader's Lua implementation exactly
+	// Lua's lshift(step, 2*i) for negative i does a right shift
+	for (let i = -1; i <= 10; i++) {
+		let offset: number;
+		if (i < 0) {
+			// Lua lshift with negative amount = right shift
+			// lshift(1024, -2) = 1024 >> 2 = 256
+			offset = step >> (-2 * i);
+		} else {
+			offset = step << (2 * i);
+		}
 
 		if (offset >= buffer.length) {
 			break;

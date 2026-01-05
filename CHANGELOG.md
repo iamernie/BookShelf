@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.15] - 2026-01-05
+
+### Fixed
+- **KOReader MD5 Hash Algorithm** - Fixed hash computation to exactly match KOReader's Lua implementation
+  - KOReader's `lshift(1024, -2)` in Lua performs a RIGHT shift, giving offset 256
+  - Previous fix incorrectly started at offset 1024, missing the first sample at 256
+  - Correct offsets: 256, 1024, 4096, 16384, 65536, ... (matching KOReader exactly)
+  - **IMPORTANT**: After upgrading, run "POST /api/admin/rehash-ebooks?force=true" again
+
 ## [2.5.14] - 2026-01-05
 
 ### Added
