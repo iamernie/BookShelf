@@ -3,6 +3,8 @@
  *
  * GET /api/ebooks/[id]/progress - Get reading progress
  * POST /api/ebooks/[id]/progress - Save reading progress
+ *
+ * Also syncs progress to KOReader when the user has sync enabled
  */
 
 import { json, error } from '@sveltejs/kit';
@@ -12,6 +14,7 @@ import { books } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { parseReadingProgress, stringifyReadingProgress } from '$lib/server/services/ebookService';
 import type { ReadingProgress } from '$lib/server/services/ebookService';
+import { syncProgressFromBrowser } from '$lib/server/services/koreaderService';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const bookId = parseInt(params.id);
@@ -43,7 +46,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	});
 };
 
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const bookId = parseInt(params.id);
 
 	if (isNaN(bookId)) {
@@ -76,6 +79,21 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			updatedAt: new Date().toISOString()
 		})
 		.where(eq(books.id, bookId));
+
+	// Sync progress to KOReader if user has sync enabled
+	// This is best-effort - don't fail if sync fails
+	if (locals.user?.id) {
+		try {
+			await syncProgressFromBrowser(
+				locals.user.id,
+				bookId,
+				progress.percentage,
+				location || ''
+			);
+		} catch (e) {
+			console.error('Failed to sync progress to KOReader:', e);
+		}
+	}
 
 	return json({
 		success: true,

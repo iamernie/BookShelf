@@ -7,7 +7,7 @@
 import { writeFile, unlink, mkdir, readFile } from 'fs/promises';
 import { existsSync, createReadStream } from 'fs';
 import { join, extname, basename } from 'path';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import type { Readable } from 'stream';
 
 // Configuration
@@ -75,12 +75,31 @@ function validateEbook(filename: string, size: number): { valid: boolean; error?
 }
 
 /**
+ * Compute MD5 hash of a buffer
+ */
+export function computeMd5(buffer: Buffer): string {
+	return createHash('md5').update(buffer).digest('hex');
+}
+
+/**
+ * Compute MD5 hash of a file by path
+ */
+export async function computeFileMd5(filepath: string): Promise<string | null> {
+	try {
+		const buffer = await readFile(filepath);
+		return computeMd5(buffer);
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Save an ebook file
  */
 export async function saveEbook(
 	file: File,
 	bookId?: number
-): Promise<{ success: boolean; filename?: string; format?: string; error?: string }> {
+): Promise<{ success: boolean; filename?: string; format?: string; md5?: string; error?: string }> {
 	// Validate
 	const validation = validateEbook(file.name, file.size);
 	if (!validation.valid) {
@@ -95,12 +114,17 @@ export async function saveEbook(
 
 	try {
 		const buffer = Buffer.from(await file.arrayBuffer());
+
+		// Compute MD5 hash for KOReader sync
+		const md5 = computeMd5(buffer);
+
 		await writeFile(filepath, buffer);
 
 		return {
 			success: true,
 			filename,
-			format
+			format,
+			md5
 		};
 	} catch (err) {
 		console.error('Error saving ebook:', err);

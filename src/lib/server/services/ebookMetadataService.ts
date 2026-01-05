@@ -3,7 +3,7 @@ import { createReadStream } from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
 import { createWriteStream } from 'fs';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { mkdir } from 'fs/promises';
 import { getStoragePaths, resolvePathPattern, type PathPatternContext } from './settingsService';
 import { createLogger } from './loggerService';
@@ -477,7 +477,7 @@ export async function saveEbookFile(
 	tempPath: string,
 	originalFilename: string,
 	context: SaveContext
-): Promise<string> {
+): Promise<{ path: string; md5: string }> {
 	const { ebooksPath, ebookPathPattern } = await getStoragePaths();
 
 	const ext = path.extname(originalFilename);
@@ -505,6 +505,12 @@ export async function saveEbookFile(
 	await mkdir(directory, { recursive: true });
 
 	const fs = await import('fs/promises');
+
+	// Read file to compute MD5 hash for KOReader sync
+	const fileBuffer = await fs.readFile(tempPath);
+	const md5 = createHash('md5').update(fileBuffer).digest('hex');
+
+	// Copy file to destination
 	await fs.copyFile(tempPath, fullPath);
 
 	// Clean up temp file
@@ -514,7 +520,10 @@ export async function saveEbookFile(
 		// Ignore cleanup errors
 	}
 
-	// Return web-accessible path
+	// Return web-accessible path and MD5 hash
 	const webBasePath = ebooksPath.startsWith('./static') ? ebooksPath.slice(8) : '/ebooks';
-	return `${webBasePath}/${resolvedPath}`;
+	return {
+		path: `${webBasePath}/${resolvedPath}`,
+		md5
+	};
 }

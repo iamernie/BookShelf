@@ -41,6 +41,7 @@ export const books = sqliteTable('books', {
 	// Ebook support
 	ebookPath: text('ebookPath'),
 	ebookFormat: text('ebookFormat'),
+	ebookMd5: text('ebookMd5'), // MD5 hash of ebook file for KOReader sync
 	readingProgress: text('readingProgress'), // JSON
 	lastReadAt: text('lastReadAt'),
 	// Library type: 'personal' or 'public'

@@ -212,8 +212,10 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 				);
 			}
 
-			// Save ebook file
-			const ebookPath = await saveEbookFile(extracted.tempPath, extracted.originalFilename, saveContext);
+			// Save ebook file and get MD5 hash
+			const ebookResult = await saveEbookFile(extracted.tempPath, extracted.originalFilename, saveContext);
+			const ebookPath = ebookResult.path;
+			const ebookMd5 = ebookResult.md5;
 
 			// Get or create author(s)
 			const authorIds: number[] = [];
@@ -265,6 +267,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 				formatId,
 				genreId,
 				ebookPath,
+				ebookMd5, // For KOReader sync matching
 				statusId: unreadStatus?.id || null,
 				isbn13: isbn && isbn.length === 13 ? isbn : null,
 				isbn10: isbn && isbn.length === 10 ? isbn : null,

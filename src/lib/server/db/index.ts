@@ -642,6 +642,7 @@ function runMigrations() {
 		// Ebook-related columns
 		safeAddColumn('books', 'ebookPath', 'VARCHAR(255)');
 		safeAddColumn('books', 'ebookFormat', 'VARCHAR(50)');
+		safeAddColumn('books', 'ebookMd5', 'TEXT');
 		safeAddColumn('books', 'readingProgress', 'REAL DEFAULT 0');
 		safeAddColumn('books', 'lastReadAt', 'DATETIME');
 		safeAddColumn('books', 'readingPosition', 'TEXT');

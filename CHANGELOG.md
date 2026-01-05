@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-01-05
+
+### Added
+- **KOReader ↔ BookShelf Bidirectional Sync** - Reading progress syncs between e-reader and browser
+  - Progress from KOReader automatically updates the book's reading position in BookShelf
+  - Progress from BookShelf's browser reader syncs back to KOReader
+  - Automatic matching via MD5 hash of ebook files
+  - When you read on your Kobo, you can continue in the browser (and vice versa)
+  - Works with EPUB, PDF, and CBZ files
+
+### Technical
+- Added `ebookMd5` column to books table for ebook file identification
+- MD5 hash computed and stored when ebooks are uploaded or imported
+- Bidirectional sync only occurs when book has matching MD5 hash
+
 ## [2.5.1] - 2026-01-05
 
 ### Added

@@ -334,11 +334,13 @@ export async function importQueueItem(
 			}
 		}
 
-		// Save ebook file to permanent storage
-		const ebookPath = await saveEbookFile(item.filePath, item.filename, {
+		// Save ebook file to permanent storage and get MD5 hash
+		const ebookResult = await saveEbookFile(item.filePath, item.filename, {
 			title,
 			author: authorName || undefined
 		});
+		const ebookPath = ebookResult.path;
+		const ebookMd5 = ebookResult.md5;
 
 		// Get library type from override or default to 'public' for bulk imports
 		const libraryType: LibraryType = overrides?.libraryType || 'public';
@@ -355,6 +357,7 @@ export async function importQueueItem(
 				coverImageUrl,
 				ebookPath,
 				ebookFormat: path.extname(item.filename).toLowerCase().replace('.', ''),
+				ebookMd5, // For KOReader sync matching
 				summary: metadata.description || null,
 				isbn13: metadata.isbn?.length === 13 ? metadata.isbn : null,
 				isbn10: metadata.isbn?.length === 10 ? metadata.isbn : null,

@@ -186,6 +186,7 @@ export async function getProgress(
 
 /**
  * Save reading progress for a document
+ * Also syncs the progress to the linked book's reading progress (for browser reader)
  */
 export async function saveProgress(
 	userId: number,
@@ -237,8 +238,13 @@ export async function saveProgress(
 	}
 
 	// Try to link progress to a book by matching document hash
-	// This is a best-effort attempt - the hash may not match any book
-	await tryLinkProgressToBook(userId, data.document);
+	// This also returns the book ID if a match is found
+	const bookId = await tryLinkProgressToBook(userId, data.document);
+
+	// Sync progress to the book's reading progress for the browser reader
+	if (bookId && data.percentage !== undefined) {
+		await syncProgressToBook(bookId, data.percentage, data.progress, now);
+	}
 
 	return {
 		document: data.document,
@@ -251,15 +257,42 @@ export async function saveProgress(
 }
 
 /**
- * Try to link progress to a book by finding a book with matching hash
- * KOReader uses MD5 of the file, but we might need to compute/store this
+ * Sync KOReader progress to the book's reading progress
+ * This allows the browser reader to continue where KOReader left off
  */
-async function tryLinkProgressToBook(userId: number, documentHash: string): Promise<void> {
-	// For now, this is a placeholder. In the future, we could:
-	// 1. Compute and store MD5 hashes of ebook files when they're uploaded
-	// 2. Try to match by filename patterns
-	// 3. Allow manual linking in the UI
+async function syncProgressToBook(
+	bookId: number,
+	percentage: number,
+	location: string | undefined,
+	timestamp: string
+): Promise<void> {
+	// Update the book's reading progress
+	// The percentage is stored as 0-1 in KOReader but we store it the same way
+	const readingProgress = JSON.stringify({
+		location: location || '',
+		percentage: percentage,
+		chapter: undefined,
+		currentPage: undefined,
+		totalPages: undefined,
+		savedAt: timestamp,
+		source: 'koreader' // Mark that this came from KOReader
+	});
 
+	await db
+		.update(books)
+		.set({
+			readingProgress,
+			lastReadAt: timestamp,
+			updatedAt: timestamp
+		})
+		.where(eq(books.id, bookId));
+}
+
+/**
+ * Try to link progress to a book by finding a book with matching MD5 hash
+ * KOReader sends the MD5 hash of the ebook file as the document identifier
+ */
+async function tryLinkProgressToBook(userId: number, documentHash: string): Promise<number | null> {
 	// Check if we already have a progress entry with a linked book
 	const [progress] = await db
 		.select()
@@ -274,10 +307,35 @@ async function tryLinkProgressToBook(userId: number, documentHash: string): Prom
 
 	if (progress?.bookId) {
 		// Already linked
-		return;
+		return progress.bookId;
 	}
 
-	// Future: Add book matching logic here
+	// Try to find a book with matching MD5 hash
+	const [matchingBook] = await db
+		.select({ id: books.id })
+		.from(books)
+		.where(eq(books.ebookMd5, documentHash))
+		.limit(1);
+
+	if (matchingBook) {
+		// Link the progress entry to the book
+		await db
+			.update(koreaderProgress)
+			.set({
+				bookId: matchingBook.id,
+				updatedAt: new Date().toISOString()
+			})
+			.where(
+				and(
+					eq(koreaderProgress.userId, userId),
+					eq(koreaderProgress.documentHash, documentHash)
+				)
+			);
+
+		return matchingBook.id;
+	}
+
+	return null;
 }
 
 /**
@@ -343,4 +401,81 @@ export async function linkProgressToBook(
 				eq(koreaderProgress.userId, userId)
 			)
 		);
+}
+
+/**
+ * Sync browser reader progress to KOReader
+ * Called when user reads in the browser and we want KOReader to pick up the progress
+ */
+export async function syncProgressFromBrowser(
+	userId: number,
+	bookId: number,
+	percentage: number,
+	location: string
+): Promise<boolean> {
+	// First, check if the user has KOReader sync enabled
+	const koreaderUser = await getKoreaderUser(userId);
+	if (!koreaderUser || !koreaderUser.syncEnabled) {
+		return false;
+	}
+
+	// Get the book's MD5 hash to find the corresponding KOReader progress entry
+	const [book] = await db
+		.select({ ebookMd5: books.ebookMd5 })
+		.from(books)
+		.where(eq(books.id, bookId))
+		.limit(1);
+
+	if (!book?.ebookMd5) {
+		// Book doesn't have an MD5 hash (no ebook file or hash not computed)
+		return false;
+	}
+
+	const now = new Date().toISOString();
+	const timestamp = Math.floor(Date.now() / 1000);
+
+	// Check if progress entry exists
+	const [existing] = await db
+		.select()
+		.from(koreaderProgress)
+		.where(
+			and(
+				eq(koreaderProgress.userId, userId),
+				eq(koreaderProgress.documentHash, book.ebookMd5)
+			)
+		)
+		.limit(1);
+
+	if (existing) {
+		// Update existing progress - only if browser timestamp is newer
+		if (!existing.timestamp || timestamp >= existing.timestamp) {
+			await db
+				.update(koreaderProgress)
+				.set({
+					progress: location,
+					percentage: percentage,
+					device: 'BookShelf Browser',
+					deviceId: 'bookshelf-browser',
+					timestamp,
+					updatedAt: now
+				})
+				.where(eq(koreaderProgress.id, existing.id));
+		}
+	} else {
+		// Create new progress entry linked to this book
+		await db.insert(koreaderProgress).values({
+			userId,
+			bookId,
+			documentHash: book.ebookMd5,
+			progress: location,
+			percentage: percentage,
+			device: 'BookShelf Browser',
+			deviceId: 'bookshelf-browser',
+			timestamp,
+			createdAt: now,
+			updatedAt: now
+		});
+	}
+
+	return true;
 }

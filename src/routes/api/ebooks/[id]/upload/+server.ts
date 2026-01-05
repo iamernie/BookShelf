@@ -52,10 +52,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		.where(eq(formats.name, 'eBook'))
 		.limit(1);
 
-	// Update book record with ebook path and automatically set format to eBook
+	// Update book record with ebook path, MD5 hash (for KOReader sync), and format
 	const updateData: Record<string, unknown> = {
 		ebookPath: result.filename,
 		ebookFormat: result.format,
+		ebookMd5: result.md5, // For KOReader sync matching
 		updatedAt: new Date().toISOString()
 	};
 
