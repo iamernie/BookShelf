@@ -234,29 +234,30 @@
 
 	// Update progress display
 	function updateProgress(location: any) {
-		if (!location) return;
+		if (!location?.start) return;
 
 		progressPercent = Math.round((location.start.percentage || 0) * 100);
 
 		// Try to get chapter title from the current location
 		try {
 			// First, try to get it from the location itself if available
-			if (location.start?.index !== undefined && toc.length > 0) {
+			if (location.start.index !== undefined && toc.length > 0) {
 				// Find the chapter that contains this location
 				const currentHref = location.start.href;
 				if (currentHref) {
-					const foundChapter = toc.find((ch: any) =>
-						currentHref.includes(ch.href) || ch.href?.includes(currentHref.split('#')[0])
-					);
-					if (foundChapter) {
-						chapterTitle = foundChapter.label || 'Reading...';
+					const foundChapter = toc.find((ch: any) => {
+						if (!ch.href) return false;
+						return currentHref.includes(ch.href) || ch.href.includes(currentHref.split('#')[0]);
+					});
+					if (foundChapter?.label) {
+						chapterTitle = foundChapter.label;
 						return;
 					}
 				}
 			}
 
-			// Fallback: try book.navigation.get
-			if (book?.navigation && location.start?.href) {
+			// Fallback: try book.navigation.get (if available and href exists)
+			if (book?.navigation?.get && location.start.href) {
 				book.navigation.get(location.start.href).then((chapter: any) => {
 					if (chapter?.label) {
 						chapterTitle = chapter.label;
@@ -286,7 +287,7 @@
 
 	// Save progress to server
 	async function saveProgress() {
-		if (!currentLocation) return;
+		if (!currentLocation?.start?.cfi) return;
 
 		try {
 			const res = await fetch(`/api/ebooks/${data.book.id}/progress`, {
@@ -294,13 +295,13 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					location: currentLocation.start.cfi,
-					percentage: currentLocation.start.percentage * 100,
+					percentage: (currentLocation.start.percentage || 0) * 100,
 					chapter: chapterTitle
 				})
 			});
 			const result = await res.json();
 			if (result.koreaderSynced) {
-				console.log('[KOReader Sync] ✓ Progress synced to KOReader:', Math.round(currentLocation.start.percentage * 100) + '%');
+				console.log('[KOReader Sync] ✓ Progress synced to KOReader:', Math.round((currentLocation.start?.percentage || 0) * 100) + '%');
 			} else {
 				const reasons: Record<string, string> = {
 					'no_credentials': '✗ No KOReader credentials configured. Go to Account Settings → KOReader Sync',
@@ -318,11 +319,11 @@
 
 	// Save progress using sendBeacon (more reliable for page unload)
 	function saveProgressBeacon() {
-		if (!currentLocation) return;
+		if (!currentLocation?.start?.cfi) return;
 
 		const progressData = JSON.stringify({
 			location: currentLocation.start.cfi,
-			percentage: currentLocation.start.percentage * 100,
+			percentage: (currentLocation.start.percentage || 0) * 100,
 			chapter: chapterTitle
 		});
 

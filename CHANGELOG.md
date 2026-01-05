@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.10] - 2026-01-05
+
+### Fixed
+- **Browser Reader Null Reference Errors** - Fixed console errors when reading ebooks
+  - Added null checks to `updateProgress`, `saveProgress`, and `saveProgressBeacon` functions
+  - Prevents "Cannot read properties of null" errors in epub.js location handling
+  - Reader now gracefully handles incomplete location data from epub.js events
+
+## [2.5.9] - 2026-01-05
+
+### Added
+- **Reading Progress Display on Book Page** - Show ebook and audiobook progress
+  - Ebook card shows progress bar, percentage, and "Last read X ago"
+  - Audiobook section shows listening progress and "Last listened X ago"
+  - Button changes from "Read/Listen" to "Continue" when there's progress
+
+## [2.5.8] - 2026-01-05
+
+### Fixed
+- **Browser Reader KOReader Progress Crash** - Fixed "Cannot Read Book" error when opening books with KOReader-synced progress
+  - KOReader uses different location format than EPUB.js CFI
+  - Now falls back to percentage-based navigation when CFI location is invalid
+  - Reader checks for "epubcfi" prefix before attempting CFI-based navigation
+
+## [2.5.7] - 2026-01-05
+
+### Fixed
+- **KOReader MD5 Hash Compatibility** - Fixed MD5 hash mismatch between BookShelf and KOReader
+  - Implemented KOReader's partial MD5 algorithm (samples 1024-byte chunks at specific offsets)
+  - BookShelf now generates the exact same MD5 hash that KOReader uses
+  - Previously, full-file MD5 was used which didn't match KOReader's partial MD5
+  - Reference: KOReader GitHub Discussion #14448
+
+### Added
+- **Regenerate All Hashes** button in Admin Settings → Storage
+  - Use `?force=true` parameter with POST /api/admin/rehash-ebooks to regenerate ALL ebook hashes
+  - Needed after algorithm change to update existing hashes to KOReader-compatible format
+- Admin UI now shows separate buttons for "Generate Missing" vs "Regenerate All"
+
 ## [2.5.6] - 2026-01-05
 
 ### Added
