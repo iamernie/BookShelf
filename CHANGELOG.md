@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-01-05
+
+### Fixed
+- **KOReader Sync Percentage Fix** - Fixed percentage conversion between browser (0-100) and KOReader (0-1) formats
+- Added admin endpoint `POST /api/admin/rehash-ebooks` to compute MD5 hashes for existing ebooks
+- Added detailed console logging for KOReader sync debugging
+
+### Technical
+- Books uploaded before v2.5.2 need MD5 hashes computed via the admin endpoint for sync to work
+
 ## [2.5.2] - 2026-01-05
 
 ### Added

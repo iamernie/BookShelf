@@ -406,6 +406,8 @@ export async function linkProgressToBook(
 /**
  * Sync browser reader progress to KOReader
  * Called when user reads in the browser and we want KOReader to pick up the progress
+ *
+ * @param percentage - Progress as 0-100 (browser format), will be converted to 0-1 for KOReader
  */
 export async function syncProgressFromBrowser(
 	userId: number,
@@ -415,24 +417,33 @@ export async function syncProgressFromBrowser(
 ): Promise<boolean> {
 	// First, check if the user has KOReader sync enabled
 	const koreaderUser = await getKoreaderUser(userId);
-	if (!koreaderUser || !koreaderUser.syncEnabled) {
+	if (!koreaderUser) {
+		console.log(`[KOReader Sync] User ${userId} has no KOReader credentials configured`);
+		return false;
+	}
+	if (!koreaderUser.syncEnabled) {
+		console.log(`[KOReader Sync] User ${userId} has KOReader sync disabled`);
 		return false;
 	}
 
 	// Get the book's MD5 hash to find the corresponding KOReader progress entry
 	const [book] = await db
-		.select({ ebookMd5: books.ebookMd5 })
+		.select({ ebookMd5: books.ebookMd5, title: books.title })
 		.from(books)
 		.where(eq(books.id, bookId))
 		.limit(1);
 
 	if (!book?.ebookMd5) {
 		// Book doesn't have an MD5 hash (no ebook file or hash not computed)
+		console.log(`[KOReader Sync] Book ${bookId} (${book?.title}) has no MD5 hash - run POST /api/admin/rehash-ebooks to fix`);
 		return false;
 	}
 
 	const now = new Date().toISOString();
 	const timestamp = Math.floor(Date.now() / 1000);
+
+	// Convert percentage from browser format (0-100) to KOReader format (0-1)
+	const koreaderPercentage = percentage / 100;
 
 	// Check if progress entry exists
 	const [existing] = await db
@@ -453,7 +464,7 @@ export async function syncProgressFromBrowser(
 				.update(koreaderProgress)
 				.set({
 					progress: location,
-					percentage: percentage,
+					percentage: koreaderPercentage,
 					device: 'BookShelf Browser',
 					deviceId: 'bookshelf-browser',
 					timestamp,
@@ -468,13 +479,14 @@ export async function syncProgressFromBrowser(
 			bookId,
 			documentHash: book.ebookMd5,
 			progress: location,
-			percentage: percentage,
+			percentage: koreaderPercentage,
 			device: 'BookShelf Browser',
 			deviceId: 'bookshelf-browser',
 			timestamp,
 			createdAt: now,
 			updatedAt: now
 		});
+		console.log(`[KOReader Sync] Created new progress entry for book ${bookId} (${book.title}) at ${Math.round(koreaderPercentage * 100)}%`);
 	}
 
 	return true;

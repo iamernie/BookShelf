@@ -82,16 +82,18 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// Sync progress to KOReader if user has sync enabled
 	// This is best-effort - don't fail if sync fails
+	let koreaderSynced = false;
 	if (locals.user?.id) {
 		try {
-			await syncProgressFromBrowser(
+			koreaderSynced = await syncProgressFromBrowser(
 				locals.user.id,
 				bookId,
 				progress.percentage,
 				location || ''
 			);
+			console.log(`[KOReader Sync] Book ${bookId}: synced=${koreaderSynced}, percentage=${progress.percentage}%`);
 		} catch (e) {
-			console.error('Failed to sync progress to KOReader:', e);
+			console.error('[KOReader Sync] Failed to sync progress:', e);
 		}
 	}
 
