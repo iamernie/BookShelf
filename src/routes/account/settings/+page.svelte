@@ -161,6 +161,7 @@
 	let linkSearchQuery = $state('');
 	let linkSearchResults = $state<Array<{ id: number; title: string; author?: string }>>([]);
 	let linkSearching = $state(false);
+	let deletingProgressId = $state<number | null>(null);
 
 	// Format relative time for recent activity
 	function formatRelativeTime(dateStr: string | null, timestamp: number | null): string {
@@ -350,6 +351,33 @@
 			}
 		} catch {
 			toasts.error('An error occurred');
+		}
+	}
+
+	// Delete a progress entry
+	async function deleteProgressEntry(progressId: number) {
+		if (!confirm('Delete this sync entry? This will remove the reading progress for this document.')) {
+			return;
+		}
+
+		deletingProgressId = progressId;
+		try {
+			const res = await fetch(`/api/koreader/progress/${progressId}`, {
+				method: 'DELETE'
+			});
+
+			if (res.ok) {
+				toasts.success('Sync entry deleted');
+				// Refresh settings to show updated activity
+				await loadKoreaderSettings();
+			} else {
+				const err = await res.json();
+				toasts.error(err.message || 'Failed to delete');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		} finally {
+			deletingProgressId = null;
 		}
 	}
 
@@ -1158,6 +1186,19 @@
 												Link
 											</button>
 										{/if}
+										<button
+											type="button"
+											class="flex-shrink-0 p-1 rounded transition-colors hover:bg-red-500/10"
+											onclick={() => deleteProgressEntry(activity.id)}
+											disabled={deletingProgressId === activity.id}
+											title="Delete this sync entry"
+										>
+											{#if deletingProgressId === activity.id}
+												<Loader2 class="w-3.5 h-3.5 animate-spin" style="color: var(--text-muted);" />
+											{:else}
+												<Trash2 class="w-3.5 h-3.5 text-red-400" />
+											{/if}
+										</button>
 									</div>
 								{/each}
 							</div>

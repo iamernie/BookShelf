@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.14] - 2026-01-05
+
+### Added
+- **Delete KOReader Sync Entries** - Added delete button to remove individual sync entries from KOReader settings
+  - Useful for cleaning up stale or duplicate progress entries after hash algorithm changes
+  - Each recent activity entry now has a trash icon to delete it
+
 ## [2.5.13] - 2026-01-05
 
 ### Fixed
