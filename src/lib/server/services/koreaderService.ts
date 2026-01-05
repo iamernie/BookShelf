@@ -174,9 +174,15 @@ export async function getProgress(
 		return null;
 	}
 
+	// KOReader uses XPointer format for EPUB positions (starts with /)
+	// If progress was set by browser (CFI or percentage string), return empty
+	// so KOReader won't try to GotoXPointer with invalid data
+	const progressValue = progress.progress || '';
+	const isValidXPointer = progressValue.startsWith('/');
+
 	return {
 		document: progress.documentHash,
-		progress: progress.progress || '',
+		progress: isValidXPointer ? progressValue : '',
 		percentage: progress.percentage || 0,
 		device: progress.device || 'BookShelf',
 		device_id: progress.deviceId || 'bookshelf',

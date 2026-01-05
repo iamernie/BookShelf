@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.21] - 2026-01-05
+
+### Fixed
+- **KOReader Sync Navigation** - Only return valid XPointer to KOReader
+  - KOReader calls `GotoXPointer(progress)` which fails with non-XPointer strings
+  - Now returns empty progress string unless it's a valid XPointer (starts with `/`)
+  - KOReader will show "continue at X%?" but won't navigate to wrong location
+  - This matches Booklore's approach: web and KOReader track positions separately
+
 ## [2.5.20] - 2026-01-05
 
 ### Fixed
