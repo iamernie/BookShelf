@@ -162,8 +162,33 @@
 			}
 
 			// Display at saved location or start
-			if (data.progress?.location) {
-				await rendition.display(data.progress.location);
+			// KOReader uses a different location format than EPUB.js, so we check if the location
+			// is a valid EPUB.js CFI (starts with "epubcfi") or if we should use percentage instead
+			if (data.progress?.location && data.progress.location.startsWith('epubcfi')) {
+				try {
+					await rendition.display(data.progress.location);
+				} catch (err) {
+					console.warn('[Reader] Could not restore location, falling back to percentage:', err);
+					// Fall back to percentage-based navigation
+					if (data.progress.percentage && data.progress.percentage > 0) {
+						await book.locations.generate(1024);
+						const cfi = book.locations.cfiFromPercentage(data.progress.percentage / 100);
+						await rendition.display(cfi);
+					} else {
+						await rendition.display();
+					}
+				}
+			} else if (data.progress?.percentage && data.progress.percentage > 0) {
+				// No valid CFI location but have percentage (e.g., from KOReader sync)
+				// Generate locations and navigate by percentage
+				try {
+					await book.locations.generate(1024);
+					const cfi = book.locations.cfiFromPercentage(data.progress.percentage / 100);
+					await rendition.display(cfi);
+				} catch (err) {
+					console.warn('[Reader] Could not navigate to percentage, starting from beginning:', err);
+					await rendition.display();
+				}
 			} else {
 				await rendition.display();
 			}
