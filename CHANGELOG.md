@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.20] - 2026-01-05
+
+### Fixed
+- **KOReader Sync Position Format** - Preserve XPointer when syncing from browser
+  - KOReader uses XPointer format for EPUB positions, not EPUB CFI
+  - Browser was overwriting KOReader's XPointer with incompatible CFI format
+  - Now preserves KOReader's XPointer and only updates percentage
+  - This fixes "goes to title page" issue when syncing from browser to KOReader
+
 ## [2.5.19] - 2026-01-05
 
 ### Fixed

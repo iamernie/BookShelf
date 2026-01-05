@@ -467,10 +467,16 @@ export async function syncProgressFromBrowser(
 	if (existing) {
 		// Update existing progress - only if browser timestamp is newer
 		if (!existing.timestamp || timestamp >= existing.timestamp) {
+			// IMPORTANT: Don't overwrite progress field with EPUB CFI - KOReader uses XPointer format
+			// If KOReader previously set an XPointer, keep it. KOReader will use percentage to navigate.
+			// Only update progress if it was never set or was set by browser (starts with 'epubcfi')
+			const shouldUpdateProgress = !existing.progress || existing.progress.startsWith('epubcfi');
+
 			await db
 				.update(koreaderProgress)
 				.set({
-					progress: location,
+					// Keep existing XPointer if set by KOReader, otherwise store percentage as string
+					progress: shouldUpdateProgress ? String(koreaderPercentage) : existing.progress,
 					percentage: koreaderPercentage,
 					device: 'BookShelf Browser',
 					deviceId: 'bookshelf-browser',
@@ -484,11 +490,12 @@ export async function syncProgressFromBrowser(
 		}
 	} else {
 		// Create new progress entry linked to this book
+		// Store percentage as progress string since we don't have XPointer from KOReader yet
 		await db.insert(koreaderProgress).values({
 			userId,
 			bookId,
 			documentHash: book.ebookMd5,
-			progress: location,
+			progress: String(koreaderPercentage), // Use percentage, not EPUB CFI
 			percentage: koreaderPercentage,
 			device: 'BookShelf Browser',
 			deviceId: 'bookshelf-browser',
