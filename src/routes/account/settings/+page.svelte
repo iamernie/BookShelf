@@ -31,6 +31,7 @@
 		Copy,
 		RefreshCw,
 		Clock,
+		Info,
 		BookOpen as BookIcon
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
@@ -1059,6 +1060,15 @@
 			<p class="text-sm mb-4" style="color: var(--text-muted);">
 				Sync your reading progress from KOReader on your e-reader (Kobo, Kindle, etc.) to BookShelf.
 			</p>
+
+			<!-- Sync limitations info -->
+			<div class="p-3 rounded-lg mb-4 flex gap-3" style="background-color: var(--bg-tertiary); border-left: 3px solid var(--accent);">
+				<Info class="w-4 h-4 flex-shrink-0 mt-0.5" style="color: var(--accent);" />
+				<div class="text-xs space-y-1" style="color: var(--text-muted);">
+					<p><strong style="color: var(--text-secondary);">Sync Direction:</strong> KOReader → Browser works perfectly. Browser → KOReader only syncs percentage (not exact position) due to incompatible position formats.</p>
+					<p><strong style="color: var(--text-secondary);">Best practice:</strong> Read a few pages on KOReader first, then browser progress updates will sync back.</p>
+				</div>
+			</div>
 
 			{#if koreaderLoading}
 				<div class="flex items-center justify-center py-8">

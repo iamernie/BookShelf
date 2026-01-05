@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.23] - 2026-01-05
+
+### Added
+- **KOReader Sync Info** - Added info box in KOReader settings explaining sync limitations
+  - Clarifies that KOReader → Browser works perfectly
+  - Explains that Browser → KOReader only syncs percentage (not exact position)
+  - Recommends reading a few pages on KOReader first for best sync experience
+
 ## [2.5.22] - 2026-01-05
 
 ### Fixed
