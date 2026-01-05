@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.13] - 2026-01-05
+
+### Fixed
+- **KOReader Bidirectional Sync** - Fixed browser-to-KOReader progress sync not working
+  - Previous algorithm started reading at offset 0 due to JavaScript bit shift behavior with negative numbers
+  - Now matches Booklore's proven Java implementation: starts at offset 1024 (i=0), not offset 0
+  - **IMPORTANT**: After upgrading, run "POST /api/admin/rehash-ebooks?force=true" to recalculate all hashes
+  - Then sync from KOReader once to update progress entries with correct hashes
+
 ## [2.5.12] - 2026-01-05
 
 ### Fixed

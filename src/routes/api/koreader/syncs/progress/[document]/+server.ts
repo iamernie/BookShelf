@@ -42,8 +42,11 @@ export const GET: RequestHandler = async ({ request, params }) => {
 
 	if (!progress) {
 		// Return empty object if no progress found (KOReader expects this)
+		// This could mean: 1) No sync data exists yet, or 2) Hash mismatch between BookShelf and KOReader file
+		console.log(`[KOReader GET] No progress found for user=${username}, document=${documentHash} - check if hash matches BookShelf's ebookMd5`);
 		return json({});
 	}
 
+	console.log(`[KOReader GET] Returning progress for user=${username}, document=${documentHash.substring(0, 8)}...: percentage=${progress.percentage}, device=${progress.device}, timestamp=${progress.timestamp}`);
 	return json(progress);
 };

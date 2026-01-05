@@ -478,6 +478,9 @@ export async function syncProgressFromBrowser(
 					updatedAt: now
 				})
 				.where(eq(koreaderProgress.id, existing.id));
+			console.log(`[KOReader Sync] Updated progress for book ${bookId} (${book.title}): ${percentage}% browser → ${koreaderPercentage} KOReader format, timestamp=${timestamp}`);
+		} else {
+			console.log(`[KOReader Sync] Skipped update for book ${bookId} - existing timestamp ${existing.timestamp} is newer than ${timestamp}`);
 		}
 	} else {
 		// Create new progress entry linked to this book

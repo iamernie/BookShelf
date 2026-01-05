@@ -86,12 +86,11 @@ export function computeMd5(buffer: Buffer): string {
  * Compute KOReader-compatible partial MD5 hash
  *
  * KOReader uses a partial file sampling algorithm that reads 1024-byte chunks
- * at specific offsets calculated as: 1024 << (2 * i) where i goes from -1 to 10
+ * at specific offsets. This implementation matches Booklore's Java implementation
+ * which is known to work with KOReader devices.
  *
- * Offsets: 512, 2048, 8192, 32768, 131072, 524288, 2097152, 8388608, 33554432, 134217728, 536870912
- *
- * This is more efficient for large files and produces the same hash that KOReader
- * generates, allowing progress sync to work correctly.
+ * Offsets: 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824
+ * (calculated as 1024 << (2 * i) for i = 0 to 10)
  *
  * Reference: https://github.com/koreader/koreader/discussions/14448
  */
@@ -100,8 +99,10 @@ export function computeKoreaderMd5(buffer: Buffer): string {
 	const blockSize = 1024;
 	const base = 1024;
 
-	for (let i = -1; i <= 10; i++) {
-		const offset = base << (2 * i); // 1024 * 4^i
+	// Match Booklore's Java implementation: start at i=0 (offset 1024)
+	// In Java, i=-1 causes an overflow that immediately breaks the loop
+	for (let i = 0; i <= 10; i++) {
+		const offset = base << (2 * i); // 1024, 4096, 16384, 65536, ...
 
 		if (offset >= buffer.length) {
 			break;
