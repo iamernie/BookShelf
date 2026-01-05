@@ -172,7 +172,12 @@
 					// Fall back to percentage-based navigation
 					if (data.progress.percentage && data.progress.percentage > 0) {
 						await book.locations.generate(1024);
-						const cfi = book.locations.cfiFromPercentage(data.progress.percentage / 100);
+						// Normalize percentage: if > 1, it's in 0-100 format; if <= 1, it's in 0-1 format
+						let normalizedPercent = data.progress.percentage;
+						if (normalizedPercent > 1) {
+							normalizedPercent = normalizedPercent / 100;
+						}
+						const cfi = book.locations.cfiFromPercentage(normalizedPercent);
 						await rendition.display(cfi);
 					} else {
 						await rendition.display();
@@ -183,7 +188,14 @@
 				// Generate locations and navigate by percentage
 				try {
 					await book.locations.generate(1024);
-					const cfi = book.locations.cfiFromPercentage(data.progress.percentage / 100);
+					// Normalize percentage: if > 1, it's in 0-100 format; if <= 1, it's in 0-1 format
+					// epub.js cfiFromPercentage expects 0-1 format
+					let normalizedPercent = data.progress.percentage;
+					if (normalizedPercent > 1) {
+						normalizedPercent = normalizedPercent / 100;
+					}
+					console.log('[Reader] Navigating to percentage:', data.progress.percentage, '-> normalized:', normalizedPercent);
+					const cfi = book.locations.cfiFromPercentage(normalizedPercent);
 					await rendition.display(cfi);
 				} catch (err) {
 					console.warn('[Reader] Could not navigate to percentage, starting from beginning:', err);

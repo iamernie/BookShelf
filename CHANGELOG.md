@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.12] - 2026-01-05
+
+### Fixed
+- **KOReader Progress Not Loading in Browser Reader** - Fixed critical bug where progress from KOReader wasn't applied when opening book in browser
+  - KOReader stores percentage as 0-1 (e.g., 0.30 for 30%), but browser reader expected 0-100
+  - `syncProgressToBook` now converts KOReader percentage to 0-100 format before storing
+  - Browser reader now normalizes percentage values, handling both formats for backwards compatibility
+  - Books synced from KOReader will now correctly resume at the synced position
+
 ## [2.5.11] - 2026-01-05
 
 ### Fixed

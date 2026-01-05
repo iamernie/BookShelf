@@ -267,10 +267,12 @@ async function syncProgressToBook(
 	timestamp: string
 ): Promise<void> {
 	// Update the book's reading progress
-	// The percentage is stored as 0-1 in KOReader but we store it the same way
+	// KOReader stores percentage as 0-1, but BookShelf browser reader expects 0-100
+	// Convert to 0-100 format for consistency with browser reader
+	const percentageAs100 = percentage * 100;
 	const readingProgress = JSON.stringify({
 		location: location || '',
-		percentage: percentage,
+		percentage: percentageAs100,
 		chapter: undefined,
 		currentPage: undefined,
 		totalPages: undefined,
