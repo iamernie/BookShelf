@@ -29,7 +29,9 @@
 		AlertCircle,
 		Tablet,
 		Copy,
-		RefreshCw
+		RefreshCw,
+		Clock,
+		BookOpen as BookIcon
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { theme as themeStore, type Theme } from '$lib/stores/theme';
@@ -140,10 +142,44 @@
 		password: string | null;
 		syncEnabled: boolean;
 		progressEntries: number;
+		recentActivity: Array<{
+			id: number;
+			documentHash: string;
+			percentage: number | null;
+			device: string | null;
+			timestamp: number | null;
+			updatedAt: string | null;
+			bookId: number | null;
+			bookTitle: string | null;
+		}>;
 	} | null>(null);
 	let koreaderUsername = $state('');
 	let koreaderPassword = $state('');
 	let showKoreaderPassword = $state(false);
+
+	// Format relative time for recent activity
+	function formatRelativeTime(dateStr: string | null, timestamp: number | null): string {
+		let date: Date;
+		if (dateStr) {
+			date = new Date(dateStr);
+		} else if (timestamp) {
+			date = new Date(timestamp * 1000);
+		} else {
+			return 'Unknown';
+		}
+
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffMins = Math.floor(diffMs / 60000);
+		const diffHours = Math.floor(diffMs / 3600000);
+		const diffDays = Math.floor(diffMs / 86400000);
+
+		if (diffMins < 1) return 'Just now';
+		if (diffMins < 60) return `${diffMins}m ago`;
+		if (diffHours < 24) return `${diffHours}h ago`;
+		if (diffDays < 7) return `${diffDays}d ago`;
+		return date.toLocaleDateString();
+	}
 
 	// Load KOReader settings
 	async function loadKoreaderSettings() {
@@ -230,7 +266,7 @@
 			const res = await fetch('/api/koreader/settings', { method: 'DELETE' });
 
 			if (res.ok) {
-				koreaderSettings = { configured: false, username: null, password: null, syncEnabled: false, progressEntries: 0 };
+				koreaderSettings = { configured: false, username: null, password: null, syncEnabled: false, progressEntries: 0, recentActivity: [] };
 				koreaderUsername = '';
 				koreaderPassword = '';
 				toasts.success('KOReader credentials removed');
@@ -1001,10 +1037,57 @@
 						</div>
 					</div>
 
-					<!-- Progress info -->
-					{#if koreaderSettings.progressEntries > 0}
+					<!-- Recent Activity -->
+					{#if koreaderSettings.recentActivity && koreaderSettings.recentActivity.length > 0}
+						<div class="mt-4">
+							<div class="flex items-center gap-2 mb-3">
+								<Clock class="w-4 h-4" style="color: var(--text-muted);" />
+								<span class="text-sm font-medium" style="color: var(--text-secondary);">Recent Sync Activity</span>
+								<span class="text-xs px-2 py-0.5 rounded-full" style="background-color: var(--bg-tertiary); color: var(--text-muted);">
+									{koreaderSettings.progressEntries} total
+								</span>
+							</div>
+							<div class="space-y-2">
+								{#each koreaderSettings.recentActivity as activity}
+									<div class="flex items-center gap-3 p-2 rounded-lg text-sm" style="background-color: var(--bg-tertiary);">
+										<div class="flex-shrink-0">
+											<BookIcon class="w-4 h-4" style="color: var(--accent);" />
+										</div>
+										<div class="flex-1 min-w-0">
+											<div class="truncate" style="color: var(--text-primary);">
+												{activity.bookTitle || `Document ${activity.documentHash}`}
+											</div>
+											<div class="flex items-center gap-2 text-xs" style="color: var(--text-muted);">
+												{#if activity.percentage !== null}
+													<span>{Math.round(activity.percentage * 100)}%</span>
+													<span>•</span>
+												{/if}
+												{#if activity.device}
+													<span>{activity.device}</span>
+													<span>•</span>
+												{/if}
+												<span>{formatRelativeTime(activity.updatedAt, activity.timestamp)}</span>
+											</div>
+										</div>
+										{#if activity.percentage !== null}
+											<div class="flex-shrink-0 w-16 h-1.5 rounded-full overflow-hidden" style="background-color: var(--bg-secondary);">
+												<div
+													class="h-full rounded-full"
+													style="width: {Math.round(activity.percentage * 100)}%; background-color: var(--accent);"
+												></div>
+											</div>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						</div>
+					{:else if koreaderSettings.progressEntries > 0}
 						<p class="text-sm" style="color: var(--text-muted);">
 							{koreaderSettings.progressEntries} reading progress {koreaderSettings.progressEntries === 1 ? 'entry' : 'entries'} synced
+						</p>
+					{:else}
+						<p class="text-sm" style="color: var(--text-muted);">
+							No sync activity yet. Start reading on your e-reader to see progress here.
 						</p>
 					{/if}
 

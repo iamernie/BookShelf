@@ -7,7 +7,7 @@
 
 import { db } from '$lib/server/db';
 import { koreaderUsers, koreaderProgress, books } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { createHash } from 'crypto';
 
 // ============================================
@@ -299,6 +299,28 @@ export async function getAllProgress(userId: number) {
 		.leftJoin(books, eq(koreaderProgress.bookId, books.id))
 		.where(eq(koreaderProgress.userId, userId))
 		.orderBy(koreaderProgress.timestamp);
+}
+
+/**
+ * Get recent sync activity for a user (last N updates, ordered by most recent first)
+ */
+export async function getRecentProgress(userId: number, limit: number = 5) {
+	return await db
+		.select({
+			id: koreaderProgress.id,
+			documentHash: koreaderProgress.documentHash,
+			percentage: koreaderProgress.percentage,
+			device: koreaderProgress.device,
+			timestamp: koreaderProgress.timestamp,
+			updatedAt: koreaderProgress.updatedAt,
+			bookId: koreaderProgress.bookId,
+			bookTitle: books.title
+		})
+		.from(koreaderProgress)
+		.leftJoin(books, eq(koreaderProgress.bookId, books.id))
+		.where(eq(koreaderProgress.userId, userId))
+		.orderBy(desc(koreaderProgress.updatedAt))
+		.limit(limit);
 }
 
 /**

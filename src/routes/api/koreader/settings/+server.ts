@@ -16,7 +16,8 @@ import {
 	upsertKoreaderUser,
 	toggleKoreaderSync,
 	deleteKoreaderUser,
-	getAllProgress
+	getAllProgress,
+	getRecentProgress
 } from '$lib/server/services/koreaderService';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -26,13 +27,24 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 	const koreaderUser = await getKoreaderUser(locals.user.id);
 	const progress = koreaderUser ? await getAllProgress(locals.user.id) : [];
+	const recentActivity = koreaderUser ? await getRecentProgress(locals.user.id, 5) : [];
 
 	return json({
 		configured: !!koreaderUser,
 		username: koreaderUser?.username || null,
 		password: koreaderUser?.password || null, // For display in settings
 		syncEnabled: koreaderUser?.syncEnabled ?? false,
-		progressEntries: progress.length
+		progressEntries: progress.length,
+		recentActivity: recentActivity.map((entry) => ({
+			id: entry.id,
+			documentHash: entry.documentHash.substring(0, 8) + '...', // Shortened for display
+			percentage: entry.percentage,
+			device: entry.device,
+			timestamp: entry.timestamp,
+			updatedAt: entry.updatedAt,
+			bookId: entry.bookId,
+			bookTitle: entry.bookTitle
+		}))
 	});
 };
 

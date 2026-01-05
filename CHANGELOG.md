@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-01-05
+
+### Added
+- **KOReader Sync Activity History** - See recent sync activity in the KOReader settings panel
+  - Shows last 5 sync events with book title, progress percentage, device name, and relative time
+  - Visual progress bars for each synced document
+  - Displays total sync entry count
+
 ## [2.5.0] - 2026-01-05
 
 ### Added
