@@ -49,6 +49,10 @@ const KOREADER_SYNC_PATHS = [
 	'/api/koreader/syncs/progress'
 ];
 
+// Kobo sync routes that use token-based auth (token in URL path)
+// These are handled by the endpoints themselves, so we skip session auth for them
+const KOBO_SYNC_PATH_PREFIX = '/api/kobo/';
+
 // Handle Basic Auth for OPDS routes
 async function handleOPDSAuth(event: Parameters<Handle>[0]['event']): Promise<boolean> {
 	const authHeader = event.request.headers.get('Authorization');
@@ -128,6 +132,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 			koreaderWithHeaders.headers.set(header, value);
 		}
 		return koreaderWithHeaders;
+	}
+
+	// Handle Kobo sync routes - these use token-based auth (token in URL path)
+	// Authentication is handled by the endpoints themselves
+	const isKoboRoute = event.url.pathname.startsWith(KOBO_SYNC_PATH_PREFIX);
+	if (isKoboRoute) {
+		const koboResponse = await resolve(event);
+		// Add security headers
+		const koboWithHeaders = new Response(koboResponse.body, koboResponse);
+		for (const [header, value] of Object.entries(securityHeaders)) {
+			koboWithHeaders.headers.set(header, value);
+		}
+		return koboWithHeaders;
 	}
 
 	const sessionId = event.cookies.get('session');
