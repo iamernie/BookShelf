@@ -18,13 +18,23 @@ const KOBO_API_BASE = 'https://storeapi.kobo.com';
 const SILENT_ENDPOINTS = ['/v1/analytics/event', '/v1/analytics/gettests', '/v1/products/nextread'];
 
 // Endpoints that should return empty objects/arrays
+// These intercept store-related requests that would fail when using self-hosted library
 const EMPTY_RESPONSE_PATTERNS = [
 	/\/v1\/products\/\d+\/nextread/,
+	/\/v1\/products\/\d+\/prices/,
+	/\/v1\/products\/\d+\/reviews/,
+	/\/v1\/products\/books\/external/,
+	/\/v1\/products\/books\/series/,
+	/\/v1\/products\/dailydeal/,
 	/\/v1\/library\/tags/,
 	/\/v1\/user\/loyalty/,
 	/\/v1\/user\/profile/,
 	/\/v1\/user\/wishlist/,
-	/\/v1\/user\/recommendations/
+	/\/v1\/user\/recommendations/,
+	/\/v1\/user\/container/,
+	/\/v1\/affiliate/,
+	/\/v1\/deals/,
+	/\/v1\/browse/
 ];
 
 const handler: RequestHandler = async ({ params, request, fetch }) => {
