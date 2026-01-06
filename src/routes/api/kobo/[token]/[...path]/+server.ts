@@ -41,10 +41,12 @@ const handler: RequestHandler = async ({ params, request, fetch }) => {
 	}
 
 	const requestPath = '/' + (path || '');
+	console.log(`[Kobo Proxy] ${request.method} ${requestPath}`);
 
 	// Check for silent endpoints (return empty success)
 	for (const endpoint of SILENT_ENDPOINTS) {
 		if (requestPath.includes(endpoint)) {
+			console.log(`[Kobo Proxy] Silent endpoint, returning {}`);
 			return json({});
 		}
 	}
@@ -66,6 +68,7 @@ const handler: RequestHandler = async ({ params, request, fetch }) => {
 
 	// Proxy to Kobo servers
 	const koboUrl = `${KOBO_API_BASE}${requestPath}`;
+	console.log(`[Kobo Proxy] Proxying to: ${koboUrl}`);
 
 	try {
 		// Forward headers, filtering out host-specific ones
@@ -100,6 +103,8 @@ const handler: RequestHandler = async ({ params, request, fetch }) => {
 			body
 		});
 
+		console.log(`[Kobo Proxy] Response status: ${response.status}`);
+
 		// Get response data
 		const contentType = response.headers.get('content-type') || 'application/json';
 		const responseData = await response.arrayBuffer();
@@ -121,7 +126,7 @@ const handler: RequestHandler = async ({ params, request, fetch }) => {
 			headers: responseHeaders
 		});
 	} catch (err) {
-		console.error('Kobo proxy error:', err);
+		console.error(`[Kobo Proxy] Error proxying ${requestPath}:`, err);
 
 		// Return empty response rather than error for most cases
 		if (request.method === 'GET') {

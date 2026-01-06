@@ -12,10 +12,12 @@ import { validateToken } from '$lib/server/services/koboService';
 import { generateBookMetadata } from '$lib/server/services/koboEntitlementService';
 import { db } from '$lib/server/db';
 import { books } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ params, url }) => {
 	const { token, bookId } = params;
+
+	console.log(`[Kobo Metadata] GET /v1/library/${bookId}/metadata`);
 
 	// Validate token
 	const user = await validateToken(token);
@@ -35,12 +37,19 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		return json([]);
 	}
 
-	// Verify the book exists and belongs to this user
+	// Verify the book exists and belongs to this user (or is unowned for single-user setups)
 	const book = await db.query.books.findFirst({
-		where: and(eq(books.id, numericId), eq(books.ownerId, user.userId))
+		where: eq(books.id, numericId)
 	});
 
 	if (!book) {
+		console.log(`[Kobo Metadata] Book ${numericId} not found`);
+		throw error(404, 'Book not found');
+	}
+
+	// Check ownership - allow if owned by user or unowned (null)
+	if (book.ownerId !== null && book.ownerId !== user.userId) {
+		console.log(`[Kobo Metadata] Book ${numericId} not accessible by user ${user.userId} (owner: ${book.ownerId})`);
 		throw error(404, 'Book not found');
 	}
 
@@ -52,5 +61,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	}
 
 	// Return as array (Kobo expects array)
+	console.log(`[Kobo Metadata] Returning metadata for "${metadata.Title}" with ${metadata.DownloadUrls.length} download URLs`);
 	return json([metadata]);
 };
