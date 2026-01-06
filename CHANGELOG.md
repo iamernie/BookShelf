@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.4] - 2026-01-06
+
+### Changed
+- **Kobo Debug Endpoint** - Added entitlement generation test to debug endpoint for troubleshooting sync issues
+
 ## [2.6.3] - 2026-01-06
 
 ### Fixed
