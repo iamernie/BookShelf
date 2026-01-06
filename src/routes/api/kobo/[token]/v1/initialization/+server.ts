@@ -169,8 +169,15 @@ function generateResources(baseUrl: string, token: string) {
 	};
 }
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async ({ params, url, request }) => {
 	const { token } = params;
+
+	// Log Kobo requests for debugging
+	console.log('[Kobo Init]', {
+		url: url.href,
+		userAgent: request.headers.get('user-agent'),
+		deviceId: request.headers.get('x-kobo-deviceid')
+	});
 
 	// Validate token
 	const user = await validateToken(token);
