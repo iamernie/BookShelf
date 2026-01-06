@@ -13,7 +13,7 @@ import { validateToken, getKoboTagId, getKoboTaggedBooks, getUnsyncedBooks } fro
 import { generateNewEntitlement } from '$lib/server/services/koboEntitlementService';
 import { db } from '$lib/server/db';
 import { books, bookTags, tags, koboSyncState } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const { token } = params;
@@ -83,4 +83,53 @@ export const GET: RequestHandler = async ({ params }) => {
 		testEntitlementError,
 		testEntitlementData: testEntitlement
 	});
+};
+
+/**
+ * POST /api/kobo/[token]/debug
+ *
+ * Reset sync state for testing. Pass bookId in body to reset specific book,
+ * or omit to reset all sync state for the user.
+ */
+export const POST: RequestHandler = async ({ params, request }) => {
+	const { token } = params;
+
+	// Validate token
+	const user = await validateToken(token);
+	if (!user) {
+		throw error(401, 'Invalid or expired token');
+	}
+
+	const body = await request.json().catch(() => ({}));
+	const bookId = body.bookId as number | undefined;
+
+	const now = new Date().toISOString();
+
+	if (bookId) {
+		// Reset specific book
+		await db
+			.update(koboSyncState)
+			.set({
+				synced: false,
+				removed: false,
+				lastSyncedAt: null,
+				updatedAt: now
+			})
+			.where(and(eq(koboSyncState.userId, user.userId), eq(koboSyncState.bookId, bookId)));
+
+		return json({ message: `Reset sync state for book ${bookId}` });
+	} else {
+		// Reset all sync state for user
+		await db
+			.update(koboSyncState)
+			.set({
+				synced: false,
+				removed: false,
+				lastSyncedAt: null,
+				updatedAt: now
+			})
+			.where(eq(koboSyncState.userId, user.userId));
+
+		return json({ message: 'Reset all sync state for user' });
+	}
 };
