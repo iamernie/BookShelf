@@ -31,7 +31,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
 	if (bookId && !isNaN(bookId)) {
 		// Reset specific book
-		await db
+		console.log(`[Kobo Reset] Resetting book ${bookId} for user ${user.userId}`);
+		const result = await db
 			.update(koboSyncState)
 			.set({
 				synced: false,
@@ -41,10 +42,12 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			})
 			.where(and(eq(koboSyncState.userId, user.userId), eq(koboSyncState.bookId, bookId)));
 
-		return json({ message: `Reset sync state for book ${bookId}` });
+		console.log(`[Kobo Reset] Result:`, result);
+		return json({ message: `Reset sync state for book ${bookId}`, userId: user.userId });
 	} else {
 		// Reset all sync state for user
-		await db
+		console.log(`[Kobo Reset] Resetting ALL books for user ${user.userId}`);
+		const result = await db
 			.update(koboSyncState)
 			.set({
 				synced: false,
@@ -54,6 +57,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			})
 			.where(eq(koboSyncState.userId, user.userId));
 
-		return json({ message: 'Reset all sync state for user' });
+		console.log(`[Kobo Reset] Result:`, result);
+		return json({ message: 'Reset all sync state for user', userId: user.userId });
 	}
 };
