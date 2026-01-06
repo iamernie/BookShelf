@@ -10,6 +10,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateToken, getKoboTagId, getKoboTaggedBooks, getUnsyncedBooks } from '$lib/server/services/koboService';
+import { generateNewEntitlement } from '$lib/server/services/koboEntitlementService';
 import { db } from '$lib/server/db';
 import { books, bookTags, tags, koboSyncState } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -57,6 +58,18 @@ export const GET: RequestHandler = async ({ params }) => {
 	// Get all tags to verify "kobo" tag exists
 	const allTags = await db.select({ id: tags.id, name: tags.name }).from(tags);
 
+	// Test entitlement generation for first unsynced book
+	let testEntitlement = null;
+	let testEntitlementError = null;
+	if (unsyncedBooks.length > 0) {
+		try {
+			const baseUrl = `https://bookshelf.ernieverse.net`;
+			testEntitlement = await generateNewEntitlement(user.userId, unsyncedBooks[0], baseUrl, token);
+		} catch (e) {
+			testEntitlementError = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	return json({
 		userId: user.userId,
 		syncEnabled: user.syncEnabled,
@@ -65,6 +78,9 @@ export const GET: RequestHandler = async ({ params }) => {
 		allKoboTaggedBooks,
 		userTaggedBooks,
 		unsyncedBooks,
-		syncStates
+		syncStates,
+		testEntitlement: testEntitlement ? 'Generated successfully' : null,
+		testEntitlementError,
+		testEntitlementData: testEntitlement
 	});
 };
