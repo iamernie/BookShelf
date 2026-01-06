@@ -14,7 +14,7 @@ import {
 	markBooksSynced,
 	markBookRemoved
 } from './koboService';
-import { generateEntitlements, type Entitlement } from './koboEntitlementService';
+import { generateEntitlements, type Entitlement, type NewEntitlement } from './koboEntitlementService';
 
 // ============================================
 // Types
@@ -114,8 +114,24 @@ export async function syncLibrary(
 		entitlements.push(...newEntitlements);
 		remainingSlots -= newEntitlements.length;
 
-		// Mark these books as synced
-		await markBooksSynced(userId, newBookIds);
+		// Only mark books as synced if entitlements were actually generated
+		// (books without ebook files won't generate entitlements)
+		if (newEntitlements.length > 0) {
+			// Extract book IDs from the entitlements that were actually generated
+			const syncedBookIds = newEntitlements
+				.filter((e): e is NewEntitlement => 'NewEntitlement' in e)
+				.map(e => {
+					// Extract book ID from the entitlement - it's in the download URL
+					const url = e.NewEntitlement.BookMetadata.DownloadUrls[0]?.Url || '';
+					const match = url.match(/\/books\/(\d+)\/download/);
+					return match ? parseInt(match[1], 10) : null;
+				})
+				.filter((id): id is number => id !== null);
+
+			if (syncedBookIds.length > 0) {
+				await markBooksSynced(userId, syncedBookIds);
+			}
+		}
 
 		// Check if there are more new books
 		const moreNewBooks = await getUnsyncedBooks(userId, 1);

@@ -26,14 +26,16 @@ export const GET: RequestHandler = async ({ params }) => {
 	// Get kobo tag info
 	const koboTagId = await getKoboTagId();
 
-	// Get all books with kobo tag (raw, no user filter)
-	let allKoboTaggedBooks: { bookId: number; bookTitle: string; ownerId: number | null }[] = [];
+	// Get all books with kobo tag (raw, no user filter) - including ebook info
+	let allKoboTaggedBooks: { bookId: number; bookTitle: string; ownerId: number | null; ebookPath: string | null; ebookFormat: string | null }[] = [];
 	if (koboTagId) {
 		allKoboTaggedBooks = await db
 			.select({
 				bookId: bookTags.bookId,
 				bookTitle: books.title,
-				ownerId: books.ownerId
+				ownerId: books.ownerId,
+				ebookPath: books.ebookPath,
+				ebookFormat: books.ebookFormat
 			})
 			.from(bookTags)
 			.innerJoin(books, eq(bookTags.bookId, books.id))
