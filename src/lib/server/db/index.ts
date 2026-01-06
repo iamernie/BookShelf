@@ -1544,6 +1544,81 @@ function runMigrations() {
 
 	completeStep('Creating KOReader sync tables');
 
+	// ========== Kobo Sync Tables ==========
+	updateStatus('Creating Kobo sync tables...');
+
+	safeCreateTable('kobo_users', `
+		CREATE TABLE kobo_users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+			token TEXT NOT NULL UNIQUE,
+			syncEnabled INTEGER DEFAULT 1,
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
+
+	safeCreateTable('kobo_devices', `
+		CREATE TABLE kobo_devices (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			deviceId TEXT NOT NULL,
+			deviceModel TEXT,
+			accessToken TEXT,
+			refreshToken TEXT,
+			lastSyncAt TEXT,
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
+
+	safeCreateTable('kobo_sync_state', `
+		CREATE TABLE kobo_sync_state (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			bookId INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+			entitlementId TEXT NOT NULL,
+			synced INTEGER DEFAULT 0,
+			removed INTEGER DEFAULT 0,
+			lastSyncedAt TEXT,
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(userId, bookId)
+		)
+	`);
+
+	safeCreateTable('kobo_reading_state', `
+		CREATE TABLE kobo_reading_state (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			bookId INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+			entitlementId TEXT NOT NULL,
+			progressPercent REAL,
+			status TEXT,
+			locationValue TEXT,
+			locationType TEXT,
+			locationSource TEXT,
+			spentReadingMinutes INTEGER,
+			lastModified TEXT,
+			deviceData TEXT,
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(userId, bookId)
+		)
+	`);
+
+	// Create indexes for Kobo tables
+	try {
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_kobo_users_token ON kobo_users(token)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_kobo_sync_state_user ON kobo_sync_state(userId)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_kobo_sync_state_entitlement ON kobo_sync_state(entitlementId)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_kobo_reading_state_entitlement ON kobo_reading_state(entitlementId)');
+	} catch {
+		// Indexes may already exist
+	}
+
+	completeStep('Creating Kobo sync tables');
+
 	// ========== Migrate owned books to user_books table ==========
 	// For users who own books (via ownerId), ensure those books appear in their personal library (user_books)
 	if (tableExists('user_books') && tableExists('books') && columnExists('books', 'ownerId')) {

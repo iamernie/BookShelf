@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-01-06
+
+### Added
+- **Kobo Device Sync** - Sync your BookShelf library directly to Kobo e-readers
+  - BookShelf acts as a Kobo sync server - your device connects to BookShelf instead of Kobo's servers
+  - **Tag-based sync**: Add the "kobo" tag to any book to sync it to your device
+  - **Reading progress sync**: Bidirectional progress synchronization between device and BookShelf
+  - **Kobo Store proxy**: Still access your purchased Kobo books - those requests are forwarded to Kobo's servers
+  - New settings section with detailed setup instructions for configuring your Kobo device
+  - Connected device tracking with last sync time
+  - Troubleshooting guide included in settings
+
+### Technical Details
+- New database tables: `kobo_users`, `kobo_devices`, `kobo_sync_state`, `kobo_reading_state`
+- New API endpoints under `/api/kobo/[token]/v1/`:
+  - `/initialization` - Kobo resources configuration
+  - `/library/sync` - Library sync with pagination
+  - `/library/[bookId]/metadata` - Book metadata
+  - `/library/[bookId]/state` - Reading state (GET/PUT)
+  - `/books/[bookId]/download` - Ebook download
+  - `/books/[imageId]/thumbnail/...` - Cover images
+  - `/auth/device` and `/auth/refresh` - Device authentication
+  - Catch-all proxy for Kobo store requests
+
 ## [2.5.24] - 2026-01-05
 
 ### Fixed

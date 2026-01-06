@@ -55,6 +55,11 @@ This document outlines planned features, improvements, and future direction for 
 - [x] **Collapsible admin sidebar** - Better navigation for admin users
 - [x] **AI-powered recommendations** - Book suggestions based on reading history and preferences
 - [x] **Customizable dashboard** - Toggle, reorder, and configure dashboard sections
+- [x] **Kobo Device Sync** - Sync your BookShelf library directly to Kobo e-readers
+  - Tag-based sync: Add "kobo" tag to books you want on your device
+  - Bidirectional reading progress sync
+  - Kobo Store proxy for purchased books
+  - Detailed setup instructions in user settings
   - Drag-and-drop section reordering
   - Show/hide individual sections (Reading Goal, Continue Reading, Up Next, Recently Added, Recently Completed)
   - Smart Collection section to display any Magic Shelf on the dashboard

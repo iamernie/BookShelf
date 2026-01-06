@@ -886,6 +886,83 @@ export const koreaderProgressRelations = relations(koreaderProgress, ({ one }) =
 }));
 
 // ============================================
+// Kobo Sync Tables
+// ============================================
+
+// Kobo user settings and authentication
+export const koboUsers = sqliteTable('kobo_users', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id).unique(),
+	token: text('token').notNull().unique(), // Unique sync token for device auth
+	syncEnabled: integer('syncEnabled', { mode: 'boolean' }).default(true),
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+// Track connected Kobo devices
+export const koboDevices = sqliteTable('kobo_devices', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id),
+	deviceId: text('deviceId').notNull(), // Kobo device identifier
+	deviceModel: text('deviceModel'), // Device model name
+	accessToken: text('accessToken'), // Device access token
+	refreshToken: text('refreshToken'), // Device refresh token
+	lastSyncAt: text('lastSyncAt'),
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+// Track library sync state for each book
+export const koboSyncState = sqliteTable('kobo_sync_state', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id),
+	bookId: integer('bookId').notNull().references(() => books.id),
+	entitlementId: text('entitlementId').notNull(), // UUID for Kobo API
+	synced: integer('synced', { mode: 'boolean' }).default(false), // Has this book been sent to device?
+	removed: integer('removed', { mode: 'boolean' }).default(false), // Has this book been removed?
+	lastSyncedAt: text('lastSyncedAt'),
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+// Device reading progress from Kobo
+export const koboReadingState = sqliteTable('kobo_reading_state', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id),
+	bookId: integer('bookId').notNull().references(() => books.id),
+	entitlementId: text('entitlementId').notNull(), // UUID matching koboSyncState
+	progressPercent: real('progressPercent'), // 0-100
+	status: text('status'), // 'ReadyToRead', 'Reading', 'Finished'
+	locationValue: text('locationValue'), // Position/bookmark value
+	locationType: text('locationType'), // Type of location (e.g., 'xpointer')
+	locationSource: text('locationSource'), // Source format
+	spentReadingMinutes: integer('spentReadingMinutes'),
+	lastModified: text('lastModified'), // ISO timestamp
+	deviceData: text('deviceData'), // JSON blob for additional device-specific data
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+// Kobo relations
+export const koboUsersRelations = relations(koboUsers, ({ one }) => ({
+	user: one(users, { fields: [koboUsers.userId], references: [users.id] })
+}));
+
+export const koboDevicesRelations = relations(koboDevices, ({ one }) => ({
+	user: one(users, { fields: [koboDevices.userId], references: [users.id] })
+}));
+
+export const koboSyncStateRelations = relations(koboSyncState, ({ one }) => ({
+	user: one(users, { fields: [koboSyncState.userId], references: [users.id] }),
+	book: one(books, { fields: [koboSyncState.bookId], references: [books.id] })
+}));
+
+export const koboReadingStateRelations = relations(koboReadingState, ({ one }) => ({
+	user: one(users, { fields: [koboReadingState.userId], references: [users.id] }),
+	book: one(books, { fields: [koboReadingState.bookId], references: [books.id] })
+}));
+
+// ============================================
 // Type exports
 // ============================================
 

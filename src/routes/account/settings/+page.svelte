@@ -32,7 +32,10 @@
 		RefreshCw,
 		Clock,
 		Info,
-		BookOpen as BookIcon
+		BookOpen as BookIcon,
+		Smartphone,
+		Power,
+		Tag
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { theme as themeStore, type Theme } from '$lib/stores/theme';
@@ -385,6 +388,134 @@
 	// Load KOReader settings on mount
 	$effect(() => {
 		loadKoreaderSettings();
+	});
+
+	// Kobo sync state
+	let koboLoading = $state(true);
+	let koboSaving = $state(false);
+	let koboSettings = $state<{
+		configured: boolean;
+		token: string | null;
+		syncEnabled: boolean;
+		syncUrl?: string;
+		devices?: Array<{
+			id: number;
+			deviceId: string;
+			deviceModel: string | null;
+			lastSyncAt: string | null;
+		}>;
+	} | null>(null);
+	let showKoboToken = $state(false);
+
+	// Load Kobo settings
+	async function loadKoboSettings() {
+		try {
+			const res = await fetch('/api/kobo/settings');
+			if (res.ok) {
+				koboSettings = await res.json();
+			} else if (res.status === 404) {
+				koboSettings = { configured: false, token: null, syncEnabled: false };
+			}
+		} catch {
+			// Failed to load
+		} finally {
+			koboLoading = false;
+		}
+	}
+
+	// Enable Kobo sync
+	async function enableKoboSync() {
+		koboSaving = true;
+		try {
+			const res = await fetch('/api/kobo/settings', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({})
+			});
+
+			if (res.ok) {
+				toasts.success('Kobo sync enabled');
+				await loadKoboSettings();
+			} else {
+				const result = await res.json();
+				toasts.error(result.message || 'Failed to enable Kobo sync');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		} finally {
+			koboSaving = false;
+		}
+	}
+
+	// Toggle Kobo sync
+	async function toggleKoboSync() {
+		if (!koboSettings) return;
+
+		try {
+			const res = await fetch('/api/kobo/settings', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ syncEnabled: !koboSettings.syncEnabled })
+			});
+
+			if (res.ok) {
+				koboSettings.syncEnabled = !koboSettings.syncEnabled;
+				toasts.success(koboSettings.syncEnabled ? 'Sync enabled' : 'Sync disabled');
+			} else {
+				toasts.error('Failed to update sync setting');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		}
+	}
+
+	// Regenerate Kobo token
+	async function regenerateKoboToken() {
+		if (!confirm('Are you sure? You will need to reconfigure your Kobo device with the new URL.')) {
+			return;
+		}
+
+		try {
+			const res = await fetch('/api/kobo/settings', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ regenerateToken: true })
+			});
+
+			if (res.ok) {
+				toasts.success('Token regenerated');
+				await loadKoboSettings();
+			} else {
+				toasts.error('Failed to regenerate token');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		}
+	}
+
+	// Delete Kobo settings
+	async function deleteKoboSettings() {
+		if (!confirm('Are you sure you want to disable Kobo sync? Your Kobo device will no longer be able to sync with BookShelf.')) {
+			return;
+		}
+
+		try {
+			const res = await fetch('/api/kobo/settings', { method: 'DELETE' });
+
+			if (res.ok) {
+				koboSettings = { configured: false, token: null, syncEnabled: false };
+				toasts.success('Kobo sync disabled');
+			} else {
+				toasts.error('Failed to disable Kobo sync');
+			}
+		} catch {
+			toasts.error('An error occurred');
+		}
+	}
+
+	// Load Kobo settings on mount
+	$effect(() => {
+		loadKoboSettings();
 	});
 
 	// Theme options
@@ -1305,6 +1436,242 @@
 							<li>Enable sync and your reading progress will sync automatically</li>
 						</ol>
 					</div>
+				</div>
+			{/if}
+		</section>
+
+		<!-- Kobo Sync Section -->
+		<section class="card p-6">
+			<div class="flex items-center justify-between mb-4">
+				<div class="flex items-center gap-2">
+					<Smartphone class="w-5 h-5" style="color: var(--accent);" />
+					<h2 class="text-lg font-semibold" style="color: var(--text-primary);">Kobo Sync</h2>
+				</div>
+				{#if koboSettings?.configured}
+					<button
+						type="button"
+						class="text-sm px-3 py-1.5 rounded-lg transition-colors"
+						style="background-color: {koboSettings.syncEnabled ? 'var(--accent)' : 'var(--bg-tertiary)'}; color: {koboSettings.syncEnabled ? 'white' : 'var(--text-muted)'};"
+						onclick={toggleKoboSync}
+					>
+						{koboSettings.syncEnabled ? 'Sync Enabled' : 'Sync Disabled'}
+					</button>
+				{/if}
+			</div>
+
+			<p class="text-sm mb-4" style="color: var(--text-muted);">
+				Sync your BookShelf library directly to your Kobo e-reader. Books tagged with "kobo" will appear on your device.
+			</p>
+
+			<!-- How it works info -->
+			<div class="p-3 rounded-lg mb-4 flex gap-3" style="background-color: var(--bg-tertiary); border-left: 3px solid var(--accent);">
+				<Info class="w-4 h-4 flex-shrink-0 mt-0.5" style="color: var(--accent);" />
+				<div class="text-xs space-y-1" style="color: var(--text-muted);">
+					<p><strong style="color: var(--text-secondary);">How it works:</strong> BookShelf acts as a Kobo sync server. Your Kobo device connects to BookShelf instead of Kobo's servers.</p>
+					<p><strong style="color: var(--text-secondary);">Tag-based sync:</strong> Add the "kobo" tag to any book you want on your device. Remove the tag to remove from device.</p>
+					<p><strong style="color: var(--text-secondary);">Kobo Store:</strong> You can still access purchased Kobo books - those requests are proxied to Kobo's servers.</p>
+				</div>
+			</div>
+
+			{#if koboLoading}
+				<div class="flex items-center justify-center py-8">
+					<Loader2 class="w-6 h-6 animate-spin" style="color: var(--text-muted);" />
+				</div>
+			{:else if koboSettings?.configured}
+				<!-- Configured - show sync URL and settings -->
+				<div class="space-y-4">
+					<!-- Sync URL -->
+					<div class="p-4 rounded-lg" style="background-color: var(--bg-tertiary);">
+						<div class="flex items-center justify-between mb-2">
+							<span class="text-sm font-medium" style="color: var(--text-secondary);">Kobo Sync URL</span>
+							<button
+								type="button"
+								class="p-1.5 rounded transition-colors hover:bg-black/10"
+								onclick={() => copyToClipboard(`${window.location.origin}/api/kobo/${koboSettings?.token}`, 'URL')}
+								title="Copy URL"
+							>
+								<Copy class="w-4 h-4" style="color: var(--text-muted);" />
+							</button>
+						</div>
+						<code class="text-sm break-all" style="color: var(--text-primary);">
+							{typeof window !== 'undefined' ? `${window.location.origin}/api/kobo/${showKoboToken ? koboSettings.token : '••••••••'}` : `/api/kobo/${showKoboToken ? koboSettings?.token : '••••••••'}`}
+						</code>
+						<div class="flex items-center gap-2 mt-2">
+							<button
+								type="button"
+								class="text-xs px-2 py-1 rounded transition-colors flex items-center gap-1"
+								style="background-color: var(--bg-secondary); color: var(--text-muted);"
+								onclick={() => showKoboToken = !showKoboToken}
+							>
+								<Eye class="w-3 h-3" />
+								{showKoboToken ? 'Hide' : 'Show'} token
+							</button>
+						</div>
+					</div>
+
+					<!-- Connected Devices -->
+					{#if koboSettings.devices && koboSettings.devices.length > 0}
+						<div>
+							<div class="flex items-center gap-2 mb-3">
+								<Tablet class="w-4 h-4" style="color: var(--text-muted);" />
+								<span class="text-sm font-medium" style="color: var(--text-secondary);">Connected Devices</span>
+							</div>
+							<div class="space-y-2">
+								{#each koboSettings.devices as device}
+									<div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--bg-tertiary);">
+										<div class="flex items-center gap-3">
+											<Smartphone class="w-5 h-5" style="color: var(--accent);" />
+											<div>
+												<p class="font-medium text-sm" style="color: var(--text-primary);">
+													{device.deviceModel || 'Kobo Device'}
+												</p>
+												<p class="text-xs" style="color: var(--text-muted);">
+													{device.deviceId.substring(0, 16)}...
+												</p>
+											</div>
+										</div>
+										{#if device.lastSyncAt}
+											<span class="text-xs" style="color: var(--text-muted);">
+												Last sync: {formatRelativeTime(device.lastSyncAt, null)}
+											</span>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Setup Instructions -->
+					<div class="p-4 rounded-lg" style="background-color: var(--bg-tertiary);">
+						<p class="font-medium mb-3" style="color: var(--text-secondary);">Setup Instructions</p>
+
+						<div class="space-y-4 text-sm" style="color: var(--text-muted);">
+							<!-- Step 1 -->
+							<div class="flex gap-3">
+								<span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background-color: var(--accent); color: white;">1</span>
+								<div>
+									<p class="font-medium" style="color: var(--text-primary);">Connect Kobo to Computer</p>
+									<p>Connect your Kobo e-reader via USB cable. It should appear as a drive on your computer.</p>
+								</div>
+							</div>
+
+							<!-- Step 2 -->
+							<div class="flex gap-3">
+								<span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background-color: var(--accent); color: white;">2</span>
+								<div>
+									<p class="font-medium" style="color: var(--text-primary);">Enable Hidden Files</p>
+									<p>Show hidden files on your computer:</p>
+									<ul class="list-disc list-inside ml-2 mt-1 space-y-0.5">
+										<li><strong>Windows:</strong> File Explorer → View → Show hidden files</li>
+										<li><strong>macOS:</strong> Press <code class="px-1 py-0.5 rounded text-xs" style="background-color: var(--bg-secondary);">Cmd + Shift + .</code></li>
+										<li><strong>Linux:</strong> Press <code class="px-1 py-0.5 rounded text-xs" style="background-color: var(--bg-secondary);">Ctrl + H</code> in file manager</li>
+									</ul>
+								</div>
+							</div>
+
+							<!-- Step 3 -->
+							<div class="flex gap-3">
+								<span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background-color: var(--accent); color: white;">3</span>
+								<div>
+									<p class="font-medium" style="color: var(--text-primary);">Edit Configuration File</p>
+									<p>Navigate to the Kobo drive and open:</p>
+									<code class="block mt-1 p-2 rounded text-xs break-all" style="background-color: var(--bg-secondary);">.kobo/Kobo/Kobo eReader.conf</code>
+									<p class="mt-1">Open this file with a text editor (Notepad, TextEdit, etc.)</p>
+								</div>
+							</div>
+
+							<!-- Step 4 -->
+							<div class="flex gap-3">
+								<span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background-color: var(--accent); color: white;">4</span>
+								<div>
+									<p class="font-medium" style="color: var(--text-primary);">Add BookShelf Endpoint</p>
+									<p>Find or add the <code class="px-1 py-0.5 rounded text-xs" style="background-color: var(--bg-secondary);">[OneStoreServices]</code> section, then add:</p>
+									<code class="block mt-1 p-2 rounded text-xs break-all" style="background-color: var(--bg-secondary);">api_endpoint={typeof window !== 'undefined' ? `${window.location.origin}/api/kobo/${koboSettings?.token}` : 'YOUR_SYNC_URL'}</code>
+									<p class="mt-1 text-xs" style="color: var(--text-muted);">If the section doesn't exist, add it at the end of the file.</p>
+								</div>
+							</div>
+
+							<!-- Step 5 -->
+							<div class="flex gap-3">
+								<span class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background-color: var(--accent); color: white;">5</span>
+								<div>
+									<p class="font-medium" style="color: var(--text-primary);">Save and Restart</p>
+									<p>Save the file, safely eject your Kobo, and restart the device. Your library will sync on next WiFi connection.</p>
+								</div>
+							</div>
+						</div>
+
+						<!-- Example config -->
+						<details class="mt-4">
+							<summary class="cursor-pointer text-sm font-medium" style="color: var(--accent);">View example configuration</summary>
+							<pre class="mt-2 p-3 rounded text-xs overflow-x-auto" style="background-color: var(--bg-secondary); color: var(--text-primary);">[OneStoreServices]
+api_endpoint={typeof window !== 'undefined' ? `${window.location.origin}/api/kobo/${koboSettings?.token}` : 'https://your-bookshelf-url/api/kobo/YOUR_TOKEN'}</pre>
+						</details>
+					</div>
+
+					<!-- Tag reminder -->
+					<div class="flex items-start gap-3 p-3 rounded-lg" style="background-color: var(--bg-tertiary);">
+						<Tag class="w-4 h-4 flex-shrink-0 mt-0.5" style="color: var(--accent);" />
+						<div class="text-sm">
+							<p class="font-medium" style="color: var(--text-secondary);">Tag your books to sync</p>
+							<p style="color: var(--text-muted);">Add the <strong>"kobo"</strong> tag to any book you want on your device. Remove the tag to remove it from your Kobo.</p>
+						</div>
+					</div>
+
+					<!-- Troubleshooting -->
+					<details class="text-sm">
+						<summary class="cursor-pointer font-medium py-2" style="color: var(--text-secondary);">Troubleshooting</summary>
+						<div class="mt-2 space-y-2 pl-4" style="color: var(--text-muted);">
+							<p><strong>Books not appearing?</strong> Make sure the book has the "kobo" tag and has an ebook file (EPUB) attached.</p>
+							<p><strong>Sync not working?</strong> Ensure your Kobo is connected to WiFi and BookShelf is accessible from your network.</p>
+							<p><strong>HTTPS required?</strong> If your BookShelf uses HTTPS, make sure your Kobo's clock is set correctly (Settings → Date & Time).</p>
+							<p><strong>Want to revert?</strong> Remove the <code class="px-1 py-0.5 rounded text-xs" style="background-color: var(--bg-secondary);">api_endpoint</code> line from the config file to use Kobo's default servers again.</p>
+						</div>
+					</details>
+
+					<!-- Actions -->
+					<div class="flex items-center gap-3 pt-2">
+						<button
+							type="button"
+							class="btn-ghost text-sm flex items-center gap-2"
+							onclick={regenerateKoboToken}
+						>
+							<RefreshCw class="w-4 h-4" />
+							Regenerate Token
+						</button>
+						<button
+							type="button"
+							class="text-sm flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors hover:bg-red-500/10"
+							style="color: #ef4444;"
+							onclick={deleteKoboSettings}
+						>
+							<Power class="w-4 h-4" />
+							Disable Sync
+						</button>
+					</div>
+				</div>
+			{:else}
+				<!-- Not configured - show enable button -->
+				<div class="text-center py-6">
+					<Smartphone class="w-12 h-12 mx-auto mb-3 opacity-30" style="color: var(--text-muted);" />
+					<p class="font-medium mb-2" style="color: var(--text-primary);">Kobo sync not configured</p>
+					<p class="text-sm mb-4" style="color: var(--text-muted);">
+						Enable Kobo sync to sync your BookShelf library to your Kobo e-reader.
+					</p>
+					<button
+						type="button"
+						class="btn-primary flex items-center gap-2 mx-auto"
+						onclick={enableKoboSync}
+						disabled={koboSaving}
+					>
+						{#if koboSaving}
+							<Loader2 class="w-4 h-4 animate-spin" />
+							Enabling...
+						{:else}
+							<Power class="w-4 h-4" />
+							Enable Kobo Sync
+						{/if}
+					</button>
 				</div>
 			{/if}
 		</section>

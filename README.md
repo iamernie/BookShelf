@@ -44,8 +44,14 @@ BookShelf is a self-hosted web app for book lovers who want to track their readi
 - **Dark mode** with system preference detection
 - Responsive design for desktop and mobile
 
+### Sync With Your E-Reader
+- **Kobo Device Sync** - your Kobo e-reader syncs directly with BookShelf
+- Tag books with "kobo" to send them to your device
+- Reading progress syncs bidirectionally
+- Still access your purchased Kobo Store books
+- **OPDS catalog** for other e-reader apps (Calibre, KOReader, Moon+ Reader)
+
 ### More Goodies
-- **OPDS catalog** for e-reader apps (Calibre, KOReader, Moon+ Reader)
 - **BookDrop** folder watching - drop files in, they appear in your library
 - **Public Library** for bulk imports and shared collections
 - **Public widgets** for embedding on blogs
@@ -152,6 +158,7 @@ Visit **http://localhost:5173** (Vite's default port).
 | Author Wikipedia Fetch | ✅ |
 | Similar Books | ✅ |
 | AI Recommendations | ✅ |
+| Kobo Device Sync | ✅ |
 | OPDS Catalog | ✅ |
 | BookDrop Auto-Import | ✅ |
 | Public Library | ✅ |
@@ -189,8 +196,8 @@ V2 is a complete rewrite with a fresh database schema. Your V1 database can be u
 
 ## Roadmap
 
-Check out [docs/ROADMAP.md](docs/ROADMAP.md) for:
-- Planned features (Catalog Manager, File Naming Patterns, KOReader sync)
+Check out [ROADMAP.md](ROADMAP.md) for:
+- Planned features and in-progress work
 - Feature comparison with BookLore
 - Implementation details
 
