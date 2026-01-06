@@ -13,6 +13,7 @@ import { statSync, existsSync } from 'fs';
 import path from 'path';
 
 const EBOOKS_PATH = process.env.EBOOKS_PATH || './data/ebooks';
+const LOG_PREFIX = '[KoboEntitlement]';
 
 // ============================================
 // Types
@@ -241,25 +242,41 @@ export async function generateBookMetadata(
 	baseUrl: string,
 	token: string
 ): Promise<KoboBookMetadata | null> {
+	console.log(`${LOG_PREFIX} generateBookMetadata(userId=${userId}, bookId=${bookId})`);
+
 	const book = await getBookWithRelations(bookId);
 	if (!book) {
+		console.log(`${LOG_PREFIX} Book ${bookId} not found in database`);
 		return null;
 	}
 
+	console.log(`${LOG_PREFIX} Book found: "${book.title}"`);
+	console.log(`${LOG_PREFIX}   - ebookPath: ${book.ebookPath}`);
+	console.log(`${LOG_PREFIX}   - ebookFormat: ${book.ebookFormat}`);
+	console.log(`${LOG_PREFIX}   - authors: ${book.authors.map(a => a.name).join(', ')}`);
+
 	const { entitlementId } = await getOrCreateSyncState(userId, bookId);
+	console.log(`${LOG_PREFIX}   - entitlementId: ${entitlementId}`);
 
 	// Get file size if ebook exists
 	let fileSize = 0;
 	if (book.ebookPath) {
 		try {
 			const fullPath = path.join(EBOOKS_PATH, book.ebookPath);
+			console.log(`${LOG_PREFIX}   - Full ebook path: ${fullPath}`);
+			console.log(`${LOG_PREFIX}   - EBOOKS_PATH env: ${EBOOKS_PATH}`);
 			if (existsSync(fullPath)) {
 				const stats = statSync(fullPath);
 				fileSize = stats.size;
+				console.log(`${LOG_PREFIX}   - File exists! Size: ${fileSize} bytes`);
+			} else {
+				console.log(`${LOG_PREFIX}   - WARNING: File does not exist at ${fullPath}`);
 			}
-		} catch {
-			// File may not exist
+		} catch (err) {
+			console.log(`${LOG_PREFIX}   - ERROR checking file:`, err);
 		}
+	} else {
+		console.log(`${LOG_PREFIX}   - No ebookPath set for this book`);
 	}
 
 	// Build author string
@@ -383,20 +400,32 @@ export async function generateNewEntitlement(
 	baseUrl: string,
 	token: string
 ): Promise<NewEntitlement | null> {
+	console.log(`${LOG_PREFIX} generateNewEntitlement(userId=${userId}, bookId=${bookId})`);
+
 	const metadata = await generateBookMetadata(userId, bookId, baseUrl, token);
 	if (!metadata) {
+		console.log(`${LOG_PREFIX} generateNewEntitlement: No metadata generated for book ${bookId}, returning null`);
+		return null;
+	}
+
+	// CRITICAL: Check if the book has download URLs - if not, don't generate entitlement
+	if (!metadata.DownloadUrls || metadata.DownloadUrls.length === 0) {
+		console.log(`${LOG_PREFIX} generateNewEntitlement: Book ${bookId} has no DownloadUrls, returning null`);
 		return null;
 	}
 
 	const { entitlementId } = await getOrCreateSyncState(userId, bookId);
 
-	return {
+	const entitlement = {
 		NewEntitlement: {
 			BookEntitlement: generateBookEntitlement(entitlementId, false),
 			BookMetadata: metadata,
 			ReadingState: generateEmptyReadingState(entitlementId)
 		}
 	};
+
+	console.log(`${LOG_PREFIX} generateNewEntitlement: Successfully created entitlement for "${metadata.Title}"`);
+	return entitlement;
 }
 
 /**
@@ -445,21 +474,31 @@ export async function generateEntitlements(
 	token: string,
 	type: 'new' | 'removed'
 ): Promise<Entitlement[]> {
+	console.log(`${LOG_PREFIX} generateEntitlements(userId=${userId}, bookIds=${JSON.stringify(bookIds)}, type=${type})`);
+
 	const entitlements: Entitlement[] = [];
 
 	for (const bookId of bookIds) {
+		console.log(`${LOG_PREFIX} Processing book ${bookId} (type=${type})`);
 		if (type === 'new') {
 			const entitlement = await generateNewEntitlement(userId, bookId, baseUrl, token);
 			if (entitlement) {
+				console.log(`${LOG_PREFIX} Book ${bookId}: Entitlement generated successfully`);
 				entitlements.push(entitlement);
+			} else {
+				console.log(`${LOG_PREFIX} Book ${bookId}: No entitlement generated (missing ebook file?)`);
 			}
 		} else {
 			const entitlement = await generateChangedEntitlement(userId, bookId, baseUrl, token, true);
 			if (entitlement) {
+				console.log(`${LOG_PREFIX} Book ${bookId}: Removal entitlement generated`);
 				entitlements.push(entitlement);
+			} else {
+				console.log(`${LOG_PREFIX} Book ${bookId}: No removal entitlement generated`);
 			}
 		}
 	}
 
+	console.log(`${LOG_PREFIX} generateEntitlements: Generated ${entitlements.length} of ${bookIds.length} entitlements`);
 	return entitlements;
 }

@@ -12,9 +12,12 @@ import {
 	getUnsyncedBooks,
 	getRemovedBooks,
 	markBooksSynced,
-	markBookRemoved
+	markBookRemoved,
+	getKoboTaggedBooks
 } from './koboService';
 import { generateEntitlements, type Entitlement, type NewEntitlement } from './koboEntitlementService';
+
+const LOG_PREFIX = '[KoboSync]';
 
 // ============================================
 // Types
@@ -42,7 +45,10 @@ const SYNC_TOKEN_PREFIX = 'BOOKSHELF.';
  * Parse a sync token from base64 header
  */
 export function parseSyncToken(tokenHeader: string | null): SyncToken {
+	console.log(`${LOG_PREFIX} parseSyncToken called with:`, tokenHeader ? `"${tokenHeader.substring(0, 50)}..."` : 'null');
+
 	if (!tokenHeader) {
+		console.log(`${LOG_PREFIX} No sync token provided, returning fresh token`);
 		return {
 			ongoingSyncPointId: null,
 			lastSuccessfulSyncPointId: null
@@ -54,11 +60,15 @@ export function parseSyncToken(tokenHeader: string | null): SyncToken {
 		let tokenStr = tokenHeader;
 		if (tokenStr.startsWith(SYNC_TOKEN_PREFIX)) {
 			tokenStr = tokenStr.slice(SYNC_TOKEN_PREFIX.length);
+			console.log(`${LOG_PREFIX} Removed BOOKSHELF prefix from token`);
 		}
 
 		const decoded = Buffer.from(tokenStr, 'base64').toString('utf-8');
-		return JSON.parse(decoded);
-	} catch {
+		const parsed = JSON.parse(decoded);
+		console.log(`${LOG_PREFIX} Parsed sync token:`, JSON.stringify(parsed));
+		return parsed;
+	} catch (err) {
+		console.log(`${LOG_PREFIX} Failed to parse sync token:`, err);
 		return {
 			ongoingSyncPointId: null,
 			lastSuccessfulSyncPointId: null
@@ -72,7 +82,9 @@ export function parseSyncToken(tokenHeader: string | null): SyncToken {
 export function encodeSyncToken(token: SyncToken): string {
 	const json = JSON.stringify(token);
 	const base64 = Buffer.from(json).toString('base64');
-	return SYNC_TOKEN_PREFIX + base64;
+	const encoded = SYNC_TOKEN_PREFIX + base64;
+	console.log(`${LOG_PREFIX} encodeSyncToken:`, JSON.stringify(token), '->', encoded.substring(0, 50) + '...');
+	return encoded;
 }
 
 // ============================================
@@ -95,15 +107,27 @@ export async function syncLibrary(
 	token: string,
 	syncTokenHeader: string | null
 ): Promise<SyncResult> {
+	console.log(`${LOG_PREFIX} ========== syncLibrary START ==========`);
+	console.log(`${LOG_PREFIX} userId: ${userId}`);
+	console.log(`${LOG_PREFIX} baseUrl: ${baseUrl}`);
+	console.log(`${LOG_PREFIX} token: ${token.substring(0, 8)}...`);
+
 	const syncToken = parseSyncToken(syncTokenHeader);
 	const entitlements: Entitlement[] = [];
 	let remainingSlots = MAX_ENTITLEMENTS_PER_SYNC;
 	let shouldContinue = false;
 
+	// First, let's see what books are tagged with "kobo" for this user
+	const taggedBooks = await getKoboTaggedBooks(userId);
+	console.log(`${LOG_PREFIX} Books tagged with "kobo" for user ${userId}:`, taggedBooks);
+
 	// Get new books to sync
+	console.log(`${LOG_PREFIX} Calling getUnsyncedBooks(${userId}, ${remainingSlots})`);
 	const newBookIds = await getUnsyncedBooks(userId, remainingSlots);
+	console.log(`${LOG_PREFIX} Unsynced book IDs:`, newBookIds);
 
 	if (newBookIds.length > 0) {
+		console.log(`${LOG_PREFIX} Generating entitlements for ${newBookIds.length} new books`);
 		const newEntitlements = await generateEntitlements(
 			userId,
 			newBookIds,
@@ -111,6 +135,26 @@ export async function syncLibrary(
 			token,
 			'new'
 		);
+		console.log(`${LOG_PREFIX} Generated ${newEntitlements.length} new entitlements`);
+
+		// Log each entitlement in detail
+		for (let i = 0; i < newEntitlements.length; i++) {
+			const ent = newEntitlements[i];
+			if ('NewEntitlement' in ent) {
+				console.log(`${LOG_PREFIX} Entitlement[${i}]: NewEntitlement`);
+				console.log(`${LOG_PREFIX}   - Title: ${ent.NewEntitlement.BookMetadata.Title}`);
+				console.log(`${LOG_PREFIX}   - EntitlementId: ${ent.NewEntitlement.BookMetadata.EntitlementId}`);
+				console.log(`${LOG_PREFIX}   - DownloadUrls: ${JSON.stringify(ent.NewEntitlement.BookMetadata.DownloadUrls)}`);
+				console.log(`${LOG_PREFIX}   - Format: ${ent.NewEntitlement.BookMetadata.DownloadUrls[0]?.Format}`);
+				console.log(`${LOG_PREFIX}   - Size: ${ent.NewEntitlement.BookMetadata.DownloadUrls[0]?.Size}`);
+			} else if ('ChangedEntitlement' in ent) {
+				console.log(`${LOG_PREFIX} Entitlement[${i}]: ChangedEntitlement`);
+				console.log(`${LOG_PREFIX}   - IsRemoved: ${ent.ChangedEntitlement.BookEntitlement.IsRemoved}`);
+			} else {
+				console.log(`${LOG_PREFIX} Entitlement[${i}]: ChangedReadingState`);
+			}
+		}
+
 		entitlements.push(...newEntitlements);
 		remainingSlots -= newEntitlements.length;
 
@@ -128,21 +172,28 @@ export async function syncLibrary(
 				})
 				.filter((id): id is number => id !== null);
 
+			console.log(`${LOG_PREFIX} Marking books as synced:`, syncedBookIds);
 			if (syncedBookIds.length > 0) {
 				await markBooksSynced(userId, syncedBookIds);
+				console.log(`${LOG_PREFIX} Successfully marked ${syncedBookIds.length} books as synced`);
 			}
 		}
 
 		// Check if there are more new books
 		const moreNewBooks = await getUnsyncedBooks(userId, 1);
+		console.log(`${LOG_PREFIX} More new books remaining:`, moreNewBooks.length > 0);
 		if (moreNewBooks.length > 0) {
 			shouldContinue = true;
 		}
+	} else {
+		console.log(`${LOG_PREFIX} No unsynced books found`);
 	}
 
 	// If we have slots remaining, handle removed books
 	if (remainingSlots > 0 && !shouldContinue) {
+		console.log(`${LOG_PREFIX} Checking for removed books (${remainingSlots} slots remaining)`);
 		const removedBookIds = await getRemovedBooks(userId, remainingSlots);
+		console.log(`${LOG_PREFIX} Removed book IDs:`, removedBookIds);
 
 		if (removedBookIds.length > 0) {
 			const removedEntitlements = await generateEntitlements(
@@ -152,12 +203,14 @@ export async function syncLibrary(
 				token,
 				'removed'
 			);
+			console.log(`${LOG_PREFIX} Generated ${removedEntitlements.length} removed entitlements`);
 			entitlements.push(...removedEntitlements);
 
 			// Mark these books as removed
 			for (const bookId of removedBookIds) {
 				await markBookRemoved(userId, bookId);
 			}
+			console.log(`${LOG_PREFIX} Marked ${removedBookIds.length} books as removed`);
 
 			// Check if there are more removed books
 			const moreRemovedBooks = await getRemovedBooks(userId, 1);
@@ -174,6 +227,11 @@ export async function syncLibrary(
 			? syncToken.lastSuccessfulSyncPointId
 			: crypto.randomUUID()
 	};
+
+	console.log(`${LOG_PREFIX} ========== syncLibrary END ==========`);
+	console.log(`${LOG_PREFIX} Total entitlements: ${entitlements.length}`);
+	console.log(`${LOG_PREFIX} shouldContinue: ${shouldContinue}`);
+	console.log(`${LOG_PREFIX} newSyncToken:`, JSON.stringify(newSyncToken));
 
 	return {
 		entitlements,

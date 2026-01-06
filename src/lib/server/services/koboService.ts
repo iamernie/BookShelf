@@ -301,8 +301,12 @@ export async function getKoboTagId(): Promise<number | null> {
  * Get all books tagged with "kobo" for a user (owned by that user or unowned)
  */
 export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
+	console.log(`[KoboService] getKoboTaggedBooks(userId=${userId})`);
+
 	const tagId = await getKoboTagId();
+	console.log(`[KoboService] "kobo" tag ID:`, tagId);
 	if (!tagId) {
+		console.log(`[KoboService] No "kobo" tag found, returning empty array`);
 		return [];
 	}
 
@@ -315,10 +319,15 @@ export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 		.innerJoin(books, eq(bookTags.bookId, books.id))
 		.where(eq(bookTags.tagId, tagId));
 
+	console.log(`[KoboService] All books with "kobo" tag:`, taggedBooks);
+
 	// Filter to books owned by user or unowned
-	return taggedBooks
+	const filtered = taggedBooks
 		.filter((b) => b.ownerId === userId || b.ownerId === null)
 		.map((b) => b.bookId);
+
+	console.log(`[KoboService] Books filtered for user ${userId} (owned or unowned):`, filtered);
+	return filtered;
 }
 
 // ============================================
@@ -402,8 +411,11 @@ export async function markBookRemoved(userId: number, bookId: number): Promise<v
  * Get unsynced books (tagged with "kobo" but not yet sent to device)
  */
 export async function getUnsyncedBooks(userId: number, limit: number = 5): Promise<number[]> {
+	console.log(`[KoboService] getUnsyncedBooks(userId=${userId}, limit=${limit})`);
+
 	const koboBookIds = await getKoboTaggedBooks(userId);
 	if (koboBookIds.length === 0) {
+		console.log(`[KoboService] No kobo-tagged books found`);
 		return [];
 	}
 
@@ -420,8 +432,19 @@ export async function getUnsyncedBooks(userId: number, limit: number = 5): Promi
 			)
 		);
 
+	console.log(`[KoboService] Sync states (synced=true, removed=false):`, syncedStates.map(s => ({
+		bookId: s.bookId,
+		synced: s.synced,
+		removed: s.removed,
+		entitlementId: s.entitlementId?.substring(0, 8)
+	})));
+
 	const syncedBookIds = new Set(syncedStates.map((s) => s.bookId));
 	const unsyncedBookIds = koboBookIds.filter((id) => !syncedBookIds.has(id));
+
+	console.log(`[KoboService] Synced book IDs:`, [...syncedBookIds]);
+	console.log(`[KoboService] Unsynced book IDs (before limit):`, unsyncedBookIds);
+	console.log(`[KoboService] Returning ${Math.min(unsyncedBookIds.length, limit)} unsynced books`);
 
 	return unsyncedBookIds.slice(0, limit);
 }
