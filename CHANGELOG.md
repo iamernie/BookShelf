@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-01-06
+
+### Fixed
+- **Kobo API Authentication** - Fixed Kobo sync endpoints requiring session auth instead of token-based auth
+  - Kobo devices now properly authenticate via the token in the URL path
+  - Previously, requests would redirect to login page
+
 ## [2.6.0] - 2026-01-06
 
 ### Added
