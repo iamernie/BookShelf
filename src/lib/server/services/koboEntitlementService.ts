@@ -19,13 +19,15 @@ const LOG_PREFIX = '[KoboEntitlement]';
 // ============================================
 
 export interface KoboBookMetadata {
+	Categories: string[];
 	ContributorRoles: { Name: string }[];
 	Contributors: string;
 	CoverImageId: string;
 	CrossRevisionId: string;
 	CurrentDisplayPrice: { CurrencyCode: string; TotalAmount: number };
+	CurrentLoveDisplayPrice: { TotalAmount: number };
 	Description: string;
-	DownloadUrls: { Format: string; Size: number; Url: string; Platform?: string }[];
+	DownloadUrls: { Format: string; Size: number; Url: string; Platform?: string; DrmType?: string }[];
 	EntitlementId: string;
 	ExternalIds: unknown[];
 	Genre: string;
@@ -296,15 +298,18 @@ export async function generateBookMetadata(
 	// Build download URL
 	const downloadUrl = `${baseUrl}/api/kobo/${token}/v1/books/${bookId}/download`;
 
-	// Determine format (EPUB or KEPUB)
-	const format = book.ebookFormat?.toUpperCase() === 'KEPUB' ? 'KEPUB' : 'EPUB';
+	// Determine format (KEPUB or EPUB3)
+	// Kobo expects EPUB3 for standard EPUB files, KEPUB for Kobo-enhanced EPUBs
+	const format = book.ebookFormat?.toUpperCase() === 'KEPUB' ? 'KEPUB' : 'EPUB3';
 
 	return {
+		Categories: ['00000000-0000-0000-0000-000000000001'],
 		ContributorRoles: authorNames.map((name) => ({ Name: name })),
 		Contributors: contributors,
 		CoverImageId: String(bookId),
 		CrossRevisionId: entitlementId,
 		CurrentDisplayPrice: { CurrencyCode: 'USD', TotalAmount: 0 },
+		CurrentLoveDisplayPrice: { TotalAmount: 0 },
 		Description: book.summary || '',
 		DownloadUrls: book.ebookPath
 			? [
@@ -312,7 +317,8 @@ export async function generateBookMetadata(
 						Format: format,
 						Size: fileSize,
 						Url: downloadUrl,
-						Platform: 'Generic'
+						Platform: 'Generic',
+						DrmType: 'None'
 					}
 				]
 			: [],
@@ -322,12 +328,12 @@ export async function generateBookMetadata(
 		IsEligibleForKoboLove: false,
 		IsInternetArchive: false,
 		IsPreOrder: false,
-		IsSocialEnabled: true,
+		IsSocialEnabled: false,
 		Language: book.language || 'en',
 		PhoneticPronunciations: {},
 		PublicationDate: book.releaseDate || new Date().toISOString().split('T')[0],
 		Publisher: {
-			Imprint: '',
+			Imprint: book.publisher || '',
 			Name: book.publisher || ''
 		},
 		RevisionId: entitlementId,

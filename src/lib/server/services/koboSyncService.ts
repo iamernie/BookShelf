@@ -147,6 +147,7 @@ export async function syncLibrary(
 				console.log(`${LOG_PREFIX}   - DownloadUrls: ${JSON.stringify(ent.NewEntitlement.BookMetadata.DownloadUrls)}`);
 				console.log(`${LOG_PREFIX}   - Format: ${ent.NewEntitlement.BookMetadata.DownloadUrls[0]?.Format}`);
 				console.log(`${LOG_PREFIX}   - Size: ${ent.NewEntitlement.BookMetadata.DownloadUrls[0]?.Size}`);
+				console.log(`${LOG_PREFIX}   - DrmType: ${ent.NewEntitlement.BookMetadata.DownloadUrls[0]?.DrmType}`);
 			} else if ('ChangedEntitlement' in ent) {
 				console.log(`${LOG_PREFIX} Entitlement[${i}]: ChangedEntitlement`);
 				console.log(`${LOG_PREFIX}   - IsRemoved: ${ent.ChangedEntitlement.BookEntitlement.IsRemoved}`);
