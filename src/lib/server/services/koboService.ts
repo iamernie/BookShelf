@@ -336,11 +336,19 @@ export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 
 /**
  * Get or create sync state for a book
+ *
+ * IMPORTANT: EntitlementId uses the numeric book ID (as a string), not a UUID.
+ * This is required for Kobo devices to properly request metadata and downloads.
+ * When Kobo opens a book, it requests /v1/library/{EntitlementId}/metadata,
+ * and using the numeric book ID allows our endpoint to find the correct book.
  */
 export async function getOrCreateSyncState(
 	userId: number,
 	bookId: number
 ): Promise<{ entitlementId: string; synced: boolean }> {
+	// Use numeric book ID as entitlement ID (Kobo expects this format)
+	const entitlementId = String(bookId);
+
 	const [existing] = await db
 		.select()
 		.from(koboSyncState)
@@ -348,15 +356,32 @@ export async function getOrCreateSyncState(
 		.limit(1);
 
 	if (existing) {
+		// If existing record has UUID, update it to use numeric ID
+		if (existing.entitlementId !== entitlementId) {
+			const now = new Date().toISOString();
+			await db
+				.update(koboSyncState)
+				.set({
+					entitlementId,
+					synced: false, // Reset sync state to re-sync with correct ID
+					updatedAt: now
+				})
+				.where(and(eq(koboSyncState.userId, userId), eq(koboSyncState.bookId, bookId)));
+
+			return {
+				entitlementId,
+				synced: false
+			};
+		}
+
 		return {
-			entitlementId: existing.entitlementId,
+			entitlementId,
 			synced: existing.synced ?? false
 		};
 	}
 
-	// Create new sync state
+	// Create new sync state with numeric book ID as entitlement ID
 	const now = new Date().toISOString();
-	const entitlementId = randomUUID();
 
 	await db.insert(koboSyncState).values({
 		userId,
