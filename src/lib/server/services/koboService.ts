@@ -298,7 +298,7 @@ export async function getKoboTagId(): Promise<number | null> {
 }
 
 /**
- * Get all books tagged with "kobo" for a user (owned by that user)
+ * Get all books tagged with "kobo" for a user (owned by that user or unowned)
  */
 export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 	const tagId = await getKoboTagId();
@@ -306,13 +306,19 @@ export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 		return [];
 	}
 
+	// Get books tagged with "kobo" that are either:
+	// 1. Owned by this user (ownerId = userId)
+	// 2. Unowned (ownerId is null) - for backwards compatibility with single-user setups
 	const taggedBooks = await db
-		.select({ bookId: bookTags.bookId })
+		.select({ bookId: bookTags.bookId, ownerId: books.ownerId })
 		.from(bookTags)
 		.innerJoin(books, eq(bookTags.bookId, books.id))
-		.where(and(eq(bookTags.tagId, tagId), eq(books.ownerId, userId)));
+		.where(eq(bookTags.tagId, tagId));
 
-	return taggedBooks.map((b) => b.bookId);
+	// Filter to books owned by user or unowned
+	return taggedBooks
+		.filter((b) => b.ownerId === userId || b.ownerId === null)
+		.map((b) => b.bookId);
 }
 
 // ============================================
