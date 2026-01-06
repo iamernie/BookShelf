@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.5] - 2026-01-06
+
+### Fixed
+- **Kobo Initialization** - Added many missing fields to the initialization response that Kobo devices expect
+  - Added `api_endpoint`, `reading_services_host`, `user_ratings`, `autocomplete`, `store_search`, and many other fields
+  - Now matches the configuration format used by other Kobo sync implementations (calibre-web, BookLore)
+- **Kobo Debug Logging** - Added request logging to initialization and sync endpoints to help diagnose connection issues
+
 ## [2.6.4] - 2026-01-06
 
 ### Changed

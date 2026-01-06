@@ -15,6 +15,14 @@ import { syncLibrary, encodeSyncToken } from '$lib/server/services/koboSyncServi
 export const GET: RequestHandler = async ({ params, url, request }) => {
 	const { token } = params;
 
+	// Log Kobo requests for debugging
+	console.log('[Kobo Sync]', {
+		url: url.href,
+		userAgent: request.headers.get('user-agent'),
+		deviceId: request.headers.get('x-kobo-deviceid'),
+		syncToken: request.headers.get('x-kobo-synctoken')?.substring(0, 50)
+	});
+
 	// Validate token
 	const user = await validateToken(token);
 	if (!user) {
