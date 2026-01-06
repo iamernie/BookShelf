@@ -9,10 +9,9 @@ import { db } from '$lib/server/db';
 import { books, authors, bookAuthors, series, bookSeries, genres } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getOrCreateSyncState } from './koboService';
-import { statSync, existsSync } from 'fs';
-import path from 'path';
+import { ebookExists, getEbookPath } from './ebookService';
+import { statSync } from 'fs';
 
-const EBOOKS_PATH = process.env.EBOOKS_PATH || './data/ebooks';
 const LOG_PREFIX = '[KoboEntitlement]';
 
 // ============================================
@@ -262,15 +261,15 @@ export async function generateBookMetadata(
 	let fileSize = 0;
 	if (book.ebookPath) {
 		try {
-			const fullPath = path.join(EBOOKS_PATH, book.ebookPath);
-			console.log(`${LOG_PREFIX}   - Full ebook path: ${fullPath}`);
-			console.log(`${LOG_PREFIX}   - EBOOKS_PATH env: ${EBOOKS_PATH}`);
-			if (existsSync(fullPath)) {
+			const fullPath = getEbookPath(book.ebookPath);
+			console.log(`${LOG_PREFIX}   - ebookPath from DB: ${book.ebookPath}`);
+			console.log(`${LOG_PREFIX}   - Resolved path: ${fullPath}`);
+			if (fullPath && ebookExists(book.ebookPath)) {
 				const stats = statSync(fullPath);
 				fileSize = stats.size;
 				console.log(`${LOG_PREFIX}   - File exists! Size: ${fileSize} bytes`);
 			} else {
-				console.log(`${LOG_PREFIX}   - WARNING: File does not exist at ${fullPath}`);
+				console.log(`${LOG_PREFIX}   - WARNING: File does not exist`);
 			}
 		} catch (err) {
 			console.log(`${LOG_PREFIX}   - ERROR checking file:`, err);

@@ -11,12 +11,10 @@ import type { RequestHandler } from './$types';
 import { validateToken } from '$lib/server/services/koboService';
 import { db } from '$lib/server/db';
 import { books } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { createReadStream, existsSync, statSync } from 'fs';
-import { Readable } from 'stream';
+import { eq, and, or, isNull } from 'drizzle-orm';
+import { getEbookStream, getContentType, ebookExists, getEbookPath } from '$lib/server/services/ebookService';
+import { statSync } from 'fs';
 import path from 'path';
-
-const EBOOKS_PATH = process.env.EBOOKS_PATH || './data/ebooks';
 
 export const GET: RequestHandler = async ({ params, request }) => {
 	const { token, bookId } = params;
@@ -50,10 +48,13 @@ export const GET: RequestHandler = async ({ params, request }) => {
 		throw error(404, 'Book not found');
 	}
 
-	// Get the book
+	// Get the book - allow books owned by user OR unowned (for single-user setups)
 	console.log('[Kobo Download] Looking up book:', { bookId: numericId, userId: user.userId });
 	const book = await db.query.books.findFirst({
-		where: and(eq(books.id, numericId), eq(books.ownerId, user.userId))
+		where: and(
+			eq(books.id, numericId),
+			or(eq(books.ownerId, user.userId), isNull(books.ownerId))
+		)
 	});
 
 	if (!book) {
@@ -65,7 +66,8 @@ export const GET: RequestHandler = async ({ params, request }) => {
 		id: book.id,
 		title: book.title,
 		ebookPath: book.ebookPath,
-		ebookFormat: book.ebookFormat
+		ebookFormat: book.ebookFormat,
+		ownerId: book.ownerId
 	});
 
 	if (!book.ebookPath) {
@@ -73,13 +75,18 @@ export const GET: RequestHandler = async ({ params, request }) => {
 		throw error(404, 'No ebook file available for this book');
 	}
 
-	// Construct the full file path
-	const filePath = path.join(EBOOKS_PATH, book.ebookPath);
-	console.log('[Kobo Download] Full file path:', filePath);
-	console.log('[Kobo Download] EBOOKS_PATH env:', EBOOKS_PATH);
+	// Use the ebookService to check if file exists (uses correct path resolution)
+	if (!ebookExists(book.ebookPath)) {
+		console.log('[Kobo Download] ERROR: File does not exist');
+		console.log('[Kobo Download] ebookPath from DB:', book.ebookPath);
+		console.log('[Kobo Download] Resolved path:', getEbookPath(book.ebookPath));
+		throw error(404, 'Ebook file not found');
+	}
 
-	if (!existsSync(filePath)) {
-		console.log('[Kobo Download] ERROR: File does not exist at path');
+	// Get the resolved file path for stats
+	const filePath = getEbookPath(book.ebookPath);
+	if (!filePath) {
+		console.log('[Kobo Download] Could not resolve file path');
 		throw error(404, 'Ebook file not found');
 	}
 
@@ -88,22 +95,20 @@ export const GET: RequestHandler = async ({ params, request }) => {
 	const ext = path.extname(filePath).toLowerCase();
 
 	console.log('[Kobo Download] File stats:', {
+		path: filePath,
 		size: stats.size,
 		extension: ext
 	});
 
-	// Determine content type
-	let contentType = 'application/octet-stream';
-	if (ext === '.epub') {
-		contentType = 'application/epub+zip';
-	} else if (ext === '.kepub' || ext === '.kepub.epub') {
-		contentType = 'application/epub+zip';
-	} else if (ext === '.pdf') {
-		contentType = 'application/pdf';
+	// Get readable stream using ebookService
+	const stream = getEbookStream(book.ebookPath);
+	if (!stream) {
+		console.log('[Kobo Download] Failed to create stream');
+		throw error(500, 'Failed to read ebook file');
 	}
 
-	// Create readable stream
-	const fileStream = createReadStream(filePath);
+	// Determine content type
+	const contentType = getContentType(book.ebookFormat || 'epub');
 
 	// Generate filename for download
 	const safeTitle = (book.title || 'book').replace(/[^a-zA-Z0-9\s\-_.]/g, '').trim();
@@ -116,7 +121,22 @@ export const GET: RequestHandler = async ({ params, request }) => {
 	});
 
 	// Convert Node stream to web stream
-	const webStream = Readable.toWeb(fileStream) as ReadableStream<Uint8Array>;
+	const webStream = new ReadableStream({
+		start(controller) {
+			stream.on('data', (chunk) => {
+				controller.enqueue(chunk);
+			});
+			stream.on('end', () => {
+				controller.close();
+			});
+			stream.on('error', (err) => {
+				controller.error(err);
+			});
+		},
+		cancel() {
+			stream.destroy();
+		}
+	});
 
 	return new Response(webStream, {
 		headers: {
