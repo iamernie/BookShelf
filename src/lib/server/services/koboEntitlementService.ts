@@ -51,9 +51,10 @@ export interface KoboReadingState {
 	EntitlementId: string;
 	Created: string;
 	LastModified: string;
-	PriorityTimestamp: string;
+	PriorityTimestamp?: string;
 	CurrentBookmark: {
 		ProgressPercent: number;
+		ContentSourceProgressPercent?: number;
 		Location?: {
 			Value: string;
 			Type: string;
@@ -64,9 +65,13 @@ export interface KoboReadingState {
 	StatusInfo: {
 		Status: string;
 		LastModified: string;
+		TimesStartedReading?: number;
+		LastTimeStartedReading?: string;
+		LastTimeFinished?: string;
 	};
 	Statistics?: {
 		SpentReadingMinutes: number;
+		RemainingTimeMinutes?: number;
 		LastModified: string;
 	};
 }
@@ -484,15 +489,18 @@ export function generateChangedReadingState(
 	locationValue: string | null,
 	lastModified: string
 ): ChangedReadingState {
+	// Determine TimesStartedReading based on status
+	const normalizedStatus = status || 'ReadyToRead';
+	const timesStartedReading = normalizedStatus === 'ReadyToRead' ? 0 : 1;
+
 	return {
 		ChangedReadingState: {
 			ReadingState: {
 				EntitlementId: entitlementId,
 				Created: lastModified,
 				LastModified: lastModified,
-				PriorityTimestamp: lastModified,
 				CurrentBookmark: {
-					ProgressPercent: progressPercent,
+					ProgressPercent: Math.round(progressPercent),
 					Location: locationValue ? {
 						Value: locationValue,
 						Type: 'KoboSpan',
@@ -501,12 +509,9 @@ export function generateChangedReadingState(
 					LastModified: lastModified
 				},
 				StatusInfo: {
-					Status: status || 'ReadyToRead',
-					LastModified: lastModified
-				},
-				Statistics: {
-					SpentReadingMinutes: 0,
-					LastModified: lastModified
+					Status: normalizedStatus,
+					LastModified: lastModified,
+					TimesStartedReading: timesStartedReading
 				}
 			}
 		}

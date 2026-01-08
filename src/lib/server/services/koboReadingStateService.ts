@@ -35,9 +35,10 @@ export interface KoboReadingStateResponse {
 	EntitlementId: string;
 	Created: string;
 	LastModified: string;
-	PriorityTimestamp: string;
+	PriorityTimestamp?: string;
 	CurrentBookmark: {
 		ProgressPercent: number;
+		ContentSourceProgressPercent?: number;
 		Location: {
 			Value: string;
 			Type: string;
@@ -48,9 +49,13 @@ export interface KoboReadingStateResponse {
 	StatusInfo: {
 		Status: string;
 		LastModified: string;
+		TimesStartedReading?: number;
+		LastTimeStartedReading?: string;
+		LastTimeFinished?: string;
 	};
 	Statistics: {
 		SpentReadingMinutes: number;
+		RemainingTimeMinutes?: number;
 		LastModified: string;
 	};
 }
@@ -126,14 +131,14 @@ export async function getReadingState(
 	}
 
 	const lastModified = state?.lastModified || book.lastReadAt || now;
+	const timesStartedReading = status === 'ReadyToRead' ? 0 : 1;
 
 	return {
 		EntitlementId: entitlementId,
 		Created: book.createdAt || now,
 		LastModified: lastModified,
-		PriorityTimestamp: lastModified,
 		CurrentBookmark: {
-			ProgressPercent: progressPercent,
+			ProgressPercent: Math.round(progressPercent),
 			Location: {
 				Value: locationValue,
 				Type: 'KoboSpan',
@@ -143,7 +148,8 @@ export async function getReadingState(
 		},
 		StatusInfo: {
 			Status: status,
-			LastModified: lastModified
+			LastModified: lastModified,
+			TimesStartedReading: timesStartedReading
 		},
 		Statistics: {
 			SpentReadingMinutes: state?.spentReadingMinutes || 0,
