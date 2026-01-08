@@ -208,7 +208,13 @@ export async function syncLibrary(
 					state.locationValue,
 					state.lastModified
 				);
-				console.log(`${LOG_PREFIX} ChangedReadingState for book ${state.bookId}: ${state.progressPercent}%`);
+				console.log(`${LOG_PREFIX} ChangedReadingState for book ${state.bookId}:`);
+				console.log(`${LOG_PREFIX}   EntitlementId: ${state.entitlementId}`);
+				console.log(`${LOG_PREFIX}   Progress: ${state.progressPercent}%`);
+				console.log(`${LOG_PREFIX}   Status: ${state.status}`);
+				console.log(`${LOG_PREFIX}   Location: ${state.locationValue}`);
+				console.log(`${LOG_PREFIX}   LastModified: ${state.lastModified}`);
+				console.log(`${LOG_PREFIX}   Full payload:`, JSON.stringify(changedReadingState, null, 2));
 				entitlements.push(changedReadingState);
 				readingStateBookIds.push(state.bookId);
 			}
