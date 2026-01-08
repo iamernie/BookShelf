@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.10] - 2026-01-07
+
+### Fixed
+- **Kobo Reading Progress Sync** - Fixed bidirectional reading progress sync between web reader and Kobo devices
+  - Web reader progress now syncs to Kobo devices during next sync
+  - Fixed `ChangedReadingState` format to use nested `ReadingState` wrapper expected by Kobo devices
+  - Added `lastSyncedToDevice` tracking to detect unsynced progress updates
+
 ## [2.6.5] - 2026-01-06
 
 ### Fixed
