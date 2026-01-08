@@ -470,6 +470,43 @@ export async function generateChangedEntitlement(
 }
 
 /**
+ * Generate a ChangedReadingState for syncing updated progress to device
+ */
+export function generateChangedReadingState(
+	entitlementId: string,
+	progressPercent: number,
+	status: string,
+	locationValue: string | null,
+	lastModified: string
+): ChangedReadingState {
+	return {
+		ChangedReadingState: {
+			EntitlementId: entitlementId,
+			Created: lastModified,
+			LastModified: lastModified,
+			PriorityTimestamp: lastModified,
+			CurrentBookmark: {
+				ProgressPercent: progressPercent,
+				Location: locationValue ? {
+					Value: locationValue,
+					Type: 'KoboSpan',
+					Source: 'BookShelf'
+				} : undefined,
+				LastModified: lastModified
+			},
+			StatusInfo: {
+				Status: status || 'ReadyToRead',
+				LastModified: lastModified
+			},
+			Statistics: {
+				SpentReadingMinutes: 0,
+				LastModified: lastModified
+			}
+		}
+	};
+}
+
+/**
  * Generate entitlements for multiple books
  */
 export async function generateEntitlements(

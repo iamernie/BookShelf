@@ -937,7 +937,8 @@ export const koboReadingState = sqliteTable('kobo_reading_state', {
 	locationType: text('locationType'), // Type of location (e.g., 'xpointer')
 	locationSource: text('locationSource'), // Source format
 	spentReadingMinutes: integer('spentReadingMinutes'),
-	lastModified: text('lastModified'), // ISO timestamp
+	lastModified: text('lastModified'), // ISO timestamp - when progress was last changed
+	lastSyncedToDevice: text('lastSyncedToDevice'), // ISO timestamp - when last sent to Kobo device
 	deviceData: text('deviceData'), // JSON blob for additional device-specific data
 	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
 	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')

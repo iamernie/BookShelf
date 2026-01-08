@@ -13,9 +13,11 @@ import {
 	getRemovedBooks,
 	markBooksSynced,
 	markBookRemoved,
-	getKoboTaggedBooks
+	getKoboTaggedBooks,
+	getUnsyncedReadingStates,
+	markReadingStatesSynced
 } from './koboService';
-import { generateEntitlements, type Entitlement, type NewEntitlement } from './koboEntitlementService';
+import { generateEntitlements, generateChangedReadingState, type Entitlement, type NewEntitlement } from './koboEntitlementService';
 
 const LOG_PREFIX = '[KoboSync]';
 
@@ -188,6 +190,39 @@ export async function syncLibrary(
 		}
 	} else {
 		console.log(`${LOG_PREFIX} No unsynced books found`);
+	}
+
+	// If we have slots remaining, handle changed reading states (web reader -> device sync)
+	if (remainingSlots > 0 && !shouldContinue) {
+		console.log(`${LOG_PREFIX} Checking for changed reading states (${remainingSlots} slots remaining)`);
+		const changedStates = await getUnsyncedReadingStates(userId, remainingSlots);
+		console.log(`${LOG_PREFIX} Changed reading states:`, changedStates.length);
+
+		if (changedStates.length > 0) {
+			const readingStateBookIds: number[] = [];
+			for (const state of changedStates) {
+				const changedReadingState = generateChangedReadingState(
+					state.entitlementId,
+					state.progressPercent,
+					state.status,
+					state.locationValue,
+					state.lastModified
+				);
+				console.log(`${LOG_PREFIX} ChangedReadingState for book ${state.bookId}: ${state.progressPercent}%`);
+				entitlements.push(changedReadingState);
+				readingStateBookIds.push(state.bookId);
+			}
+			remainingSlots -= changedStates.length;
+
+			// Mark reading states as synced
+			await markReadingStatesSynced(userId, readingStateBookIds);
+
+			// Check if there are more changed states
+			const moreChangedStates = await getUnsyncedReadingStates(userId, 1);
+			if (moreChangedStates.length > 0) {
+				shouldContinue = true;
+			}
+		}
 	}
 
 	// If we have slots remaining, handle removed books

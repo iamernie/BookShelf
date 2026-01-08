@@ -501,6 +501,61 @@ export async function getRemovedBooks(userId: number, limit: number = 5): Promis
 }
 
 /**
+ * Get reading states that have been modified since last sync to device
+ * These need to be sent as ChangedReadingState entries
+ */
+export async function getUnsyncedReadingStates(userId: number, limit: number = 5): Promise<{
+	bookId: number;
+	entitlementId: string;
+	progressPercent: number;
+	status: string;
+	locationValue: string | null;
+	lastModified: string;
+}[]> {
+	// Find koboReadingState entries where lastModified > lastSyncedToDevice (or lastSyncedToDevice is null)
+	const states = await db
+		.select()
+		.from(koboReadingState)
+		.where(eq(koboReadingState.userId, userId))
+		.limit(limit * 2); // Get more than needed to filter
+
+	// Filter to states that need syncing
+	const unsyncedStates = states.filter(state => {
+		// Need sync if never synced or if modified after last sync
+		if (!state.lastSyncedToDevice) return true;
+		if (!state.lastModified) return false;
+		return state.lastModified > state.lastSyncedToDevice;
+	});
+
+	console.log(`[KoboService] Found ${unsyncedStates.length} unsynced reading states`);
+
+	return unsyncedStates.slice(0, limit).map(state => ({
+		bookId: state.bookId,
+		entitlementId: state.entitlementId,
+		progressPercent: state.progressPercent || 0,
+		status: state.status || 'ReadyToRead',
+		locationValue: state.locationValue,
+		lastModified: state.lastModified || new Date().toISOString()
+	}));
+}
+
+/**
+ * Mark reading states as synced to device
+ */
+export async function markReadingStatesSynced(userId: number, bookIds: number[]): Promise<void> {
+	if (bookIds.length === 0) return;
+
+	const now = new Date().toISOString();
+
+	await db
+		.update(koboReadingState)
+		.set({ lastSyncedToDevice: now })
+		.where(and(eq(koboReadingState.userId, userId), inArray(koboReadingState.bookId, bookIds)));
+
+	console.log(`[KoboService] Marked ${bookIds.length} reading states as synced to device`);
+}
+
+/**
  * Remove the kobo tag from a book (called when Kobo device deletes from library)
  */
 export async function removeKoboTagFromBook(userId: number, bookId: number): Promise<void> {
