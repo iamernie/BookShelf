@@ -29,6 +29,15 @@
 	let togglingTagId = $state<number | null>(null);
 	let appliedTags = $state<TagItem[]>(currentTags);
 
+	// Reset applied tags when entity changes (e.g., navigating between books)
+	$effect(() => {
+		// Track entityId to detect navigation
+		const _id = entityId;
+		appliedTags = currentTags;
+		showDropdown = false;
+		searchQuery = '';
+	});
+
 	// Get IDs of applied tags
 	let appliedTagIds = $derived(new Set(appliedTags.map((t) => t.id)));
 
