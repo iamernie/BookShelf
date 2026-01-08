@@ -46,6 +46,11 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 		entitlementTypes: result.entitlements.map(e => Object.keys(e)[0])
 	});
 
+	// Log full response for debugging
+	if (result.entitlements.length > 0) {
+		console.log('[Kobo Sync] Full response:', JSON.stringify(result.entitlements, null, 2));
+	}
+
 	// Update device last sync time
 	const deviceId = request.headers.get('x-kobo-deviceid');
 	if (deviceId) {
