@@ -152,6 +152,13 @@ export async function getReadingState(
 	};
 }
 
+export interface SaveReadingStateResult {
+	EntitlementId: string;
+	CurrentBookmarkResult: { Result: string };
+	StatisticsResult: { Result: string };
+	StatusInfoResult: { Result: string };
+}
+
 /**
  * Save reading state from Kobo device
  */
@@ -159,7 +166,9 @@ export async function saveReadingState(
 	userId: number,
 	bookId: number,
 	state: KoboReadingStateUpdate
-): Promise<{ EntitlementId: string; CurrentBookmarkResult: { Result: string } }> {
+): Promise<SaveReadingStateResult> {
+	console.log(`[Kobo ReadingState] saveReadingState for book ${bookId}:`, JSON.stringify(state, null, 2));
+
 	// Get the book - allow unowned books for single-user setups
 	const book = await db.query.books.findFirst({
 		where: eq(books.id, bookId)
@@ -168,7 +177,9 @@ export async function saveReadingState(
 	if (!book) {
 		return {
 			EntitlementId: `bookshelf-${bookId}`,
-			CurrentBookmarkResult: { Result: 'NotFound' }
+			CurrentBookmarkResult: { Result: 'NotFound' },
+			StatisticsResult: { Result: 'NotFound' },
+			StatusInfoResult: { Result: 'NotFound' }
 		};
 	}
 
@@ -176,7 +187,9 @@ export async function saveReadingState(
 	if (book.ownerId !== null && book.ownerId !== userId) {
 		return {
 			EntitlementId: `bookshelf-${bookId}`,
-			CurrentBookmarkResult: { Result: 'NotFound' }
+			CurrentBookmarkResult: { Result: 'NotFound' },
+			StatisticsResult: { Result: 'NotFound' },
+			StatusInfoResult: { Result: 'NotFound' }
 		};
 	}
 
@@ -190,6 +203,7 @@ export async function saveReadingState(
 	// Extract progress data
 	const progressPercent = state.CurrentBookmark?.ProgressPercent ?? 0;
 	const status = state.StatusInfo?.Status || 'ReadyToRead';
+	const locationValue = state.CurrentBookmark?.Location?.Value || null;
 
 	// Check for existing state
 	const existingState = await db.query.koboReadingState.findFirst({
@@ -209,6 +223,7 @@ export async function saveReadingState(
 			.set({
 				progressPercent,
 				status,
+				locationValue,
 				lastModified: now,
 				deviceData
 			})
@@ -221,6 +236,7 @@ export async function saveReadingState(
 			entitlementId,
 			progressPercent,
 			status,
+			locationValue,
 			lastModified: now,
 			deviceData,
 			createdAt: now,
@@ -234,11 +250,13 @@ export async function saveReadingState(
 	// Sync to books.readingProgress for web reader integration
 	await syncToBooksTable(bookId, progressPercent, state.CurrentBookmark?.Location);
 
-	console.log(`[Kobo ReadingState] Saved progress for book ${bookId}: ${progressPercent}%`);
+	console.log(`[Kobo ReadingState] Saved progress for book ${bookId}: ${progressPercent}%, status: ${status}`);
 
 	return {
 		EntitlementId: entitlementId,
-		CurrentBookmarkResult: { Result: 'Success' }
+		CurrentBookmarkResult: { Result: 'Success' },
+		StatisticsResult: { Result: 'Success' },
+		StatusInfoResult: { Result: 'Success' }
 	};
 }
 

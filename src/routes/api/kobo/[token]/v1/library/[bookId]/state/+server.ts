@@ -19,6 +19,8 @@ import {
 export const GET: RequestHandler = async ({ params }) => {
 	const { token, bookId } = params;
 
+	console.log(`[Kobo ReadingState] GET /library/${bookId}/state`);
+
 	// Validate token
 	const user = await validateToken(token);
 	if (!user) {
@@ -33,11 +35,19 @@ export const GET: RequestHandler = async ({ params }) => {
 	const numericId = parseInt(bookId, 10);
 	if (isNaN(numericId)) {
 		// Non-numeric ID - proxy to Kobo store would go here
-		return json({});
+		console.log(`[Kobo ReadingState] Non-numeric bookId, returning empty`);
+		return json({ ReadingStates: [] });
 	}
 
 	const state = await getReadingState(user.userId, numericId);
-	return json(state);
+
+	// Kobo expects the response wrapped in ReadingStates array
+	const response = {
+		ReadingStates: state ? [state] : []
+	};
+
+	console.log(`[Kobo ReadingState] Returning state for book ${bookId}:`, JSON.stringify(response, null, 2));
+	return json(response);
 };
 
 export const PUT: RequestHandler = async ({ params, request }) => {
