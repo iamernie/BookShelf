@@ -1600,12 +1600,18 @@ function runMigrations() {
 			locationSource TEXT,
 			spentReadingMinutes INTEGER,
 			lastModified TEXT,
+			lastSyncedToDevice TEXT,
 			deviceData TEXT,
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(userId, bookId)
 		)
 	`);
+
+	// Add lastSyncedToDevice column to kobo_reading_state if missing
+	if (tableExists('kobo_reading_state')) {
+		safeAddColumn('kobo_reading_state', 'lastSyncedToDevice', 'TEXT');
+	}
 
 	// Create indexes for Kobo tables
 	try {
