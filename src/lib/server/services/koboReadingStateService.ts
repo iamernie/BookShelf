@@ -6,7 +6,8 @@
 
 import { db } from '$lib/server/db';
 import { koboReadingState, koboSyncState, books, userBooks } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull, or } from 'drizzle-orm';
+import { parseReadingProgress, stringifyReadingProgress, type ReadingProgress } from './ebookService';
 
 // Types for Kobo reading state
 export interface KoboReadingStateUpdate {
@@ -61,12 +62,17 @@ export async function getReadingState(
 	userId: number,
 	bookId: number
 ): Promise<KoboReadingStateResponse | null> {
-	// Get the book for entitlement ID
+	// Get the book - allow unowned books for single-user setups
 	const book = await db.query.books.findFirst({
-		where: and(eq(books.id, bookId), eq(books.ownerId, userId))
+		where: eq(books.id, bookId)
 	});
 
 	if (!book) {
+		return null;
+	}
+
+	// Check ownership - allow if owned by user or unowned (null)
+	if (book.ownerId !== null && book.ownerId !== userId) {
 		return null;
 	}
 
@@ -88,24 +94,38 @@ export async function getReadingState(
 	});
 	const entitlementId = syncState?.entitlementId || `bookshelf-${bookId}`;
 
-	// Calculate progress percent from various sources
+	// Calculate progress percent from various sources (priority: koboReadingState > books.readingProgress > userBooks)
 	let progressPercent = 0;
 	let status: 'ReadyToRead' | 'Reading' | 'Finished' = 'ReadyToRead';
+	let locationValue = '';
 
 	if (state) {
+		// Use Kobo reading state (from device)
 		progressPercent = state.progressPercent || 0;
 		status = (state.status as 'ReadyToRead' | 'Reading' | 'Finished') || 'ReadyToRead';
+		locationValue = state.locationValue || '';
+	} else if (book.readingProgress) {
+		// Fall back to book.readingProgress (from web reader)
+		const bookProgress = parseReadingProgress(book.readingProgress);
+		if (bookProgress) {
+			progressPercent = bookProgress.percentage || 0;
+			locationValue = bookProgress.location || '';
+		}
 	} else if (userBook) {
-		// Fall back to userBook progress
+		// Final fallback to userBook progress
 		progressPercent = userBook.readingProgress || 0;
-		if (progressPercent >= 100) {
+	}
+
+	// Derive status from progress if not from state
+	if (!state) {
+		if (progressPercent >= 99) {
 			status = 'Finished';
 		} else if (progressPercent > 0) {
 			status = 'Reading';
 		}
 	}
 
-	const lastModified = state?.lastModified || now;
+	const lastModified = state?.lastModified || book.lastReadAt || now;
 
 	return {
 		EntitlementId: entitlementId,
@@ -115,7 +135,7 @@ export async function getReadingState(
 		CurrentBookmark: {
 			ProgressPercent: progressPercent,
 			Location: {
-				Value: '',
+				Value: locationValue,
 				Type: 'KoboSpan',
 				Source: 'BookShelf'
 			},
@@ -126,7 +146,7 @@ export async function getReadingState(
 			LastModified: lastModified
 		},
 		Statistics: {
-			SpentReadingMinutes: 0,
+			SpentReadingMinutes: state?.spentReadingMinutes || 0,
 			LastModified: lastModified
 		}
 	};
@@ -140,12 +160,20 @@ export async function saveReadingState(
 	bookId: number,
 	state: KoboReadingStateUpdate
 ): Promise<{ EntitlementId: string; CurrentBookmarkResult: { Result: string } }> {
-	// Get the book
+	// Get the book - allow unowned books for single-user setups
 	const book = await db.query.books.findFirst({
-		where: and(eq(books.id, bookId), eq(books.ownerId, userId))
+		where: eq(books.id, bookId)
 	});
 
 	if (!book) {
+		return {
+			EntitlementId: `bookshelf-${bookId}`,
+			CurrentBookmarkResult: { Result: 'NotFound' }
+		};
+	}
+
+	// Check ownership - allow if owned by user or unowned (null)
+	if (book.ownerId !== null && book.ownerId !== userId) {
 		return {
 			EntitlementId: `bookshelf-${bookId}`,
 			CurrentBookmarkResult: { Result: 'NotFound' }
@@ -203,6 +231,11 @@ export async function saveReadingState(
 	// Also update userBooks progress
 	await syncToUserBooks(userId, bookId, progressPercent, status);
 
+	// Sync to books.readingProgress for web reader integration
+	await syncToBooksTable(bookId, progressPercent, state.CurrentBookmark?.Location);
+
+	console.log(`[Kobo ReadingState] Saved progress for book ${bookId}: ${progressPercent}%`);
+
 	return {
 		EntitlementId: entitlementId,
 		CurrentBookmarkResult: { Result: 'Success' }
@@ -244,6 +277,102 @@ async function syncToUserBooks(
 			updatedAt: now
 		});
 	}
+}
+
+/**
+ * Sync Kobo reading state to books table (for web reader integration)
+ */
+async function syncToBooksTable(
+	bookId: number,
+	progressPercent: number,
+	location?: { Value?: string; Type?: string; Source?: string }
+): Promise<void> {
+	const now = new Date().toISOString();
+
+	// Build reading progress object compatible with web reader
+	const progress: ReadingProgress = {
+		location: location?.Value || '',
+		percentage: progressPercent,
+		savedAt: now
+	};
+
+	await db
+		.update(books)
+		.set({
+			readingProgress: stringifyReadingProgress(progress),
+			lastReadAt: now,
+			updatedAt: now
+		})
+		.where(eq(books.id, bookId));
+}
+
+/**
+ * Sync web reader progress to Kobo reading state
+ * Called when the web reader saves progress
+ */
+export async function syncFromWebReader(
+	userId: number,
+	bookId: number,
+	progressPercent: number,
+	location?: string
+): Promise<{ synced: boolean; reason: string }> {
+	const now = new Date().toISOString();
+
+	// Check if book is tagged for Kobo sync
+	const syncState = await db.query.koboSyncState.findFirst({
+		where: and(eq(koboSyncState.userId, userId), eq(koboSyncState.bookId, bookId))
+	});
+
+	if (!syncState) {
+		return { synced: false, reason: 'not_kobo_synced' };
+	}
+
+	// Determine status from progress
+	let status: string = 'ReadyToRead';
+	if (progressPercent >= 99) {
+		status = 'Finished';
+	} else if (progressPercent > 0) {
+		status = 'Reading';
+	}
+
+	// Check for existing state
+	const existingState = await db.query.koboReadingState.findFirst({
+		where: and(eq(koboReadingState.userId, userId), eq(koboReadingState.bookId, bookId))
+	});
+
+	const deviceData = JSON.stringify({
+		location: location ? { Value: location, Type: 'KoboSpan', Source: 'BookShelf' } : null
+	});
+
+	if (existingState) {
+		await db
+			.update(koboReadingState)
+			.set({
+				progressPercent,
+				status,
+				locationValue: location,
+				lastModified: now,
+				deviceData,
+				updatedAt: now
+			})
+			.where(eq(koboReadingState.id, existingState.id));
+	} else {
+		await db.insert(koboReadingState).values({
+			userId,
+			bookId,
+			entitlementId: syncState.entitlementId,
+			progressPercent,
+			status,
+			locationValue: location,
+			lastModified: now,
+			deviceData,
+			createdAt: now,
+			updatedAt: now
+		});
+	}
+
+	console.log(`[Kobo ReadingState] Synced from web reader for book ${bookId}: ${progressPercent}%`);
+	return { synced: true, reason: 'success' };
 }
 
 /**

@@ -15,6 +15,7 @@ import { eq } from 'drizzle-orm';
 import { parseReadingProgress, stringifyReadingProgress } from '$lib/server/services/ebookService';
 import type { ReadingProgress } from '$lib/server/services/ebookService';
 import { syncProgressFromBrowser } from '$lib/server/services/koreaderService';
+import { syncFromWebReader as syncKoboProgress } from '$lib/server/services/koboReadingStateService';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const bookId = parseInt(params.id);
@@ -80,11 +81,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		})
 		.where(eq(books.id, bookId));
 
-	// Sync progress to KOReader if user has sync enabled
+	// Sync progress to KOReader and Kobo if user has sync enabled
 	// This is best-effort - don't fail if sync fails
 	let koreaderSynced = false;
 	let koreaderSyncReason = '';
+	let koboSynced = false;
+	let koboSyncReason = '';
+
 	if (locals.user?.id) {
+		// Sync to KOReader
 		try {
 			const syncResult = await syncProgressFromBrowser(
 				locals.user.id,
@@ -99,12 +104,32 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			console.error('[KOReader Sync] Failed to sync progress:', e);
 			koreaderSyncReason = 'error';
 		}
+
+		// Sync to Kobo reading state
+		try {
+			const koboResult = await syncKoboProgress(
+				locals.user.id,
+				bookId,
+				progress.percentage,
+				location || ''
+			);
+			koboSynced = koboResult.synced;
+			koboSyncReason = koboResult.reason;
+			if (koboSynced) {
+				console.log(`[Kobo Sync] Book ${bookId}: synced=${koboSynced}, percentage=${progress.percentage}%`);
+			}
+		} catch (e) {
+			console.error('[Kobo Sync] Failed to sync progress:', e);
+			koboSyncReason = 'error';
+		}
 	}
 
 	return json({
 		success: true,
 		progress,
 		koreaderSynced,
-		koreaderSyncReason
+		koreaderSyncReason,
+		koboSynced,
+		koboSyncReason
 	});
 };
