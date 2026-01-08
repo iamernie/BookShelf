@@ -254,6 +254,29 @@
 	let savingStatus = $state(false);
 	let hoverRating = $state(0);
 
+	// Track book ID to detect navigation between books
+	let lastBookId = $state(data.book.id);
+
+	// Reset local state when navigating to a different book
+	$effect(() => {
+		if (data.book.id !== lastBookId) {
+			lastBookId = data.book.id;
+			// Reset all book-specific local state
+			currentRating = data.book.rating ?? 0;
+			currentStatusId = data.book.statusId;
+			hoverRating = 0;
+			activeTab = data.autoPlayAudiobook && data.linkedAudiobooks.length > 0 ? 'listen' : 'details';
+			showPlayer = data.autoPlayAudiobook && data.linkedAudiobooks.length > 0;
+			selectedAudiobookIndex = 0;
+			editingSummary = false;
+			editingNotes = false;
+			editingSeriesNotes = null;
+			showMetadataModal = false;
+			returnUrlInitialized = false;
+			returnUrl = null;
+		}
+	});
+
 	// Update rating function
 	async function updateRating(newRating: number) {
 		// Allow clicking same star to remove rating
