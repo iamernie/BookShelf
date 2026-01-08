@@ -103,7 +103,9 @@ export interface ChangedEntitlement {
 }
 
 export interface ChangedReadingState {
-	ChangedReadingState: KoboReadingState;
+	ChangedReadingState: {
+		ReadingState: KoboReadingState;
+	};
 }
 
 export type Entitlement = NewEntitlement | ChangedEntitlement | ChangedReadingState;
@@ -471,6 +473,9 @@ export async function generateChangedEntitlement(
 
 /**
  * Generate a ChangedReadingState for syncing updated progress to device
+ *
+ * Uses nested structure: { ChangedReadingState: { ReadingState: { ... } } }
+ * This matches the format expected by Kobo devices (same as BookLore)
  */
 export function generateChangedReadingState(
 	entitlementId: string,
@@ -481,26 +486,28 @@ export function generateChangedReadingState(
 ): ChangedReadingState {
 	return {
 		ChangedReadingState: {
-			EntitlementId: entitlementId,
-			Created: lastModified,
-			LastModified: lastModified,
-			PriorityTimestamp: lastModified,
-			CurrentBookmark: {
-				ProgressPercent: progressPercent,
-				Location: locationValue ? {
-					Value: locationValue,
-					Type: 'KoboSpan',
-					Source: 'BookShelf'
-				} : undefined,
-				LastModified: lastModified
-			},
-			StatusInfo: {
-				Status: status || 'ReadyToRead',
-				LastModified: lastModified
-			},
-			Statistics: {
-				SpentReadingMinutes: 0,
-				LastModified: lastModified
+			ReadingState: {
+				EntitlementId: entitlementId,
+				Created: lastModified,
+				LastModified: lastModified,
+				PriorityTimestamp: lastModified,
+				CurrentBookmark: {
+					ProgressPercent: progressPercent,
+					Location: locationValue ? {
+						Value: locationValue,
+						Type: 'KoboSpan',
+						Source: 'BookShelf'
+					} : undefined,
+					LastModified: lastModified
+				},
+				StatusInfo: {
+					Status: status || 'ReadyToRead',
+					LastModified: lastModified
+				},
+				Statistics: {
+					SpentReadingMinutes: 0,
+					LastModified: lastModified
+				}
 			}
 		}
 	};

@@ -115,9 +115,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			);
 			koboSynced = koboResult.synced;
 			koboSyncReason = koboResult.reason;
-			if (koboSynced) {
-				console.log(`[Kobo Sync] Book ${bookId}: synced=${koboSynced}, percentage=${progress.percentage}%`);
-			}
+			console.log(`[Kobo Sync] Book ${bookId}: synced=${koboSynced}, reason=${koboSyncReason}, percentage=${progress.percentage}%`);
 		} catch (e) {
 			console.error('[Kobo Sync] Failed to sync progress:', e);
 			koboSyncReason = 'error';
