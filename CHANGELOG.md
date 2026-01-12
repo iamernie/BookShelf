@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.14] - 2026-01-12
+
+### Fixed
+- **Kobo Settings Authentication** - Fixed "Unauthorized" error when enabling Kobo sync from settings page
+  - The `/api/kobo/settings` endpoint was incorrectly bypassing session authentication
+  - Settings endpoint now properly authenticates via session cookie like other API endpoints
+
+### Changed
+- **UI** - Increased sidebar logo size by 20% for better visibility
+
 ## [2.6.10] - 2026-01-07
 
 ### Fixed

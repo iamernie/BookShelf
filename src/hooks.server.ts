@@ -136,7 +136,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Handle Kobo sync routes - these use token-based auth (token in URL path)
 	// Authentication is handled by the endpoints themselves
-	const isKoboRoute = event.url.pathname.startsWith(KOBO_SYNC_PATH_PREFIX);
+	// Exclude /api/kobo/settings and /api/kobo/ping which use normal session auth
+	const isKoboRoute = event.url.pathname.startsWith(KOBO_SYNC_PATH_PREFIX) &&
+		!event.url.pathname.startsWith('/api/kobo/settings') &&
+		!event.url.pathname.startsWith('/api/kobo/ping');
 	if (isKoboRoute) {
 		const koboResponse = await resolve(event);
 		// Add security headers
