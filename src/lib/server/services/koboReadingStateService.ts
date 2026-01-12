@@ -364,6 +364,13 @@ export async function syncFromWebReader(
 		where: and(eq(koboReadingState.userId, userId), eq(koboReadingState.bookId, bookId))
 	});
 
+	// Don't regress progress - if new percentage is 0 or lower than existing, skip update
+	// This prevents race conditions from multiple save calls overwriting real progress
+	if (existingState && existingState.progressPercent && progressPercent < existingState.progressPercent) {
+		console.log(`[Kobo ReadingState] Skipping regression for book ${bookId}: ${progressPercent}% < ${existingState.progressPercent}%`);
+		return { synced: false, reason: 'no_regression' };
+	}
+
 	const deviceData = JSON.stringify({
 		location: location ? { Value: location, Type: 'KoboSpan', Source: 'BookShelf' } : null
 	});

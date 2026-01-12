@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.16] - 2026-01-12
+
+### Fixed
+- **Kobo Reading Progress Regression** - Fixed reading progress being reset to 0% by race conditions
+  - Web reader sometimes sends 0% progress on initial load or visibility changes
+  - Now prevents overwriting higher progress with lower values
+  - Kobo sync will no longer regress progress to 0%
+
 ## [2.6.15] - 2026-01-12
 
 ### Fixed
