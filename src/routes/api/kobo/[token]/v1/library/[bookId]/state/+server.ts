@@ -16,10 +16,12 @@ import {
 	type KoboReadingStateUpdate
 } from '$lib/server/services/koboReadingStateService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, request }) => {
 	const { token, bookId } = params;
 
 	console.log(`[Kobo ReadingState] GET /library/${bookId}/state`);
+	console.log(`[Kobo ReadingState] User-Agent: ${request.headers.get('user-agent')}`);
+	console.log(`[Kobo ReadingState] Device-ID: ${request.headers.get('x-kobo-deviceid')}`);
 
 	// Validate token
 	const user = await validateToken(token);

@@ -17,7 +17,7 @@ import {
 	getUnsyncedReadingStates,
 	markReadingStatesSynced
 } from './koboService';
-import { generateEntitlements, generateChangedReadingState, type Entitlement, type NewEntitlement } from './koboEntitlementService';
+import { generateEntitlements, generateChangedReadingState, generateChangedEntitlementWithReadingState, type Entitlement, type NewEntitlement } from './koboEntitlementService';
 
 const LOG_PREFIX = '[KoboSync]';
 
@@ -153,8 +153,15 @@ export async function syncLibrary(
 			} else if ('ChangedEntitlement' in ent) {
 				console.log(`${LOG_PREFIX} Entitlement[${i}]: ChangedEntitlement`);
 				console.log(`${LOG_PREFIX}   - IsRemoved: ${ent.ChangedEntitlement.BookEntitlement.IsRemoved}`);
-			} else {
+				if (ent.ChangedEntitlement.ReadingState) {
+					console.log(`${LOG_PREFIX}   - ReadingState.ProgressPercent: ${ent.ChangedEntitlement.ReadingState.CurrentBookmark?.ProgressPercent}`);
+					console.log(`${LOG_PREFIX}   - ReadingState.Status: ${ent.ChangedEntitlement.ReadingState.StatusInfo?.Status}`);
+				}
+			} else if ('ChangedReadingState' in ent) {
 				console.log(`${LOG_PREFIX} Entitlement[${i}]: ChangedReadingState`);
+				console.log(`${LOG_PREFIX}   - ProgressPercent: ${ent.ChangedReadingState.ReadingState.CurrentBookmark?.ProgressPercent}`);
+			} else {
+				console.log(`${LOG_PREFIX} Entitlement[${i}]: Unknown type`);
 			}
 		}
 
@@ -193,6 +200,7 @@ export async function syncLibrary(
 	}
 
 	// If we have slots remaining, handle changed reading states (web reader -> device sync)
+	// Use ChangedEntitlement with ReadingState instead of ChangedReadingState for better device compatibility
 	if (remainingSlots > 0 && !shouldContinue) {
 		console.log(`${LOG_PREFIX} Checking for changed reading states (${remainingSlots} slots remaining)`);
 		const changedStates = await getUnsyncedReadingStates(userId, remainingSlots);
@@ -201,24 +209,34 @@ export async function syncLibrary(
 		if (changedStates.length > 0) {
 			const readingStateBookIds: number[] = [];
 			for (const state of changedStates) {
-				const changedReadingState = generateChangedReadingState(
-					state.entitlementId,
+				// Generate ChangedEntitlement with updated reading state
+				// This format is better supported by Kobo devices than ChangedReadingState
+				const changedEntitlement = await generateChangedEntitlementWithReadingState(
+					userId,
+					state.bookId,
+					baseUrl,
+					token,
 					state.progressPercent,
 					state.status,
 					state.locationValue,
 					state.lastModified
 				);
-				console.log(`${LOG_PREFIX} ChangedReadingState for book ${state.bookId}:`);
-				console.log(`${LOG_PREFIX}   EntitlementId: ${state.entitlementId}`);
-				console.log(`${LOG_PREFIX}   Progress: ${state.progressPercent}%`);
-				console.log(`${LOG_PREFIX}   Status: ${state.status}`);
-				console.log(`${LOG_PREFIX}   Location: ${state.locationValue}`);
-				console.log(`${LOG_PREFIX}   LastModified: ${state.lastModified}`);
-				console.log(`${LOG_PREFIX}   Full payload:`, JSON.stringify(changedReadingState, null, 2));
-				entitlements.push(changedReadingState);
-				readingStateBookIds.push(state.bookId);
+
+				if (changedEntitlement) {
+					console.log(`${LOG_PREFIX} ChangedEntitlement (reading state) for book ${state.bookId}:`);
+					console.log(`${LOG_PREFIX}   EntitlementId: ${state.entitlementId}`);
+					console.log(`${LOG_PREFIX}   Progress: ${state.progressPercent}%`);
+					console.log(`${LOG_PREFIX}   Status: ${state.status}`);
+					console.log(`${LOG_PREFIX}   Location: ${state.locationValue}`);
+					console.log(`${LOG_PREFIX}   LastModified: ${state.lastModified}`);
+					console.log(`${LOG_PREFIX}   Full payload:`, JSON.stringify(changedEntitlement, null, 2));
+					entitlements.push(changedEntitlement);
+					readingStateBookIds.push(state.bookId);
+				} else {
+					console.log(`${LOG_PREFIX} Failed to generate ChangedEntitlement for book ${state.bookId}`);
+				}
 			}
-			remainingSlots -= changedStates.length;
+			remainingSlots -= readingStateBookIds.length;
 
 			// Mark reading states as synced
 			await markReadingStatesSynced(userId, readingStateBookIds);

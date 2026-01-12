@@ -477,6 +477,41 @@ export async function generateChangedEntitlement(
 }
 
 /**
+ * Generate a reading state object with actual progress values
+ */
+export function generateReadingStateWithProgress(
+	entitlementId: string,
+	progressPercent: number,
+	status: string,
+	locationValue: string | null,
+	lastModified: string
+): KoboReadingState {
+	const normalizedStatus = status || 'ReadyToRead';
+	const timesStartedReading = normalizedStatus === 'ReadyToRead' ? 0 : 1;
+
+	return {
+		EntitlementId: entitlementId,
+		Created: lastModified,
+		LastModified: lastModified,
+		PriorityTimestamp: lastModified,
+		CurrentBookmark: {
+			ProgressPercent: Math.round(progressPercent),
+			Location: locationValue ? {
+				Value: locationValue,
+				Type: 'KoboSpan',
+				Source: 'BookShelf'
+			} : undefined,
+			LastModified: lastModified
+		},
+		StatusInfo: {
+			Status: normalizedStatus,
+			LastModified: lastModified,
+			TimesStartedReading: timesStartedReading
+		}
+	};
+}
+
+/**
  * Generate a ChangedReadingState for syncing updated progress to device
  *
  * Uses nested structure: { ChangedReadingState: { ReadingState: { ... } } }
@@ -489,31 +524,51 @@ export function generateChangedReadingState(
 	locationValue: string | null,
 	lastModified: string
 ): ChangedReadingState {
-	// Determine TimesStartedReading based on status
-	const normalizedStatus = status || 'ReadyToRead';
-	const timesStartedReading = normalizedStatus === 'ReadyToRead' ? 0 : 1;
-
 	return {
 		ChangedReadingState: {
-			ReadingState: {
-				EntitlementId: entitlementId,
-				Created: lastModified,
-				LastModified: lastModified,
-				CurrentBookmark: {
-					ProgressPercent: Math.round(progressPercent),
-					Location: locationValue ? {
-						Value: locationValue,
-						Type: 'KoboSpan',
-						Source: 'BookShelf'
-					} : undefined,
-					LastModified: lastModified
-				},
-				StatusInfo: {
-					Status: normalizedStatus,
-					LastModified: lastModified,
-					TimesStartedReading: timesStartedReading
-				}
-			}
+			ReadingState: generateReadingStateWithProgress(
+				entitlementId,
+				progressPercent,
+				status,
+				locationValue,
+				lastModified
+			)
+		}
+	};
+}
+
+/**
+ * Generate a ChangedEntitlement with updated reading state (alternative to ChangedReadingState)
+ * Some Kobo firmware may respond better to this format
+ */
+export async function generateChangedEntitlementWithReadingState(
+	userId: number,
+	bookId: number,
+	baseUrl: string,
+	token: string,
+	progressPercent: number,
+	status: string,
+	locationValue: string | null,
+	lastModified: string
+): Promise<ChangedEntitlement | null> {
+	const { entitlementId } = await getOrCreateSyncState(userId, bookId);
+
+	const metadata = await generateBookMetadata(userId, bookId, baseUrl, token);
+	if (!metadata) {
+		return null;
+	}
+
+	return {
+		ChangedEntitlement: {
+			BookEntitlement: generateBookEntitlement(entitlementId, false),
+			BookMetadata: metadata,
+			ReadingState: generateReadingStateWithProgress(
+				entitlementId,
+				progressPercent,
+				status,
+				locationValue,
+				lastModified
+			)
 		}
 	};
 }

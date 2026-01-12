@@ -9,10 +9,10 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { validateToken, getKoboTagId, getKoboTaggedBooks, getUnsyncedBooks } from '$lib/server/services/koboService';
-import { generateNewEntitlement } from '$lib/server/services/koboEntitlementService';
+import { validateToken, getKoboTagId, getKoboTaggedBooks, getUnsyncedBooks, getUnsyncedReadingStates } from '$lib/server/services/koboService';
+import { generateNewEntitlement, generateChangedReadingState } from '$lib/server/services/koboEntitlementService';
 import { db } from '$lib/server/db';
-import { books, bookTags, tags, koboSyncState } from '$lib/server/db/schema';
+import { books, bookTags, tags, koboSyncState, koboReadingState } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -70,6 +70,28 @@ export const GET: RequestHandler = async ({ params }) => {
 		}
 	}
 
+	// Get all reading states for this user
+	const allReadingStates = await db
+		.select()
+		.from(koboReadingState)
+		.where(eq(koboReadingState.userId, user.userId));
+
+	// Get unsynced reading states (web reader -> device)
+	const unsyncedReadingStates = await getUnsyncedReadingStates(user.userId, 100);
+
+	// Test ChangedReadingState generation for first unsynced reading state
+	let testChangedReadingState = null;
+	if (unsyncedReadingStates.length > 0) {
+		const state = unsyncedReadingStates[0];
+		testChangedReadingState = generateChangedReadingState(
+			state.entitlementId,
+			state.progressPercent,
+			state.status,
+			state.locationValue,
+			state.lastModified
+		);
+	}
+
 	return json({
 		userId: user.userId,
 		syncEnabled: user.syncEnabled,
@@ -81,7 +103,14 @@ export const GET: RequestHandler = async ({ params }) => {
 		syncStates,
 		testEntitlement: testEntitlement ? 'Generated successfully' : null,
 		testEntitlementError,
-		testEntitlementData: testEntitlement
+		testEntitlementData: testEntitlement,
+		// Reading state debug info
+		readingStates: {
+			all: allReadingStates,
+			unsynced: unsyncedReadingStates,
+			unsyncedCount: unsyncedReadingStates.length
+		},
+		testChangedReadingState
 	});
 };
 
