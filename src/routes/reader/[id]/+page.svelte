@@ -205,6 +205,18 @@
 				await rendition.display();
 			}
 
+			// Generate locations for percentage calculation
+			// This is async but we don't need to wait - percentages will update once ready
+			book.locations.generate(1024).then(() => {
+				console.log('[Reader] Locations generated, percentage tracking enabled');
+				// Update progress now that we have percentage data
+				if (currentLocation) {
+					updateProgress(currentLocation);
+				}
+			}).catch((err: any) => {
+				console.warn('[Reader] Could not generate locations:', err);
+			});
+
 			// Track location changes
 			rendition.on('relocated', (location: any) => {
 				currentLocation = location;

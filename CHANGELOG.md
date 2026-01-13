@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.17] - 2026-01-12
+
+### Fixed
+- **EPUB Reader Progress Percentage** - Fixed reading percentage always showing 0%
+  - epub.js requires locations to be generated before percentage can be calculated
+  - Now generates locations on book load so percentage tracking works immediately
+  - Progress bar now shows actual reading progress
+
 ## [2.6.16] - 2026-01-12
 
 ### Fixed
