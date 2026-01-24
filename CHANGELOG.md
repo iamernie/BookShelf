@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.19] - 2026-01-24
+
+### Fixed
+- **Dashboard Chart** - Fixed "Books Read This Year" chart showing 0 instead of actual count
+  - Chart was querying wrong table (`userBooks` instead of `books`)
+  - Now uses same data source as the "Read This Year" stat for consistency
+
 ## [2.6.18] - 2026-01-23
 
 ### Security

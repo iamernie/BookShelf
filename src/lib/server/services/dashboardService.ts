@@ -4,7 +4,7 @@
  */
 
 import { db, books, authors, series, statuses, bookAuthors, bookSeries, genres, formats, tags, bookTags, settings, userBooks, magicShelves } from '$lib/server/db';
-import { eq, sql, desc, asc, and, isNotNull, ne, or, count, inArray } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, isNotNull, isNull, ne, or, count, inArray } from 'drizzle-orm';
 import { getBooksCardData } from './bookService';
 import { getGoalForDashboard } from './goalsService';
 import { getDashboardConfig, getEnabledSections, type DashboardConfig, type DashboardSection, type FilterConfig } from './userPreferencesService';
@@ -286,34 +286,23 @@ export async function getMonthlyReadingData(userId?: number, year?: number): Pro
 		return getEmptyMonthlyData();
 	}
 
-	// For per-user data, query user_books table which has user-specific completedDate and statusId
-	if (userId) {
-		const result = await db.select({
-			month: sql<string>`strftime('%m', ${userBooks.completedDate})`,
-			count: sql<number>`count(*)`
-		})
-			.from(userBooks)
-			.where(and(
-				eq(userBooks.userId, userId),
-				eq(userBooks.statusId, readStatusId),
-				sql`${userBooks.completedDate} LIKE ${yearPattern}`
-			))
-			.groupBy(sql`strftime('%m', ${userBooks.completedDate})`);
+	// Build library condition for user filtering (same as getStatsOverview)
+	const libCond = userId
+		? or(eq(books.ownerId, userId), isNull(books.ownerId))
+		: sql`1=1`;
 
-		return buildMonthlyData(result);
-	}
-
-	// Fallback for no user context (shouldn't happen in practice)
+	// Query books table for completed books this year (consistent with readThisYear stat)
 	const result = await db.select({
-		month: sql<string>`strftime('%m', completedDate)`,
+		month: sql<string>`strftime('%m', ${books.completedDate})`,
 		count: sql<number>`count(*)`
 	})
 		.from(books)
 		.where(and(
 			eq(books.statusId, readStatusId),
-			sql`${books.completedDate} LIKE ${yearPattern}`
+			sql`${books.completedDate} LIKE ${yearPattern}`,
+			libCond
 		))
-		.groupBy(sql`strftime('%m', completedDate)`);
+		.groupBy(sql`strftime('%m', ${books.completedDate})`);
 
 	return buildMonthlyData(result);
 }
