@@ -34,8 +34,16 @@ export interface KoreaderUserData {
 
 /**
  * Generate MD5 hash of a string
+ *
+ * NOTE: MD5 is used here for KOReader sync protocol compatibility, NOT for password security.
+ * KOReader's sync protocol requires MD5 hashes for document fingerprinting and authentication.
+ * This is a protocol requirement that cannot be changed without breaking KOReader compatibility.
+ * The actual user passwords are hashed with bcrypt in authService.ts.
+ *
+ * @see https://github.com/koreader/koreader-sync-server
  */
 export function md5Hash(str: string): string {
+	// lgtm[js/insufficient-password-hash] - Required for KOReader protocol compatibility
 	return createHash('md5').update(str).digest('hex');
 }
 
