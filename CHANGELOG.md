@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.18] - 2026-01-23
+
+### Security
+- **Dependency Updates** - Fixed all security vulnerabilities
+  - Updated `bcrypt` from 5.1.1 to 6.0.0 (fixes high severity tar vulnerabilities)
+  - Updated `@sveltejs/kit` to 2.50.1
+  - Updated `svelte` to 5.48.1
+  - Updated `@sveltejs/adapter-node` to 5.5.2
+  - Fixed lodash prototype pollution vulnerability
+  - Resolved all npm audit warnings (0 vulnerabilities)
+
 ## [2.6.17] - 2026-01-12
 
 ### Fixed
