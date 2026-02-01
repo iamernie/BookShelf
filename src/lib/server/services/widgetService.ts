@@ -58,6 +58,30 @@ async function getStatusIdByKey(key: string): Promise<number | null> {
 	return result[0]?.id ?? null;
 }
 
+// Helper to get status ID by name (fallback for custom status names)
+async function getStatusIdByName(name: string): Promise<number | null> {
+	const result = await db.select({ id: statuses.id })
+		.from(statuses)
+		.where(sql`LOWER(${statuses.name}) = LOWER(${name})`)
+		.limit(1);
+	return result[0]?.id ?? null;
+}
+
+// Get status ID - tries key first, then name variations
+async function getStatusId(key: string, nameVariations: string[]): Promise<number | null> {
+	// First try by key
+	const byKey = await getStatusIdByKey(key);
+	if (byKey) return byKey;
+
+	// Then try by name variations
+	for (const name of nameVariations) {
+		const byName = await getStatusIdByName(name);
+		if (byName) return byName;
+	}
+
+	return null;
+}
+
 /**
  * Get or create widget token
  */
@@ -164,6 +188,9 @@ export async function setWidgetsEnabled(enabled: boolean): Promise<void> {
  * Get currently reading books for widget
  */
 export async function getCurrentlyReading(limit: number = 5): Promise<WidgetBook[]> {
+	// Look up status by key first, then by common name variations
+	const currentStatusId = await getStatusId('CURRENT', ['Currently Reading', 'Current', 'Reading']) ?? STATUS_CURRENT;
+
 	const result = await db
 		.select({
 			id: books.id,
@@ -177,7 +204,7 @@ export async function getCurrentlyReading(limit: number = 5): Promise<WidgetBook
 		.from(books)
 		.leftJoin(authors, eq(books.authorId, authors.id))
 		.leftJoin(series, eq(books.seriesId, series.id))
-		.where(eq(books.statusId, STATUS_CURRENT))
+		.where(eq(books.statusId, currentStatusId))
 		.orderBy(desc(books.updatedAt))
 		.limit(limit);
 
@@ -196,6 +223,9 @@ export async function getCurrentlyReading(limit: number = 5): Promise<WidgetBook
  * Get recently read books for widget
  */
 export async function getRecentReads(limit: number = 5): Promise<WidgetBook[]> {
+	// Look up status by key first, then by common name variations
+	const readStatusId = await getStatusId('READ', ['Done', 'Read', 'Completed', 'Finished']) ?? STATUS_READ;
+
 	const result = await db
 		.select({
 			id: books.id,
@@ -209,7 +239,7 @@ export async function getRecentReads(limit: number = 5): Promise<WidgetBook[]> {
 		.from(books)
 		.leftJoin(authors, eq(books.authorId, authors.id))
 		.leftJoin(series, eq(books.seriesId, series.id))
-		.where(and(eq(books.statusId, STATUS_READ), isNotNull(books.completedDate)))
+		.where(and(eq(books.statusId, readStatusId), isNotNull(books.completedDate)))
 		.orderBy(desc(books.completedDate))
 		.limit(limit);
 
@@ -231,16 +261,26 @@ export async function getWidgetStats(): Promise<WidgetStats> {
 	const currentYear = new Date().getFullYear();
 	const yearStart = `${currentYear}-01-01`;
 
+	// Look up status IDs by key first, then by common name variations
+	const [readStatusId, currentStatusId] = await Promise.all([
+		getStatusId('READ', ['Done', 'Read', 'Completed', 'Finished']),
+		getStatusId('CURRENT', ['Currently Reading', 'Current', 'Reading'])
+	]);
+
 	// Get counts
 	const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(books);
-	const [readResult] = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(books)
-		.where(eq(books.statusId, STATUS_READ));
-	const [currentResult] = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(books)
-		.where(eq(books.statusId, STATUS_CURRENT));
+	const [readResult] = readStatusId
+		? await db
+			.select({ count: sql<number>`count(*)` })
+			.from(books)
+			.where(eq(books.statusId, readStatusId))
+		: [{ count: 0 }];
+	const [currentResult] = currentStatusId
+		? await db
+			.select({ count: sql<number>`count(*)` })
+			.from(books)
+			.where(eq(books.statusId, currentStatusId))
+		: [{ count: 0 }];
 	const [thisYearResult] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(books)
@@ -312,8 +352,8 @@ export async function getWidgetGoal(): Promise<WidgetGoal | null> {
  * Get next up books for widget (books with "Next" status)
  */
 export async function getNextUp(limit: number = 5): Promise<WidgetBook[]> {
-	// Try to get status by key first, fall back to hardcoded ID
-	const nextStatusId = await getStatusIdByKey('NEXT') ?? STATUS_NEXT;
+	// Look up status by key first, then by common name variations
+	const nextStatusId = await getStatusId('NEXT', ['Next', 'To Read', 'Up Next', 'TBR']) ?? STATUS_NEXT;
 
 	const result = await db
 		.select({
