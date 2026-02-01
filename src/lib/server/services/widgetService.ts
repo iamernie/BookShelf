@@ -4,15 +4,15 @@
  */
 
 import { db } from '$lib/server/db';
-import { books, authors, series, bookAuthors, readingGoals, settings } from '$lib/server/db/schema';
-import { eq, sql, desc, and, isNotNull } from 'drizzle-orm';
+import { books, authors, series, bookAuthors, readingGoals, settings, statuses } from '$lib/server/db/schema';
+import { eq, sql, desc, asc, and, isNotNull, gte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { createLogger } from './loggerService';
 
 const log = createLogger('widgets');
 
 // Widget types
-export type WidgetType = 'currently-reading' | 'recent-reads' | 'stats' | 'goal';
+export type WidgetType = 'currently-reading' | 'recent-reads' | 'stats' | 'goal' | 'next-up' | 'upcoming-releases' | 'all';
 export type WidgetTheme = 'light' | 'dark';
 
 export interface WidgetBook {
@@ -47,6 +47,16 @@ export interface WidgetGoal {
 // Status IDs (matching the default statuses)
 const STATUS_CURRENT = 2; // "Currently Reading"
 const STATUS_READ = 1; // "Read"
+const STATUS_NEXT = 3; // "Next Up"
+
+// Helper to get status ID by key
+async function getStatusIdByKey(key: string): Promise<number | null> {
+	const result = await db.select({ id: statuses.id })
+		.from(statuses)
+		.where(eq(statuses.key, key))
+		.limit(1);
+	return result[0]?.id ?? null;
+}
 
 /**
  * Get or create widget token
@@ -299,12 +309,117 @@ export async function getWidgetGoal(): Promise<WidgetGoal | null> {
 }
 
 /**
+ * Get next up books for widget (books with "Next" status)
+ */
+export async function getNextUp(limit: number = 5): Promise<WidgetBook[]> {
+	// Try to get status by key first, fall back to hardcoded ID
+	const nextStatusId = await getStatusIdByKey('NEXT') ?? STATUS_NEXT;
+
+	const result = await db
+		.select({
+			id: books.id,
+			title: books.title,
+			coverImageUrl: books.coverImageUrl,
+			bookNum: books.bookNum,
+			rating: books.rating,
+			authorName: authors.name,
+			seriesTitle: series.title
+		})
+		.from(books)
+		.leftJoin(authors, eq(books.authorId, authors.id))
+		.leftJoin(series, eq(books.seriesId, series.id))
+		.where(eq(books.statusId, nextStatusId))
+		.orderBy(desc(books.updatedAt))
+		.limit(limit);
+
+	return result.map((row) => ({
+		id: row.id,
+		title: row.title,
+		coverUrl: row.coverImageUrl,
+		author: row.authorName,
+		series: row.seriesTitle,
+		bookNum: row.bookNum,
+		rating: row.rating
+	}));
+}
+
+/**
+ * Get upcoming releases for widget (books with future release dates)
+ */
+export async function getUpcomingReleases(limit: number = 10): Promise<(WidgetBook & { releaseDate: string })[]> {
+	const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+	const result = await db
+		.select({
+			id: books.id,
+			title: books.title,
+			coverImageUrl: books.coverImageUrl,
+			bookNum: books.bookNum,
+			rating: books.rating,
+			releaseDate: books.releaseDate,
+			authorName: authors.name,
+			seriesTitle: series.title
+		})
+		.from(books)
+		.leftJoin(authors, eq(books.authorId, authors.id))
+		.leftJoin(series, eq(books.seriesId, series.id))
+		.where(and(isNotNull(books.releaseDate), gte(books.releaseDate, today)))
+		.orderBy(asc(books.releaseDate))
+		.limit(limit);
+
+	return result.map((row) => ({
+		id: row.id,
+		title: row.title,
+		coverUrl: row.coverImageUrl,
+		author: row.authorName,
+		series: row.seriesTitle,
+		bookNum: row.bookNum,
+		rating: row.rating,
+		releaseDate: row.releaseDate!
+	}));
+}
+
+/**
+ * Combined widget data for "all" type
+ */
+export interface WidgetAllData {
+	stats: WidgetStats;
+	currentlyReading: WidgetBook[];
+	nextUp: WidgetBook[];
+	upcomingReleases: (WidgetBook & { releaseDate: string })[];
+	goal: WidgetGoal | null;
+	generatedAt: string;
+}
+
+/**
+ * Get all widget data combined
+ */
+export async function getAllWidgetData(limit: number = 10): Promise<WidgetAllData> {
+	const [stats, currentlyReading, nextUp, upcomingReleases, goal] = await Promise.all([
+		getWidgetStats(),
+		getCurrentlyReading(limit),
+		getNextUp(limit),
+		getUpcomingReleases(limit),
+		getWidgetGoal()
+	]);
+
+	return {
+		stats,
+		currentlyReading,
+		nextUp,
+		upcomingReleases,
+		goal,
+		generatedAt: new Date().toISOString()
+	};
+}
+
+/**
  * Get widget data based on type
  */
 export async function getWidgetData(
 	type: WidgetType,
 	limit: number = 5
-): Promise<{ books?: WidgetBook[]; stats?: WidgetStats; goal?: WidgetGoal | null }> {
+): Promise<{ books?: WidgetBook[]; stats?: WidgetStats; goal?: WidgetGoal | null; all?: WidgetAllData }> {
 	switch (type) {
 		case 'currently-reading':
 			return { books: await getCurrentlyReading(limit) };
@@ -314,6 +429,12 @@ export async function getWidgetData(
 			return { stats: await getWidgetStats() };
 		case 'goal':
 			return { goal: await getWidgetGoal() };
+		case 'next-up':
+			return { books: await getNextUp(limit) };
+		case 'upcoming-releases':
+			return { books: await getUpcomingReleases(limit) };
+		case 'all':
+			return { all: await getAllWidgetData(limit) };
 		default:
 			throw new Error(`Unknown widget type: ${type}`);
 	}

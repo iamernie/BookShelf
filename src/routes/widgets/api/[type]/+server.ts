@@ -8,7 +8,7 @@ import {
 	type WidgetTheme
 } from '$lib/server/services/widgetService';
 
-const VALID_TYPES: WidgetType[] = ['currently-reading', 'recent-reads', 'stats', 'goal'];
+const VALID_TYPES: WidgetType[] = ['currently-reading', 'recent-reads', 'stats', 'goal', 'next-up', 'upcoming-releases', 'all'];
 
 export const GET: RequestHandler = async ({ params, url }) => {
 	const { type } = params;
