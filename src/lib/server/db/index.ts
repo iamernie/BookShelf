@@ -282,6 +282,7 @@ function runMigrations() {
 		'Setting up per-user libraries',
 		'Creating audiobook tables',
 		'Creating media sources tables',
+		'Creating API tokens table',
 		'Finalizing'
 	];
 
@@ -1624,6 +1625,34 @@ function runMigrations() {
 	}
 
 	completeStep('Creating Kobo sync tables');
+
+	// ========== API Tokens Table ==========
+	updateStatus('Creating API tokens table...');
+
+	safeCreateTable('api_tokens', `
+		CREATE TABLE api_tokens (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			name TEXT NOT NULL,
+			token TEXT NOT NULL UNIQUE,
+			tokenPrefix TEXT NOT NULL,
+			permissions TEXT,
+			lastUsedAt TEXT,
+			expiresAt TEXT,
+			revokedAt TEXT,
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
+
+	// Create index for API tokens
+	try {
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(userId)');
+	} catch {
+		// Index may already exist
+	}
+
+	completeStep('Creating API tokens table');
 
 	// ========== Migrate owned books to user_books table ==========
 	// For users who own books (via ownerId), ensure those books appear in their personal library (user_books)
