@@ -845,6 +845,29 @@ export const bookMediaSourcesRelations = relations(bookMediaSources, ({ one }) =
 }));
 
 // ============================================
+// API Tokens (for external API access)
+// ============================================
+
+export const apiTokens = sqliteTable('api_tokens', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(), // User-friendly name for the token
+	token: text('token').notNull().unique(), // The actual token (hashed)
+	tokenPrefix: text('tokenPrefix').notNull(), // First 8 chars for identification (e.g., "bks_abc1...")
+	permissions: text('permissions'), // JSON array of permissions (null = inherit user role)
+	lastUsedAt: text('lastUsedAt'),
+	expiresAt: text('expiresAt'), // null = never expires
+	revokedAt: text('revokedAt'), // soft delete - token is invalid if set
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+// API token relations
+export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
+	user: one(users, { fields: [apiTokens.userId], references: [users.id] })
+}));
+
+// ============================================
 // KOReader Sync Tables
 // ============================================
 
@@ -1036,6 +1059,10 @@ export type KoreaderUser = typeof koreaderUsers.$inferSelect;
 export type NewKoreaderUser = typeof koreaderUsers.$inferInsert;
 export type KoreaderProgress = typeof koreaderProgress.$inferSelect;
 export type NewKoreaderProgress = typeof koreaderProgress.$inferInsert;
+
+// API Token types
+export type ApiToken = typeof apiTokens.$inferSelect;
+export type NewApiToken = typeof apiTokens.$inferInsert;
 
 // Library type values
 export type LibraryType = 'personal' | 'public';

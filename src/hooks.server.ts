@@ -2,6 +2,7 @@ import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { redirect, error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { getSession, validateCredentials } from '$lib/server/services/authService';
+import { validateToken as validateApiToken } from '$lib/server/services/apiTokenService';
 import { createLogger, logRequest, logError } from '$lib/server/services/loggerService';
 import { checkSetupNeeded } from '$lib/server/services/setupService';
 import { migrationStatus } from '$lib/server/db';
@@ -159,6 +160,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 		} else {
 			// Invalid/expired session, clear cookie
 			event.cookies.delete('session', { path: '/' });
+		}
+	}
+
+	// Check for Bearer token authentication (API tokens)
+	// Only check if no session auth and it's an API route
+	if (!event.locals.user && event.url.pathname.startsWith('/api/')) {
+		const authHeader = event.request.headers.get('Authorization');
+		if (authHeader?.startsWith('Bearer ')) {
+			const token = authHeader.slice(7);
+			const user = await validateApiToken(token);
+			if (user) {
+				event.locals.user = user;
+			}
 		}
 	}
 

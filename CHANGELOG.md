@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-02-08
+
+### Added
+- **API Token Authentication** - Full API token system for external integrations
+  - Users can generate API tokens from Account → API Tokens page
+  - Tokens use secure `bks_` prefix format with SHA-256 hashing
+  - Support for optional expiration dates
+  - Bearer token authentication for all API endpoints
+  - Token management UI with create, view, and revoke functionality
+  - Last used tracking for security monitoring
+
+### New API Endpoints
+- `GET /api/tokens` - List all API tokens for authenticated user
+- `POST /api/tokens` - Create a new API token
+- `DELETE /api/tokens` - Revoke all tokens
+- `GET /api/tokens/[id]` - Get a specific token
+- `PUT /api/tokens/[id]` - Update token name
+- `DELETE /api/tokens/[id]` - Revoke a specific token
+
 ## [2.6.19] - 2026-01-24
 
 ### Fixed
