@@ -735,6 +735,9 @@
 		<a href="/account/settings" class="px-4 py-2 rounded-lg font-medium" style="background-color: var(--accent); color: white;">
 			Settings
 		</a>
+		<a href="/account/tokens" class="px-4 py-2 rounded-lg font-medium" style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+			API Tokens
+		</a>
 	</div>
 
 	<div class="space-y-6">
