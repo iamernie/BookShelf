@@ -36,6 +36,7 @@ const PUBLIC_PATHS = [
 	'/api/setup',
 	'/health',
 	'/widgets',
+	'/api/v1', // REST API v1 - uses widget token auth
 	'/signup',
 	'/api/auth/signup',
 	'/upgrade',
