@@ -1,23 +1,31 @@
 /**
  * API v1 Authors Endpoint
- * Returns all authors with book counts
+ * CRUD operations for authors
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
+import { createAuthor } from '$lib/server/services/authorService';
 import { db, authors, bookAuthors } from '$lib/server/db';
 import { sql, desc } from 'drizzle-orm';
 
+// Helper to validate token and check API enabled
+async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
+	if (!(await areWidgetsEnabled())) {
+		return { valid: false, error: 'API is disabled', status: 403 };
+	}
+	if (!token || !(await validateWidgetToken(token))) {
+		return { valid: false, error: 'Invalid or missing API token', status: 401 };
+	}
+	return { valid: true };
+}
+
 export const GET: RequestHandler = async ({ url }) => {
 	const token = url.searchParams.get('token');
-
-	if (!(await areWidgetsEnabled())) {
-		return json({ error: 'API is disabled' }, { status: 403 });
-	}
-
-	if (!token || !(await validateWidgetToken(token))) {
-		return json({ error: 'Invalid or missing API token' }, { status: 401 });
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
 	}
 
 	const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 500);
@@ -60,5 +68,44 @@ export const GET: RequestHandler = async ({ url }) => {
 	} catch (err) {
 		console.error('API v1 authors error:', err);
 		return json({ error: 'Failed to fetch authors' }, { status: 500 });
+	}
+};
+
+/**
+ * POST /api/v1/authors - Create a new author
+ */
+export const POST: RequestHandler = async ({ url, request }) => {
+	const token = url.searchParams.get('token');
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
+	}
+
+	try {
+		const body = await request.json();
+
+		if (!body.name) {
+			return json({ error: 'name is required' }, { status: 400 });
+		}
+
+		const newAuthor = await createAuthor({
+			name: body.name,
+			bio: body.bio,
+			birthDate: body.birthDate,
+			deathDate: body.deathDate,
+			birthPlace: body.birthPlace,
+			photoUrl: body.photoUrl,
+			website: body.website,
+			wikipediaUrl: body.wikipediaUrl,
+			comments: body.comments
+		});
+
+		return json({
+			author: { id: newAuthor.id, name: newAuthor.name },
+			message: 'Author created successfully'
+		}, { status: 201 });
+	} catch (err) {
+		console.error('API v1 create author error:', err);
+		return json({ error: 'Failed to create author' }, { status: 500 });
 	}
 };

@@ -1,24 +1,33 @@
 /**
  * API v1 Single Author Endpoint
- * Returns an author with their books
+ * GET, PUT, DELETE operations for a single author
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
+import { updateAuthor, deleteAuthor } from '$lib/server/services/authorService';
 import { db, authors, books, bookAuthors, series, bookSeries, statuses } from '$lib/server/db';
-import { eq, asc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+
+// Helper to validate token and check API enabled
+async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
+	if (!(await areWidgetsEnabled())) {
+		return { valid: false, error: 'API is disabled', status: 403 };
+	}
+	if (!token || !(await validateWidgetToken(token))) {
+		return { valid: false, error: 'Invalid or missing API token', status: 401 };
+	}
+	return { valid: true };
+}
 
 export const GET: RequestHandler = async ({ params, url }) => {
 	const token = url.searchParams.get('token');
 	const authorId = parseInt(params.id, 10);
 
-	if (!(await areWidgetsEnabled())) {
-		return json({ error: 'API is disabled' }, { status: 403 });
-	}
-
-	if (!token || !(await validateWidgetToken(token))) {
-		return json({ error: 'Invalid or missing API token' }, { status: 401 });
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
 	}
 
 	if (isNaN(authorId)) {
@@ -95,5 +104,95 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	} catch (err) {
 		console.error('API v1 author error:', err);
 		return json({ error: 'Failed to fetch author' }, { status: 500 });
+	}
+};
+
+/**
+ * PUT /api/v1/authors/[id] - Update an author
+ */
+export const PUT: RequestHandler = async ({ params, url, request }) => {
+	const token = url.searchParams.get('token');
+	const authorId = parseInt(params.id, 10);
+
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
+	}
+
+	if (isNaN(authorId)) {
+		return json({ error: 'Invalid author ID' }, { status: 400 });
+	}
+
+	try {
+		const body = await request.json();
+
+		// Check author exists
+		const [existingAuthor] = await db.select({ id: authors.id }).from(authors).where(eq(authors.id, authorId)).limit(1);
+		if (!existingAuthor) {
+			return json({ error: 'Author not found' }, { status: 404 });
+		}
+
+		const updateData: Record<string, unknown> = {};
+		if (body.name !== undefined) updateData.name = body.name;
+		if (body.bio !== undefined) updateData.bio = body.bio;
+		if (body.birthDate !== undefined) updateData.birthDate = body.birthDate;
+		if (body.deathDate !== undefined) updateData.deathDate = body.deathDate;
+		if (body.birthPlace !== undefined) updateData.birthPlace = body.birthPlace;
+		if (body.photoUrl !== undefined) updateData.photoUrl = body.photoUrl;
+		if (body.website !== undefined) updateData.website = body.website;
+		if (body.wikipediaUrl !== undefined) updateData.wikipediaUrl = body.wikipediaUrl;
+		if (body.comments !== undefined) updateData.comments = body.comments;
+
+		const updatedAuthor = await updateAuthor(authorId, updateData);
+
+		if (!updatedAuthor) {
+			return json({ error: 'Failed to update author' }, { status: 500 });
+		}
+
+		return json({
+			author: { id: updatedAuthor.id, name: updatedAuthor.name },
+			message: 'Author updated successfully'
+		});
+	} catch (err) {
+		console.error('API v1 update author error:', err);
+		return json({ error: 'Failed to update author' }, { status: 500 });
+	}
+};
+
+/**
+ * DELETE /api/v1/authors/[id] - Delete an author
+ */
+export const DELETE: RequestHandler = async ({ params, url }) => {
+	const token = url.searchParams.get('token');
+	const authorId = parseInt(params.id, 10);
+
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
+	}
+
+	if (isNaN(authorId)) {
+		return json({ error: 'Invalid author ID' }, { status: 400 });
+	}
+
+	try {
+		// Check author exists
+		const [existingAuthor] = await db.select({ id: authors.id, name: authors.name }).from(authors).where(eq(authors.id, authorId)).limit(1);
+		if (!existingAuthor) {
+			return json({ error: 'Author not found' }, { status: 404 });
+		}
+
+		const deleted = await deleteAuthor(authorId);
+
+		if (!deleted) {
+			return json({ error: 'Failed to delete author' }, { status: 500 });
+		}
+
+		return json({
+			message: `Author "${existingAuthor.name}" deleted successfully`
+		});
+	} catch (err) {
+		console.error('API v1 delete author error:', err);
+		return json({ error: 'Failed to delete author' }, { status: 500 });
 	}
 };

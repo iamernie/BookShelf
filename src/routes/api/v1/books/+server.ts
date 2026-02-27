@@ -1,23 +1,40 @@
 /**
  * API v1 Books Endpoint
- * Returns all books with full details
+ * CRUD operations for books
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
-import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators } from '$lib/server/db';
+import { createBook, type CreateBookData } from '$lib/server/services/bookService';
+import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators, users } from '$lib/server/db';
 import { eq, sql, desc, and, inArray } from 'drizzle-orm';
+
+// Helper to validate token and check API enabled
+async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
+	if (!(await areWidgetsEnabled())) {
+		return { valid: false, error: 'API is disabled', status: 403 };
+	}
+	if (!token || !(await validateWidgetToken(token))) {
+		return { valid: false, error: 'Invalid or missing API token', status: 401 };
+	}
+	return { valid: true };
+}
+
+// Get default user ID (first admin user) for API operations
+async function getDefaultUserId(): Promise<number | null> {
+	const [user] = await db.select({ id: users.id })
+		.from(users)
+		.where(eq(users.role, 'admin'))
+		.limit(1);
+	return user?.id ?? null;
+}
 
 export const GET: RequestHandler = async ({ url }) => {
 	const token = url.searchParams.get('token');
-
-	if (!(await areWidgetsEnabled())) {
-		return json({ error: 'API is disabled' }, { status: 403 });
-	}
-
-	if (!token || !(await validateWidgetToken(token))) {
-		return json({ error: 'Invalid or missing API token' }, { status: 401 });
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
 	}
 
 	const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 500);
@@ -191,5 +208,99 @@ export const GET: RequestHandler = async ({ url }) => {
 	} catch (err) {
 		console.error('API v1 books error:', err);
 		return json({ error: 'Failed to fetch books' }, { status: 500 });
+	}
+};
+
+/**
+ * POST /api/v1/books - Create a new book
+ */
+export const POST: RequestHandler = async ({ url, request }) => {
+	const token = url.searchParams.get('token');
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
+	}
+
+	try {
+		const body = await request.json();
+
+		// Validate required fields
+		if (!body.title) {
+			return json({ error: 'title is required' }, { status: 400 });
+		}
+
+		// Get default user ID for ownerId
+		const ownerId = await getDefaultUserId();
+		if (!ownerId) {
+			return json({ error: 'No admin user found for book ownership' }, { status: 500 });
+		}
+
+		// Look up status by name if provided
+		let statusId = body.statusId;
+		if (body.status && !statusId) {
+			const [status] = await db.select({ id: statuses.id })
+				.from(statuses)
+				.where(sql`LOWER(${statuses.name}) = LOWER(${body.status})`)
+				.limit(1);
+			statusId = status?.id;
+		}
+
+		// Look up genre by name if provided
+		let genreId = body.genreId;
+		if (body.genre && !genreId) {
+			const [genre] = await db.select({ id: genres.id })
+				.from(genres)
+				.where(sql`LOWER(${genres.name}) = LOWER(${body.genre})`)
+				.limit(1);
+			genreId = genre?.id;
+		}
+
+		// Look up format by name if provided
+		let formatId = body.formatId;
+		if (body.format && !formatId) {
+			const [format] = await db.select({ id: formats.id })
+				.from(formats)
+				.where(sql`LOWER(${formats.name}) = LOWER(${body.format})`)
+				.limit(1);
+			formatId = format?.id;
+		}
+
+		const bookData: CreateBookData = {
+			title: body.title,
+			summary: body.summary,
+			comments: body.comments,
+			coverImageUrl: body.coverUrl,
+			rating: body.rating,
+			pageCount: body.pageCount,
+			releaseDate: body.releaseDate,
+			startReadingDate: body.startReadingDate,
+			completedDate: body.completedDate,
+			isbn10: body.isbn10,
+			isbn13: body.isbn13,
+			asin: body.asin,
+			goodreadsId: body.goodreadsId,
+			googleBooksId: body.googleBooksId,
+			publisher: body.publisher,
+			publishYear: body.publishYear,
+			language: body.language,
+			edition: body.edition,
+			statusId,
+			genreId,
+			formatId,
+			ownerId,
+			authors: body.authors, // Array of { id, role?, isPrimary? }
+			series: body.series,   // Array of { id, bookNum?, bookNumEnd? }
+			tagIds: body.tagIds    // Array of tag IDs
+		};
+
+		const newBook = await createBook(bookData);
+
+		return json({
+			book: { id: newBook.id, title: newBook.title },
+			message: 'Book created successfully'
+		}, { status: 201 });
+	} catch (err) {
+		console.error('API v1 create book error:', err);
+		return json({ error: 'Failed to create book' }, { status: 500 });
 	}
 };

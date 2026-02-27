@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.5] - 2026-02-27
+
+### Added
+- **Full REST API v1 Write Operations** - Complete CRUD support for the REST API
+  - POST, PUT, DELETE for `/api/v1/books` - Create, update, and delete books
+  - POST, PUT, DELETE for `/api/v1/authors` - Create, update, and delete authors
+  - POST, PUT, DELETE for `/api/v1/series` - Create, update, and delete series
+  - Status/genre/format lookup by name (case-insensitive)
+  - Full API specification available at `GET /api/v1?token=YOUR_TOKEN`
+
 ## [2.7.0] - 2026-02-08
 
 ### Added

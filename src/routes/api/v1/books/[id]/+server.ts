@@ -1,24 +1,33 @@
 /**
  * API v1 Single Book Endpoint
- * Returns a single book with full details
+ * GET, PUT, DELETE operations for a single book
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
+import { updateBook, deleteBook, type CreateBookData } from '$lib/server/services/bookService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators } from '$lib/server/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+
+// Helper to validate token and check API enabled
+async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
+	if (!(await areWidgetsEnabled())) {
+		return { valid: false, error: 'API is disabled', status: 403 };
+	}
+	if (!token || !(await validateWidgetToken(token))) {
+		return { valid: false, error: 'Invalid or missing API token', status: 401 };
+	}
+	return { valid: true };
+}
 
 export const GET: RequestHandler = async ({ params, url }) => {
 	const token = url.searchParams.get('token');
 	const bookId = parseInt(params.id, 10);
 
-	if (!(await areWidgetsEnabled())) {
-		return json({ error: 'API is disabled' }, { status: 403 });
-	}
-
-	if (!token || !(await validateWidgetToken(token))) {
-		return json({ error: 'Invalid or missing API token' }, { status: 401 });
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
 	}
 
 	if (isNaN(bookId)) {
@@ -144,5 +153,142 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	} catch (err) {
 		console.error('API v1 book error:', err);
 		return json({ error: 'Failed to fetch book' }, { status: 500 });
+	}
+};
+
+/**
+ * PUT /api/v1/books/[id] - Update a book
+ */
+export const PUT: RequestHandler = async ({ params, url, request }) => {
+	const token = url.searchParams.get('token');
+	const bookId = parseInt(params.id, 10);
+
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
+	}
+
+	if (isNaN(bookId)) {
+		return json({ error: 'Invalid book ID' }, { status: 400 });
+	}
+
+	try {
+		const body = await request.json();
+
+		// Check book exists
+		const [existingBook] = await db.select({ id: books.id }).from(books).where(eq(books.id, bookId)).limit(1);
+		if (!existingBook) {
+			return json({ error: 'Book not found' }, { status: 404 });
+		}
+
+		// Look up status by name if provided
+		let statusId = body.statusId;
+		if (body.status && !statusId) {
+			const [status] = await db.select({ id: statuses.id })
+				.from(statuses)
+				.where(sql`LOWER(${statuses.name}) = LOWER(${body.status})`)
+				.limit(1);
+			statusId = status?.id;
+		}
+
+		// Look up genre by name if provided
+		let genreId = body.genreId;
+		if (body.genre && !genreId) {
+			const [genre] = await db.select({ id: genres.id })
+				.from(genres)
+				.where(sql`LOWER(${genres.name}) = LOWER(${body.genre})`)
+				.limit(1);
+			genreId = genre?.id;
+		}
+
+		// Look up format by name if provided
+		let formatId = body.formatId;
+		if (body.format && !formatId) {
+			const [format] = await db.select({ id: formats.id })
+				.from(formats)
+				.where(sql`LOWER(${formats.name}) = LOWER(${body.format})`)
+				.limit(1);
+			formatId = format?.id;
+		}
+
+		const updateData: Partial<CreateBookData> = {};
+
+		// Only include fields that are explicitly provided
+		if (body.title !== undefined) updateData.title = body.title;
+		if (body.summary !== undefined) updateData.summary = body.summary;
+		if (body.comments !== undefined) updateData.comments = body.comments;
+		if (body.coverUrl !== undefined) updateData.coverImageUrl = body.coverUrl;
+		if (body.rating !== undefined) updateData.rating = body.rating;
+		if (body.pageCount !== undefined) updateData.pageCount = body.pageCount;
+		if (body.releaseDate !== undefined) updateData.releaseDate = body.releaseDate;
+		if (body.startReadingDate !== undefined) updateData.startReadingDate = body.startReadingDate;
+		if (body.completedDate !== undefined) updateData.completedDate = body.completedDate;
+		if (body.isbn10 !== undefined) updateData.isbn10 = body.isbn10;
+		if (body.isbn13 !== undefined) updateData.isbn13 = body.isbn13;
+		if (body.asin !== undefined) updateData.asin = body.asin;
+		if (body.goodreadsId !== undefined) updateData.goodreadsId = body.goodreadsId;
+		if (body.googleBooksId !== undefined) updateData.googleBooksId = body.googleBooksId;
+		if (body.publisher !== undefined) updateData.publisher = body.publisher;
+		if (body.publishYear !== undefined) updateData.publishYear = body.publishYear;
+		if (body.language !== undefined) updateData.language = body.language;
+		if (body.edition !== undefined) updateData.edition = body.edition;
+		if (statusId !== undefined) updateData.statusId = statusId;
+		if (genreId !== undefined) updateData.genreId = genreId;
+		if (formatId !== undefined) updateData.formatId = formatId;
+		if (body.authors !== undefined) updateData.authors = body.authors;
+		if (body.series !== undefined) updateData.series = body.series;
+		if (body.tagIds !== undefined) updateData.tagIds = body.tagIds;
+
+		const updatedBook = await updateBook(bookId, updateData);
+
+		if (!updatedBook) {
+			return json({ error: 'Failed to update book' }, { status: 500 });
+		}
+
+		return json({
+			book: { id: updatedBook.id, title: updatedBook.title },
+			message: 'Book updated successfully'
+		});
+	} catch (err) {
+		console.error('API v1 update book error:', err);
+		return json({ error: 'Failed to update book' }, { status: 500 });
+	}
+};
+
+/**
+ * DELETE /api/v1/books/[id] - Delete a book
+ */
+export const DELETE: RequestHandler = async ({ params, url }) => {
+	const token = url.searchParams.get('token');
+	const bookId = parseInt(params.id, 10);
+
+	const validation = await validateRequest(token);
+	if (!validation.valid) {
+		return json({ error: validation.error }, { status: validation.status });
+	}
+
+	if (isNaN(bookId)) {
+		return json({ error: 'Invalid book ID' }, { status: 400 });
+	}
+
+	try {
+		// Check book exists
+		const [existingBook] = await db.select({ id: books.id, title: books.title }).from(books).where(eq(books.id, bookId)).limit(1);
+		if (!existingBook) {
+			return json({ error: 'Book not found' }, { status: 404 });
+		}
+
+		const deleted = await deleteBook(bookId);
+
+		if (!deleted) {
+			return json({ error: 'Failed to delete book' }, { status: 500 });
+		}
+
+		return json({
+			message: `Book "${existingBook.title}" deleted successfully`
+		});
+	} catch (err) {
+		console.error('API v1 delete book error:', err);
+		return json({ error: 'Failed to delete book' }, { status: 500 });
 	}
 };
