@@ -1,6 +1,6 @@
 {
   "name": "bookshelf",
-  "version": "2.7.6",
+  "version": "2.7.7",
   "description": "Personal book library management application",
   "private": true,
   "type": "module",
@@ -48,6 +48,7 @@
     "nodemailer": "^7.0.12",
     "openid-client": "^6.8.1",
     "pdfjs-dist": "^5.4.449",
+    "rollup": "^4.59.0",
     "swagger-ui-dist": "^5.31.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"

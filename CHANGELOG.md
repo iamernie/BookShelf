@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.7] - 2026-03-03
+
+### Security
+- **Dependency Updates** - Fixed all security vulnerabilities
+  - Updated `svelte` to 5.53.7 (fixes XSS vulnerabilities in SSR)
+  - Updated `rollup` to 4.59.0 (fixes arbitrary file write via path traversal)
+  - Updated `fast-xml-parser` to 5.3.8 (fixes stack overflow in XMLBuilder)
+  - Updated `@sveltejs/kit` to 2.53.3 (fixes DoS in form handling)
+  - Resolved all npm audit warnings (0 vulnerabilities)
+
 ## [2.7.6] - 2026-03-03
 
 ### Fixed
