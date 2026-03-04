@@ -141,7 +141,7 @@
 						{#each books.slice(0, 12) as book}
 							<a href="/books?id={book.id}" class="block">
 								<img
-									src={book.coverImageUrl || '/placeholder.png'}
+									src={book.coverImageUrl || book.originalCoverUrl || '/placeholder.png'}
 									alt={book.title}
 									class="w-full aspect-[2/3] object-cover rounded shadow-sm hover:shadow-md transition-shadow"
 									onerror={(e) => { (e.target as HTMLImageElement).src = '/placeholder.png'; }}

@@ -73,7 +73,7 @@
 	<div class="col col-title">
 		<div class="cover-thumb">
 			<img
-				src={book.coverImageUrl || '/placeholder.png'}
+				src={book.coverImageUrl || book.originalCoverUrl || '/placeholder.png'}
 				alt={book.title}
 				loading="lazy"
 				onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}

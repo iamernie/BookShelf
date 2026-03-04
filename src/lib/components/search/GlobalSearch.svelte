@@ -166,7 +166,7 @@
 								>
 									<div class="w-10 h-14 rounded overflow-hidden flex-shrink-0" style="background-color: var(--bg-tertiary);">
 										<img
-											src={book.coverImageUrl || '/placeholder.png'}
+											src={book.coverImageUrl || book.originalCoverUrl || '/placeholder.png'}
 											alt=""
 											class="w-full h-full object-cover"
 											onerror={(e) => { (e.target as HTMLImageElement).src = '/placeholder.png'; }}

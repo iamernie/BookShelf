@@ -7,6 +7,7 @@ export interface BookCardData {
 	id: number;
 	title: string;
 	coverImageUrl?: string | null;
+	originalCoverUrl?: string | null;
 	rating?: number | null;
 	bookNum?: number | null;
 	ebookPath?: string | null;

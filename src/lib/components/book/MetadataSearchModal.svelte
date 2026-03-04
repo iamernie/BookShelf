@@ -51,7 +51,7 @@
 
 	// Field selection for applying
 	let selectedFields = $state<Set<string>>(new Set([
-		'title', 'summary', 'coverUrl', 'isbn13', 'isbn10', 'publisher', 'publishYear', 'pageCount', 'language'
+		'title', 'summary', 'coverUrl', 'isbn13', 'isbn10', 'publisher', 'publishYear', 'pageCount', 'language', 'authors', 'seriesName', 'genres'
 	]));
 
 	const providerNames: Record<string, string> = {
@@ -71,6 +71,7 @@
 	const fieldLabels: Record<string, string> = {
 		title: 'Title',
 		subtitle: 'Subtitle',
+		authors: 'Authors',
 		summary: 'Summary/Description',
 		coverUrl: 'Cover Image',
 		isbn13: 'ISBN-13',

@@ -404,38 +404,146 @@
 		if (data.coverUrl && !originalCoverUrl) originalCoverUrl = data.coverUrl;
 	}
 
-	function applyMetadataResult(result: any, selectedFields: string[]) {
+	async function applyMetadataResult(result: any, selectedFields: string[]) {
+		let appliedCount = 0;
+
 		for (const field of selectedFields) {
 			switch (field) {
 				case 'title':
-					if (result.title) title = result.title;
+					if (result.title) { title = result.title; appliedCount++; }
 					break;
 				case 'summary':
-					if (result.description) summary = result.description;
+					if (result.description) { summary = result.description; appliedCount++; }
 					break;
 				case 'coverUrl':
-					if (result.coverUrl) originalCoverUrl = result.coverUrl;
+					if (result.coverUrl) { originalCoverUrl = result.coverUrl; appliedCount++; }
 					break;
 				case 'isbn13':
-					if (result.isbn13) isbn13 = result.isbn13;
+					if (result.isbn13) { isbn13 = result.isbn13; appliedCount++; }
 					break;
 				case 'isbn10':
-					if (result.isbn10) isbn10 = result.isbn10;
+					if (result.isbn10) { isbn10 = result.isbn10; appliedCount++; }
 					break;
 				case 'publisher':
-					if (result.publisher) publisher = result.publisher;
+					if (result.publisher) { publisher = result.publisher; appliedCount++; }
 					break;
 				case 'publishYear':
-					if (result.publishYear) publishYear = result.publishYear.toString();
+					if (result.publishYear) { publishYear = result.publishYear.toString(); appliedCount++; }
 					break;
 				case 'pageCount':
-					if (result.pageCount) pageCount = result.pageCount.toString();
+					if (result.pageCount) { pageCount = result.pageCount.toString(); appliedCount++; }
 					break;
 				case 'language':
-					if (result.language) language = result.language;
+					if (result.language) { language = result.language; appliedCount++; }
 					break;
 				case 'rating':
-					if (result.rating) rating = result.rating.toString();
+					if (result.rating) { rating = result.rating.toString(); appliedCount++; }
+					break;
+				case 'authors':
+					if (result.authors?.length) {
+						// Look up or create each author
+						for (const authorName of result.authors) {
+							const name = authorName.trim();
+							if (!name) continue;
+
+							// Check if author already selected
+							if (selectedAuthors.some(a => a.name.toLowerCase() === name.toLowerCase())) continue;
+
+							// Check if author exists in available list
+							let existing = availableAuthors.find(a => a.name.toLowerCase() === name.toLowerCase());
+
+							if (!existing) {
+								// Create new author
+								try {
+									const res = await fetch('/api/authors', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify({ name })
+									});
+									if (res.ok) {
+										const newAuthor = await res.json();
+										availableAuthors = [...availableAuthors, { id: newAuthor.id, name: newAuthor.name }];
+										existing = { id: newAuthor.id, name: newAuthor.name };
+									}
+								} catch (e) {
+									console.error('Failed to create author:', e);
+								}
+							}
+
+							if (existing) {
+								selectedAuthors = [...selectedAuthors, { id: existing.id, name: existing.name, role: 'Author' }];
+							}
+						}
+						appliedCount++;
+					}
+					break;
+				case 'seriesName':
+					if (result.seriesName) {
+						const seriesTitle = result.seriesName.trim();
+
+						// Check if series already selected
+						if (!selectedSeries.some(s => s.title.toLowerCase() === seriesTitle.toLowerCase())) {
+							// Check if series exists in available list
+							let existing = availableSeries.find(s => s.title.toLowerCase() === seriesTitle.toLowerCase());
+
+							if (!existing) {
+								// Create new series
+								try {
+									const res = await fetch('/api/series', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify({ title: seriesTitle })
+									});
+									if (res.ok) {
+										const newSeries = await res.json();
+										availableSeries = [...availableSeries, { id: newSeries.id, title: newSeries.title }];
+										existing = { id: newSeries.id, title: newSeries.title };
+									}
+								} catch (e) {
+									console.error('Failed to create series:', e);
+								}
+							}
+
+							if (existing) {
+								const bookNum = result.seriesNumber?.toString() || '';
+								selectedSeries = [...selectedSeries, { id: existing.id, title: existing.title, bookNum, bookNumEnd: '' }];
+							}
+						}
+						appliedCount++;
+					}
+					break;
+				case 'genres':
+					if (result.genres?.length) {
+						// Use the first genre from metadata
+						const genreName = result.genres[0]?.trim();
+						if (genreName) {
+							// Check if genre exists
+							let existing = availableGenres.find(g => g.name.toLowerCase() === genreName.toLowerCase());
+
+							if (!existing) {
+								// Create new genre
+								try {
+									const res = await fetch('/api/genres', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify({ name: genreName })
+									});
+									if (res.ok) {
+										const newGenre = await res.json();
+										availableGenres = [...availableGenres, { id: newGenre.id, name: newGenre.name }];
+										existing = { id: newGenre.id, name: newGenre.name };
+									}
+								} catch (e) {
+									console.error('Failed to create genre:', e);
+								}
+							}
+
+							if (existing) {
+								selectedGenre = { id: existing.id, name: existing.name };
+							}
+						}
+						appliedCount++;
+					}
 					break;
 			}
 		}
@@ -447,7 +555,7 @@
 			googleBooksId = result.providerId;
 		}
 
-		toasts.success(`Applied ${selectedFields.length} fields from ${result.provider}`);
+		toasts.success(`Applied ${appliedCount} fields from ${result.provider}`);
 	}
 
 	// Ebook upload handling
@@ -600,7 +708,7 @@
 				<!-- Cover -->
 				<div class="flex-shrink-0">
 					<img
-						src={book.coverImageUrl || '/placeholder.png'}
+						src={book.coverImageUrl || book.originalCoverUrl || '/placeholder.png'}
 						alt={book.title}
 						class="w-40 h-60 object-cover rounded-lg shadow-md"
 						onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}

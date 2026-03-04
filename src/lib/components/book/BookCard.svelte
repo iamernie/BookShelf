@@ -213,9 +213,9 @@
 	<!-- Cover Image with blurred background -->
 	<div class="relative aspect-[2/3] overflow-hidden" style="background-color: var(--bg-tertiary);">
 		<!-- Blurred background image -->
-		{#if book.coverImageUrl}
+		{#if book.coverImageUrl || book.originalCoverUrl}
 			<img
-				src={book.coverImageUrl}
+				src={book.coverImageUrl || book.originalCoverUrl}
 				alt=""
 				class="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-60"
 				loading="lazy"
@@ -224,7 +224,7 @@
 		{/if}
 		<!-- Main cover image (contained) -->
 		<img
-			src={book.coverImageUrl || '/placeholder.png'}
+			src={book.coverImageUrl || book.originalCoverUrl || '/placeholder.png'}
 			alt={book.title}
 			class="relative w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-lg"
 			loading="lazy"

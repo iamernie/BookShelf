@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.6] - 2026-03-03
+
+### Fixed
+- **Metadata Search Not Applying Authors/Series/Cover** - When adding a new book via metadata search, authors, series, and cover image were not being saved
+  - Authors, series, and genres are now included in default selected fields
+  - `applyMetadataResult` now handles authors (lookup or create by name)
+  - `applyMetadataResult` now handles series with book number (lookup or create by name)
+  - `applyMetadataResult` now handles genres (lookup or create by name)
+- **Cover Images Not Displaying** - Book covers from metadata search now display properly
+  - Added `originalCoverUrl` fallback to all book display components
+  - Library cards, rows, modals, and search results now show external cover URLs when local cover not downloaded
+
 ## [2.7.5] - 2026-02-27
 
 ### Added

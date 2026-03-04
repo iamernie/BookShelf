@@ -194,7 +194,7 @@
 						{#each books as book}
 							<a href="/books/{book.id}" class="book-item">
 								<img
-									src={book.coverImageUrl || '/placeholder.png'}
+									src={book.coverImageUrl || book.originalCoverUrl || '/placeholder.png'}
 									alt={book.title}
 									class="book-cover"
 									onerror={(e) => { (e.target as HTMLImageElement).src = '/placeholder.png'; }}
