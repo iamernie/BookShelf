@@ -58,6 +58,7 @@
 	let goodreadsId = $state(book?.goodreadsId || '');
 	let googleBooksId = $state(book?.googleBooksId || '');
 	let pageCount = $state(book?.pageCount?.toString() || '');
+	let booksContained = $state(book?.booksContained?.toString() || '1');
 	let publisher = $state(book?.publisher || '');
 	let publishYear = $state(book?.publishYear?.toString() || '');
 	let edition = $state(book?.edition || '');
@@ -89,6 +90,25 @@
 		book?.series?.map(s => ({ id: s.id, title: s.title, bookNum: s.bookNum?.toString() || '', bookNumEnd: s.bookNumEnd?.toString() || '' })) || []
 	);
 	let selectedTagIds = $state<number[]>(book?.tags?.map(t => t.id) || []);
+
+	// Auto-calculate booksContained from series ranges (only if not manually set higher)
+	$effect(() => {
+		let calculatedBooks = 1;
+		for (const s of selectedSeries) {
+			if (s.bookNum && s.bookNumEnd) {
+				const start = parseFloat(s.bookNum);
+				const end = parseFloat(s.bookNumEnd);
+				if (!isNaN(start) && !isNaN(end) && end > start) {
+					calculatedBooks = Math.max(calculatedBooks, Math.floor(end - start + 1));
+				}
+			}
+		}
+		// Only update if calculated is higher than current (don't override manual edits downward)
+		const currentValue = parseInt(booksContained) || 1;
+		if (calculatedBooks > currentValue) {
+			booksContained = calculatedBooks.toString();
+		}
+	});
 
 	// Author picker state
 	let authorSearch = $state('');
@@ -661,6 +681,7 @@
 				goodreadsId: goodreadsId.trim() || null,
 				googleBooksId: googleBooksId.trim() || null,
 				pageCount: pageCount ? parseInt(pageCount) : null,
+				booksContained: booksContained ? parseInt(booksContained) : 1,
 				publisher: publisher.trim() || null,
 				publishYear: publishYear ? parseInt(publishYear) : null,
 				edition: edition.trim() || null,
@@ -1217,6 +1238,13 @@
 									<div>
 										<label for="pageCount" class="block text-sm font-medium text-gray-700 mb-1">Pages</label>
 										<input id="pageCount" type="number" bind:value={pageCount} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+									</div>
+									<div>
+										<label for="booksContained" class="block text-sm font-medium text-gray-700 mb-1">
+											Books Contained
+											<span class="text-xs text-gray-400 font-normal">(for stats)</span>
+										</label>
+										<input id="booksContained" type="number" min="1" bind:value={booksContained} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" title="For omnibus/collections: how many books this counts as in your reading stats" />
 									</div>
 									<div>
 										<label for="language" class="block text-sm font-medium text-gray-700 mb-1">Language</label>

@@ -129,18 +129,18 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		totalListeningHoursRes,
 		readBooksCountRes
 	] = await Promise.all([
-		db.select({ count: sql<number>`count(*)` }).from(books).where(libCond),
-		readStatusId ? db.select({ count: sql<number>`count(*)` }).from(books)
+		db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).where(libCond),
+		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 			.where(and(eq(books.statusId, readStatusId), sql`${books.completedDate} LIKE ${yearPattern}`, libCond))
 			: Promise.resolve([{ count: 0 }]),
-		currentStatusId ? db.select({ count: sql<number>`count(*)` }).from(books)
+		currentStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 			.where(and(eq(books.statusId, currentStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
 		// TBR = NEXT + WISHLIST statuses
 		Promise.all([
-			nextStatusId ? db.select({ count: sql<number>`count(*)` }).from(books)
+			nextStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 				.where(and(eq(books.statusId, nextStatusId), libCond)) : Promise.resolve([{ count: 0 }]),
-			wishlistStatusId ? db.select({ count: sql<number>`count(*)` }).from(books)
+			wishlistStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 				.where(and(eq(books.statusId, wishlistStatusId), libCond)) : Promise.resolve([{ count: 0 }])
 		]).then(([next, wish]) => [{ count: (next[0]?.count || 0) + (wish[0]?.count || 0) }]),
 		db.select({ count: sql<number>`count(*)` }).from(authors),
@@ -153,7 +153,7 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 			.where(and(eq(books.statusId, readStatusId), sql`${books.completedDate} LIKE ${yearPattern}`, libCond))
 			: Promise.resolve([{ total: 0 }]),
 		// DNF count
-		dnfStatusId ? db.select({ count: sql<number>`count(*)` }).from(books)
+		dnfStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 			.where(and(eq(books.statusId, dnfStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
 		// Total narrators (system-wide)
@@ -164,7 +164,7 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 			.where(eq(audiobookProgress.userId, userId))
 			: Promise.resolve([{ total: 0 }]),
 		// Count of completed books (for DNF rate calculation)
-		readStatusId ? db.select({ count: sql<number>`count(*)` }).from(books)
+		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 			.where(and(eq(books.statusId, readStatusId), libCond))
 			: Promise.resolve([{ count: 0 }])
 	]);

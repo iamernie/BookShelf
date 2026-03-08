@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-03-07
+
+### Added
+- **Omnibus/Collection Support in Statistics** - Books can now count as multiple books in your reading stats
+  - New "Books Contained" field in the book editor (Basic Info tab)
+  - Automatically calculated from series book ranges (e.g., books 1-5 = 5 books)
+  - Can be manually overridden for collections, anthologies, or omnibus editions
+  - Affects all statistics: total books, books read this year, reading goals, etc.
+  - Default value is 1 for regular books
+
 ## [2.7.7] - 2026-03-03
 
 ### Security

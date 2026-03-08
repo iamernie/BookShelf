@@ -13,6 +13,7 @@ export const books = sqliteTable('books', {
 	originalCoverUrl: text('originalCoverUrl'),
 	bookNum: integer('bookNum'),
 	bookNumEnd: integer('bookNumEnd'),
+	booksContained: integer('booksContained').default(1), // For omnibus: how many books this counts as in stats
 	summary: text('summary'),
 	comments: text('comments'),
 	releaseDate: text('releaseDate'), // ISO date string

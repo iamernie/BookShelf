@@ -129,7 +129,7 @@ async function calculateBooksProgress(year: number, userId?: number): Promise<nu
 	const userLibraryCondition = getUserLibraryCondition(userId);
 
 	const result = await db
-		.select({ count: sql<number>`count(*)` })
+		.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` })
 		.from(books)
 		.where(
 			and(

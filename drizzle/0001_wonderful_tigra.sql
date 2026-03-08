@@ -1,0 +1,1 @@
+ALTER TABLE `books` ADD `booksContained` integer DEFAULT 1;

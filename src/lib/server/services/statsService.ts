@@ -75,14 +75,14 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 		totalTagsResult,
 		booksReadThisYearResult
 	] = await Promise.all([
-		db.select({ count: sql<number>`count(*)` }).from(books).where(userLibraryCondition),
-		readStatusId ? db.select({ count: sql<number>`count(*)` }).from(books).where(and(eq(books.statusId, readStatusId), userLibraryCondition)) : Promise.resolve([{ count: 0 }]),
+		db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).where(userLibraryCondition),
+		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).where(and(eq(books.statusId, readStatusId), userLibraryCondition)) : Promise.resolve([{ count: 0 }]),
 		db.select({ count: sql<number>`count(*)` }).from(series),
 		db.select({ count: sql<number>`count(*)` }).from(authors),
 		db.select({ count: sql<number>`count(*)` }).from(narrators),
 		db.select({ count: sql<number>`count(*)` }).from(tags),
 		readStatusId
-			? db.select({ count: sql<number>`count(*)` }).from(books)
+			? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 				.where(and(
 					eq(books.statusId, readStatusId),
 					gte(books.completedDate, yearStart),
