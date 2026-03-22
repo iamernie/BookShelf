@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.1] - 2026-03-22
+
+### Security
+- **Dependency Updates** - Fixed all Dependabot security alerts
+  - Updated `fast-xml-parser` to 5.5.8 via override (fixes entity expansion vulnerabilities - High + Medium)
+  - Updated `music-metadata` to 11.12.3 (fixes infinite loop in ASF parser - High)
+  - Updated `file-type` to 21.3.4 via music-metadata (fixes ZIP decompression bomb and ASF loop - Medium x2)
+  - Updated `devalue` to 5.6.4 via override (fixes prototype pollution - Medium + Low)
+  - Resolved all npm audit warnings (0 vulnerabilities)
+
 ## [2.8.0] - 2026-03-07
 
 ### Added
