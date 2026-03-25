@@ -28,7 +28,8 @@ export const openApiSpec = {
 		{ name: 'Covers', description: 'Cover image management' },
 		{ name: 'Search', description: 'Search functionality' },
 		{ name: 'Import', description: 'Data import' },
-		{ name: 'Export', description: 'Data export' }
+		{ name: 'Export', description: 'Data export' },
+		{ name: 'API v1', description: 'External REST API (token-based auth)' }
 	],
 	paths: {
 		// Authentication
@@ -1013,6 +1014,583 @@ export const openApiSpec = {
 					}
 				}
 			}
+		},
+
+		// ========================================
+		// API v1 - External REST API (Token Auth)
+		// ========================================
+
+		'/v1/books': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List books',
+				description: 'Get paginated list of books with optional filters. Requires API token.',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' }, description: 'API token from Settings > Widgets' },
+					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50, maximum: 500 } },
+					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+					{ name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search books by title' },
+					{ name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by status name' },
+					{ name: 'genre', in: 'query', schema: { type: 'string' }, description: 'Filter by genre name' },
+					{ name: 'author', in: 'query', schema: { type: 'integer' }, description: 'Filter by author ID' },
+					{ name: 'series', in: 'query', schema: { type: 'integer' }, description: 'Filter by series ID' }
+				],
+				responses: {
+					'200': { description: 'List of books with pagination' },
+					'401': { description: 'Invalid or missing API token' },
+					'403': { description: 'API is disabled' }
+				}
+			},
+			post: {
+				tags: ['API v1'],
+				summary: 'Create book',
+				description: 'Create a new book. Supports lookup by name for status, genre, format, narrator.',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/V1BookInput' },
+							example: {
+								title: 'The Hobbit',
+								status: 'Read',
+								genre: 'Fantasy',
+								format: 'Hardcover',
+								authors: [{ id: 1, role: 'Author', isPrimary: true }],
+								series: [{ id: 1, bookNum: 1 }],
+								booksContained: 1
+							}
+						}
+					}
+				},
+				responses: {
+					'201': { description: 'Book created' },
+					'400': { description: 'title is required' },
+					'401': { description: 'Invalid or missing API token' }
+				}
+			}
+		},
+		'/v1/books/{id}': {
+			get: {
+				tags: ['API v1'],
+				summary: 'Get book by ID',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Book details' },
+					'404': { description: 'Book not found' }
+				}
+			},
+			put: {
+				tags: ['API v1'],
+				summary: 'Update book',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/V1BookInput' }
+						}
+					}
+				},
+				responses: {
+					'200': { description: 'Book updated' },
+					'404': { description: 'Book not found' }
+				}
+			},
+			delete: {
+				tags: ['API v1'],
+				summary: 'Delete book',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Book deleted' },
+					'404': { description: 'Book not found' }
+				}
+			}
+		},
+		'/v1/authors': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List authors',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+					{ name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by author name' }
+				],
+				responses: {
+					'200': { description: 'List of authors with book counts' }
+				}
+			},
+			post: {
+				tags: ['API v1'],
+				summary: 'Create author',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/AuthorInput' }
+						}
+					}
+				},
+				responses: {
+					'201': { description: 'Author created' }
+				}
+			}
+		},
+		'/v1/authors/{id}': {
+			get: {
+				tags: ['API v1'],
+				summary: 'Get author by ID',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Author details' },
+					'404': { description: 'Author not found' }
+				}
+			},
+			put: {
+				tags: ['API v1'],
+				summary: 'Update author',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/AuthorInput' }
+						}
+					}
+				},
+				responses: {
+					'200': { description: 'Author updated' }
+				}
+			},
+			delete: {
+				tags: ['API v1'],
+				summary: 'Delete author',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Author deleted' }
+				}
+			}
+		},
+		'/v1/series': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List series',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+					{ name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by series title' }
+				],
+				responses: {
+					'200': { description: 'List of series with book counts' }
+				}
+			},
+			post: {
+				tags: ['API v1'],
+				summary: 'Create series',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/SeriesInput' }
+						}
+					}
+				},
+				responses: {
+					'201': { description: 'Series created' }
+				}
+			}
+		},
+		'/v1/series/{id}': {
+			get: {
+				tags: ['API v1'],
+				summary: 'Get series by ID',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Series details' },
+					'404': { description: 'Series not found' }
+				}
+			},
+			put: {
+				tags: ['API v1'],
+				summary: 'Update series',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/SeriesInput' }
+						}
+					}
+				},
+				responses: {
+					'200': { description: 'Series updated' }
+				}
+			},
+			delete: {
+				tags: ['API v1'],
+				summary: 'Delete series',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Series deleted' }
+				}
+			}
+		},
+		'/v1/narrators': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List narrators',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+					{ name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by narrator name' }
+				],
+				responses: {
+					'200': { description: 'List of narrators with book/audiobook counts' }
+				}
+			},
+			post: {
+				tags: ['API v1'],
+				summary: 'Create narrator',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/NarratorInput' }
+						}
+					}
+				},
+				responses: {
+					'201': { description: 'Narrator created' }
+				}
+			}
+		},
+		'/v1/narrators/{id}': {
+			get: {
+				tags: ['API v1'],
+				summary: 'Get narrator by ID',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Narrator details' },
+					'404': { description: 'Narrator not found' }
+				}
+			},
+			put: {
+				tags: ['API v1'],
+				summary: 'Update narrator',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/NarratorInput' }
+						}
+					}
+				},
+				responses: {
+					'200': { description: 'Narrator updated' }
+				}
+			},
+			delete: {
+				tags: ['API v1'],
+				summary: 'Delete narrator',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Narrator deleted' }
+				}
+			}
+		},
+		'/v1/genres': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List genres',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+					{ name: 'search', in: 'query', schema: { type: 'string' } }
+				],
+				responses: {
+					'200': { description: 'List of genres' }
+				}
+			},
+			post: {
+				tags: ['API v1'],
+				summary: 'Create genre',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/GenreInput' }
+						}
+					}
+				},
+				responses: {
+					'201': { description: 'Genre created' }
+				}
+			}
+		},
+		'/v1/genres/{id}': {
+			get: {
+				tags: ['API v1'],
+				summary: 'Get genre by ID',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Genre details' },
+					'404': { description: 'Genre not found' }
+				}
+			},
+			put: {
+				tags: ['API v1'],
+				summary: 'Update genre',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/GenreInput' }
+						}
+					}
+				},
+				responses: {
+					'200': { description: 'Genre updated' }
+				}
+			},
+			delete: {
+				tags: ['API v1'],
+				summary: 'Delete genre',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Genre deleted' }
+				}
+			}
+		},
+		'/v1/formats': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List formats',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+					{ name: 'search', in: 'query', schema: { type: 'string' } }
+				],
+				responses: {
+					'200': { description: 'List of formats' }
+				}
+			},
+			post: {
+				tags: ['API v1'],
+				summary: 'Create format',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/FormatInput' }
+						}
+					}
+				},
+				responses: {
+					'201': { description: 'Format created' }
+				}
+			}
+		},
+		'/v1/formats/{id}': {
+			get: {
+				tags: ['API v1'],
+				summary: 'Get format by ID',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Format details' },
+					'404': { description: 'Format not found' }
+				}
+			},
+			put: {
+				tags: ['API v1'],
+				summary: 'Update format',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/FormatInput' }
+						}
+					}
+				},
+				responses: {
+					'200': { description: 'Format updated' }
+				}
+			},
+			delete: {
+				tags: ['API v1'],
+				summary: 'Delete format',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Format deleted' }
+				}
+			}
+		},
+		'/v1/tags': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List tags',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+					{ name: 'search', in: 'query', schema: { type: 'string' } }
+				],
+				responses: {
+					'200': { description: 'List of tags' }
+				}
+			},
+			post: {
+				tags: ['API v1'],
+				summary: 'Create tag',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/TagInput' }
+						}
+					}
+				},
+				responses: {
+					'201': { description: 'Tag created' }
+				}
+			}
+		},
+		'/v1/tags/{id}': {
+			get: {
+				tags: ['API v1'],
+				summary: 'Get tag by ID',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Tag details' },
+					'404': { description: 'Tag not found' }
+				}
+			},
+			put: {
+				tags: ['API v1'],
+				summary: 'Update tag',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				requestBody: {
+					required: true,
+					content: {
+						'application/json': {
+							schema: { $ref: '#/components/schemas/TagInput' }
+						}
+					}
+				},
+				responses: {
+					'200': { description: 'Tag updated' }
+				}
+			},
+			delete: {
+				tags: ['API v1'],
+				summary: 'Delete tag',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } },
+					{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }
+				],
+				responses: {
+					'200': { description: 'Tag deleted' }
+				}
+			}
+		},
+		'/v1/statuses': {
+			get: {
+				tags: ['API v1'],
+				summary: 'List statuses',
+				parameters: [
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' } }
+				],
+				responses: {
+					'200': { description: 'List of statuses' }
+				}
+			}
 		}
 	},
 	components: {
@@ -1109,6 +1687,66 @@ export const openApiSpec = {
 					bio: { type: 'string' }
 				},
 				required: ['name']
+			},
+			V1BookInput: {
+				type: 'object',
+				description: 'Book input for API v1. Supports lookup by name for status, genre, format, narrator.',
+				properties: {
+					title: { type: 'string' },
+					summary: { type: 'string' },
+					comments: { type: 'string' },
+					coverUrl: { type: 'string', format: 'uri' },
+					originalCoverUrl: { type: 'string', format: 'uri', description: 'Original cover URL from metadata source' },
+					rating: { type: 'integer', minimum: 0, maximum: 5 },
+					pageCount: { type: 'integer' },
+					booksContained: { type: 'integer', default: 1, description: 'Number of books for omnibus editions' },
+					releaseDate: { type: 'string', format: 'date' },
+					startReadingDate: { type: 'string', format: 'date' },
+					completedDate: { type: 'string', format: 'date' },
+					isbn10: { type: 'string' },
+					isbn13: { type: 'string' },
+					asin: { type: 'string' },
+					goodreadsId: { type: 'string' },
+					googleBooksId: { type: 'string' },
+					publisher: { type: 'string' },
+					publishYear: { type: 'integer' },
+					language: { type: 'string' },
+					edition: { type: 'string' },
+					statusId: { type: 'integer', description: 'Status ID (or use status name)' },
+					status: { type: 'string', description: 'Status name (looked up by name)' },
+					genreId: { type: 'integer', description: 'Genre ID (or use genre name)' },
+					genre: { type: 'string', description: 'Genre name (looked up by name)' },
+					formatId: { type: 'integer', description: 'Format ID (or use format name)' },
+					format: { type: 'string', description: 'Format name (looked up by name)' },
+					narratorId: { type: 'integer', description: 'Narrator ID (or use narrator name)' },
+					narrator: { type: 'string', description: 'Narrator name (looked up by name)' },
+					authors: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: {
+								id: { type: 'integer' },
+								role: { type: 'string', default: 'Author' },
+								isPrimary: { type: 'boolean' }
+							},
+							required: ['id']
+						}
+					},
+					series: {
+						type: 'array',
+						items: {
+							type: 'object',
+							properties: {
+								id: { type: 'integer' },
+								bookNum: { type: 'number' },
+								bookNumEnd: { type: 'number' }
+							},
+							required: ['id']
+						}
+					},
+					tagIds: { type: 'array', items: { type: 'integer' } }
+				},
+				required: ['title']
 			}
 		}
 	}

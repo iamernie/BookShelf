@@ -30,13 +30,21 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 500);
 	const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+	const search = url.searchParams.get('search')?.trim();
 
 	try {
+		// Build where condition for search
+		const whereCondition = search
+			? sql`LOWER(${series.title}) LIKE LOWER(${'%' + search + '%'})`
+			: undefined;
+
 		// Get total count
-		const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(series);
+		const [countResult] = whereCondition
+			? await db.select({ count: sql<number>`count(*)` }).from(series).where(whereCondition)
+			: await db.select({ count: sql<number>`count(*)` }).from(series);
 
 		// Get series with book counts
-		const seriesList = await db.select({
+		const query = db.select({
 			id: series.id,
 			title: series.title,
 			description: series.description,
@@ -45,11 +53,11 @@ export const GET: RequestHandler = async ({ url }) => {
 			createdAt: series.createdAt,
 			updatedAt: series.updatedAt,
 			bookCount: sql<number>`(SELECT COUNT(DISTINCT ${bookSeries.bookId}) FROM ${bookSeries} WHERE ${bookSeries.seriesId} = ${series.id})`
-		})
-			.from(series)
-			.orderBy(desc(sql`bookCount`))
-			.limit(limit)
-			.offset(offset);
+		}).from(series);
+
+		const seriesList = whereCondition
+			? await query.where(whereCondition).orderBy(desc(sql`bookCount`)).limit(limit).offset(offset)
+			: await query.orderBy(desc(sql`bookCount`)).limit(limit).offset(offset);
 
 		return json({
 			series: seriesList,

@@ -1,13 +1,13 @@
 /**
- * API v1 Authors Endpoint
- * CRUD operations for authors
+ * API v1 Narrators Endpoint
+ * CRUD operations for narrators
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
-import { createAuthor } from '$lib/server/services/authorService';
-import { db, authors, bookAuthors } from '$lib/server/db';
+import { getNarrators, createNarrator } from '$lib/server/services/narratorService';
+import { db, narrators, books, audiobooks } from '$lib/server/db';
 import { sql, desc } from 'drizzle-orm';
 
 // Helper to validate token and check API enabled
@@ -35,37 +35,38 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		// Build where condition for search
 		const whereCondition = search
-			? sql`LOWER(${authors.name}) LIKE LOWER(${'%' + search + '%'})`
+			? sql`LOWER(${narrators.name}) LIKE LOWER(${'%' + search + '%'})`
 			: undefined;
 
 		// Get total count
 		const [countResult] = whereCondition
-			? await db.select({ count: sql<number>`count(*)` }).from(authors).where(whereCondition)
-			: await db.select({ count: sql<number>`count(*)` }).from(authors);
+			? await db.select({ count: sql<number>`count(*)` }).from(narrators).where(whereCondition)
+			: await db.select({ count: sql<number>`count(*)` }).from(narrators);
 
-		// Get authors with book counts
+		// Get narrators with book/audiobook counts
 		const query = db.select({
-			id: authors.id,
-			name: authors.name,
-			bio: authors.bio,
-			birthDate: authors.birthDate,
-			deathDate: authors.deathDate,
-			birthPlace: authors.birthPlace,
-			photoUrl: authors.photoUrl,
-			website: authors.website,
-			wikipediaUrl: authors.wikipediaUrl,
-			comments: authors.comments,
-			createdAt: authors.createdAt,
-			updatedAt: authors.updatedAt,
-			bookCount: sql<number>`(SELECT COUNT(DISTINCT ${bookAuthors.bookId}) FROM ${bookAuthors} WHERE ${bookAuthors.authorId} = ${authors.id})`
-		}).from(authors);
+			id: narrators.id,
+			name: narrators.name,
+			bio: narrators.bio,
+			birthDate: narrators.birthDate,
+			deathDate: narrators.deathDate,
+			birthPlace: narrators.birthPlace,
+			photoUrl: narrators.photoUrl,
+			website: narrators.website,
+			wikipediaUrl: narrators.wikipediaUrl,
+			comments: narrators.comments,
+			createdAt: narrators.createdAt,
+			updatedAt: narrators.updatedAt,
+			bookCount: sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.narratorId} = ${narrators.id})`,
+			audiobookCount: sql<number>`(SELECT COUNT(*) FROM ${audiobooks} WHERE ${audiobooks.narratorId} = ${narrators.id})`
+		}).from(narrators);
 
-		const authorsList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(sql`bookCount`)).limit(limit).offset(offset)
-			: await query.orderBy(desc(sql`bookCount`)).limit(limit).offset(offset);
+		const narratorsList = whereCondition
+			? await query.where(whereCondition).orderBy(desc(sql`bookCount + audiobookCount`)).limit(limit).offset(offset)
+			: await query.orderBy(desc(sql`bookCount + audiobookCount`)).limit(limit).offset(offset);
 
 		return json({
-			authors: authorsList,
+			narrators: narratorsList,
 			pagination: {
 				total: countResult?.count ?? 0,
 				limit,
@@ -74,13 +75,13 @@ export const GET: RequestHandler = async ({ url }) => {
 			}
 		});
 	} catch (err) {
-		console.error('API v1 authors error:', err);
-		return json({ error: 'Failed to fetch authors' }, { status: 500 });
+		console.error('API v1 narrators error:', err);
+		return json({ error: 'Failed to fetch narrators' }, { status: 500 });
 	}
 };
 
 /**
- * POST /api/v1/authors - Create a new author
+ * POST /api/v1/narrators - Create a new narrator
  */
 export const POST: RequestHandler = async ({ url, request }) => {
 	const token = url.searchParams.get('token');
@@ -96,7 +97,7 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			return json({ error: 'name is required' }, { status: 400 });
 		}
 
-		const newAuthor = await createAuthor({
+		const newNarrator = await createNarrator({
 			name: body.name,
 			bio: body.bio,
 			birthDate: body.birthDate,
@@ -109,11 +110,11 @@ export const POST: RequestHandler = async ({ url, request }) => {
 		});
 
 		return json({
-			author: { id: newAuthor.id, name: newAuthor.name },
-			message: 'Author created successfully'
+			narrator: { id: newNarrator.id, name: newNarrator.name },
+			message: 'Narrator created successfully'
 		}, { status: 201 });
 	} catch (err) {
-		console.error('API v1 create author error:', err);
-		return json({ error: 'Failed to create author' }, { status: 500 });
+		console.error('API v1 create narrator error:', err);
+		return json({ error: 'Failed to create narrator' }, { status: 500 });
 	}
 };

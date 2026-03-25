@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-03-25
+
+### Added
+- **REST API v1 Fully Featured** - Complete external API for automation and integrations
+  - **Search on all resources** - `?search=name` parameter on books, authors, series, narrators, genres, formats, and tags
+  - **Full Narrator CRUD** - New endpoints at `/api/v1/narrators` and `/api/v1/narrators/[id]`
+    - GET (list with search and pagination), POST (create), PUT (update), DELETE
+    - Returns book and audiobook counts per narrator
+  - **Full Genre CRUD** - Added POST to `/api/v1/genres` and GET/PUT/DELETE to `/api/v1/genres/[id]`
+  - **Full Format CRUD** - Added POST to `/api/v1/formats` and GET/PUT/DELETE to `/api/v1/formats/[id]`
+  - **Full Tag CRUD** - Added POST to `/api/v1/tags` and GET/PUT/DELETE to `/api/v1/tags/[id]`
+  - **Narrator lookup by name** - Book creation supports `narrator` field (looked up by name) in addition to `narratorId`
+  - **booksContained field** - Book creation/response now includes `booksContained` for omnibus editions
+  - **originalCoverUrl field** - Book response includes `originalCoverUrl` from metadata sources
+  - **Updated API documentation** - OpenAPI spec includes all v1 endpoints with full schema definitions
+
 ## [2.8.1] - 2026-03-22
 
 ### Security

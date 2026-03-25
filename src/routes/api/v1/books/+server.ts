@@ -39,6 +39,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 500);
 	const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+	const search = url.searchParams.get('search')?.trim();
 	const statusFilter = url.searchParams.get('status');
 	const genreFilter = url.searchParams.get('genre');
 	const authorFilter = url.searchParams.get('author');
@@ -47,6 +48,11 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		// Build conditions
 		const conditions = [];
+
+		// Search by title
+		if (search) {
+			conditions.push(sql`LOWER(${books.title}) LIKE LOWER(${'%' + search + '%'})`);
+		}
 
 		if (statusFilter) {
 			const status = await db.select({ id: statuses.id })
@@ -137,9 +143,11 @@ export const GET: RequestHandler = async ({ url }) => {
 				title: book.title,
 				summary: book.summary,
 				comments: book.comments,
-				coverUrl: book.coverImageUrl,
+				coverUrl: book.coverImageUrl || book.originalCoverUrl,
+				originalCoverUrl: book.originalCoverUrl,
 				rating: book.rating,
 				pageCount: book.pageCount,
+				booksContained: book.booksContained ?? 1,
 				releaseDate: book.releaseDate,
 				startReadingDate: book.startReadingDate,
 				completedDate: book.completedDate,
@@ -265,6 +273,16 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			formatId = format?.id;
 		}
 
+		// Look up narrator by name if provided
+		let narratorId = body.narratorId;
+		if (body.narrator && !narratorId) {
+			const [narrator] = await db.select({ id: narrators.id })
+				.from(narrators)
+				.where(sql`LOWER(${narrators.name}) = LOWER(${body.narrator})`)
+				.limit(1);
+			narratorId = narrator?.id;
+		}
+
 		const bookData: CreateBookData = {
 			title: body.title,
 			summary: body.summary,
@@ -287,7 +305,10 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			statusId,
 			genreId,
 			formatId,
+			narratorId,
 			ownerId,
+			booksContained: body.booksContained,
+			originalCoverUrl: body.originalCoverUrl,
 			authors: body.authors, // Array of { id, role?, isPrimary? }
 			series: body.series,   // Array of { id, bookNum?, bookNumEnd? }
 			tagIds: body.tagIds    // Array of tag IDs
