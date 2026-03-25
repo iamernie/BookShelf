@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-03-25
+
+### Fixed
+- **Fresh Docker Setup Database Error** - Fixed "no such column: booksContained" error on new container installations
+  - Added missing `booksContained` column to auto-migration for fresh databases
+  - Fixes GitHub issue #2
+
 ## [2.9.0] - 2026-03-25
 
 ### Added

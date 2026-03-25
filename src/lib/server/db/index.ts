@@ -676,6 +676,9 @@ function runMigrations() {
 		safeAddColumn('books', 'providerRating', 'REAL');
 		safeAddColumn('books', 'providerRatingSource', 'TEXT');
 		safeAddColumn('books', 'providerRatingCount', 'INTEGER');
+
+		// Omnibus/collection support
+		safeAddColumn('books', 'booksContained', 'INTEGER DEFAULT 1');
 	}
 
 	// ========== Users table columns ==========
