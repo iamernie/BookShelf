@@ -44,6 +44,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			: await db.select({ count: sql<number>`count(*)` }).from(tags);
 
 		// Get tags with book counts
+		const bookCountExpr = sql<number>`(SELECT COUNT(*) FROM ${bookTags} WHERE ${bookTags.tagId} = ${tags.id})`;
 		const query = db.select({
 			id: tags.id,
 			name: tags.name,
@@ -52,12 +53,12 @@ export const GET: RequestHandler = async ({ url }) => {
 			isSystem: tags.isSystem,
 			createdAt: tags.createdAt,
 			updatedAt: tags.updatedAt,
-			bookCount: sql<number>`(SELECT COUNT(*) FROM ${bookTags} WHERE ${bookTags.tagId} = ${tags.id})`
+			bookCount: bookCountExpr
 		}).from(tags);
 
 		const tagsList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(tags.isSystem), desc(sql`bookCount`)).limit(limit).offset(offset)
-			: await query.orderBy(desc(tags.isSystem), desc(sql`bookCount`)).limit(limit).offset(offset);
+			? await query.where(whereCondition).orderBy(desc(tags.isSystem), desc(bookCountExpr)).limit(limit).offset(offset)
+			: await query.orderBy(desc(tags.isSystem), desc(bookCountExpr)).limit(limit).offset(offset);
 
 		return json({
 			tags: tagsList,

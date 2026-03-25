@@ -44,6 +44,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			: await db.select({ count: sql<number>`count(*)` }).from(formats);
 
 		// Get formats with book counts
+		const bookCountExpr = sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.formatId} = ${formats.id})`;
 		const query = db.select({
 			id: formats.id,
 			name: formats.name,
@@ -51,12 +52,12 @@ export const GET: RequestHandler = async ({ url }) => {
 			color: formats.color,
 			createdAt: formats.createdAt,
 			updatedAt: formats.updatedAt,
-			bookCount: sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.formatId} = ${formats.id})`
+			bookCount: bookCountExpr
 		}).from(formats);
 
 		const formatsList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(sql`bookCount`)).limit(limit).offset(offset)
-			: await query.orderBy(desc(sql`bookCount`)).limit(limit).offset(offset);
+			? await query.where(whereCondition).orderBy(desc(bookCountExpr)).limit(limit).offset(offset)
+			: await query.orderBy(desc(bookCountExpr)).limit(limit).offset(offset);
 
 		return json({
 			formats: formatsList,

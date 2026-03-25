@@ -60,9 +60,12 @@ export const GET: RequestHandler = async ({ url }) => {
 			bookCount: sql<number>`(SELECT COUNT(DISTINCT ${bookAuthors.bookId}) FROM ${bookAuthors} WHERE ${bookAuthors.authorId} = ${authors.id})`
 		}).from(authors);
 
+		// Define the book count expression for reuse in orderBy
+		const bookCountExpr = sql<number>`(SELECT COUNT(DISTINCT ${bookAuthors.bookId}) FROM ${bookAuthors} WHERE ${bookAuthors.authorId} = ${authors.id})`;
+
 		const authorsList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(sql`bookCount`)).limit(limit).offset(offset)
-			: await query.orderBy(desc(sql`bookCount`)).limit(limit).offset(offset);
+			? await query.where(whereCondition).orderBy(desc(bookCountExpr)).limit(limit).offset(offset)
+			: await query.orderBy(desc(bookCountExpr)).limit(limit).offset(offset);
 
 		return json({
 			authors: authorsList,

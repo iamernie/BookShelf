@@ -44,6 +44,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			: await db.select({ count: sql<number>`count(*)` }).from(genres);
 
 		// Get genres with book counts
+		const bookCountExpr = sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.genreId} = ${genres.id})`;
 		const query = db.select({
 			id: genres.id,
 			name: genres.name,
@@ -53,12 +54,12 @@ export const GET: RequestHandler = async ({ url }) => {
 			displayOrder: genres.displayOrder,
 			createdAt: genres.createdAt,
 			updatedAt: genres.updatedAt,
-			bookCount: sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.genreId} = ${genres.id})`
+			bookCount: bookCountExpr
 		}).from(genres);
 
 		const genresList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(sql`bookCount`)).limit(limit).offset(offset)
-			: await query.orderBy(desc(sql`bookCount`)).limit(limit).offset(offset);
+			? await query.where(whereCondition).orderBy(desc(bookCountExpr)).limit(limit).offset(offset)
+			: await query.orderBy(desc(bookCountExpr)).limit(limit).offset(offset);
 
 		return json({
 			genres: genresList,

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.2] - 2026-03-25
+
+### Fixed
+- **API v1 SQL Errors** - Fixed "no such column: bookCount" errors in API v1 endpoints
+  - Fixed orderBy clause in authors, narrators, series, genres, formats, and tags endpoints
+  - Computed columns now properly referenced in SQLite queries
+
 ## [2.9.1] - 2026-03-25
 
 ### Fixed

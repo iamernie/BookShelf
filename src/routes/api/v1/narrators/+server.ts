@@ -61,9 +61,14 @@ export const GET: RequestHandler = async ({ url }) => {
 			audiobookCount: sql<number>`(SELECT COUNT(*) FROM ${audiobooks} WHERE ${audiobooks.narratorId} = ${narrators.id})`
 		}).from(narrators);
 
+		// Define the count expressions for reuse in orderBy
+		const bookCountExpr = sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.narratorId} = ${narrators.id})`;
+		const audiobookCountExpr = sql<number>`(SELECT COUNT(*) FROM ${audiobooks} WHERE ${audiobooks.narratorId} = ${narrators.id})`;
+		const totalCountExpr = sql<number>`${bookCountExpr} + ${audiobookCountExpr}`;
+
 		const narratorsList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(sql`bookCount + audiobookCount`)).limit(limit).offset(offset)
-			: await query.orderBy(desc(sql`bookCount + audiobookCount`)).limit(limit).offset(offset);
+			? await query.where(whereCondition).orderBy(desc(totalCountExpr)).limit(limit).offset(offset)
+			: await query.orderBy(desc(totalCountExpr)).limit(limit).offset(offset);
 
 		return json({
 			narrators: narratorsList,

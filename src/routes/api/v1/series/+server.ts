@@ -44,6 +44,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			: await db.select({ count: sql<number>`count(*)` }).from(series);
 
 		// Get series with book counts
+		const bookCountExpr = sql<number>`(SELECT COUNT(DISTINCT ${bookSeries.bookId}) FROM ${bookSeries} WHERE ${bookSeries.seriesId} = ${series.id})`;
 		const query = db.select({
 			id: series.id,
 			title: series.title,
@@ -52,12 +53,12 @@ export const GET: RequestHandler = async ({ url }) => {
 			comments: series.comments,
 			createdAt: series.createdAt,
 			updatedAt: series.updatedAt,
-			bookCount: sql<number>`(SELECT COUNT(DISTINCT ${bookSeries.bookId}) FROM ${bookSeries} WHERE ${bookSeries.seriesId} = ${series.id})`
+			bookCount: bookCountExpr
 		}).from(series);
 
 		const seriesList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(sql`bookCount`)).limit(limit).offset(offset)
-			: await query.orderBy(desc(sql`bookCount`)).limit(limit).offset(offset);
+			? await query.where(whereCondition).orderBy(desc(bookCountExpr)).limit(limit).offset(offset)
+			: await query.orderBy(desc(bookCountExpr)).limit(limit).offset(offset);
 
 		return json({
 			series: seriesList,

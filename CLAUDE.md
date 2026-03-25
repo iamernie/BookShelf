@@ -245,3 +245,4 @@ gh release create v2.4.13 --title "v2.4.13" --notes "Brief description of change
 - Book covers stored in `static/covers/` (mapped to `/covers/` URL)
 - CSRF protection requires `trustedOrigins` in `svelte.config.js`
 - Migrations run automatically on server startup
+- Never add any Anthropic branding to commits or releases.  No Created by Claude type stuff
