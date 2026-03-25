@@ -1,5 +1,7 @@
 # BookShelf
 
+**I created this project to organize My book collection, it's morphed over the years to where it is today.  It started off with me generating all of the code, and now it's a mix of me and AI with the coding. I don't advertise this project, feel free to use it, and if you have issues I'll try to resolve them.**
+
 **Your personal book library, beautifully organized.**
 
 BookShelf is a self-hosted web app for book lovers who want to track their reading, organize their digital library, and discover patterns in their reading habits. Think of it as your cozy digital bookshelf that lives on your own server.
