@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.6] - 2026-05-26
+
+### Added
+- **Audible Metadata Provider** - New provider for audiobook metadata
+  - Searches Audible's public API for audiobook information
+  - Returns narrator information (unique to Audible)
+  - Includes series information with sequence numbers
+  - High-quality cover images (up to 1024px)
+  - Runtime in minutes, publisher, release date, ratings
+  - Category/genre information from Audible's category ladders
+  - Enabled by default as the 7th metadata provider
+
 ## [2.9.5] - 2026-05-26
 
 ### Fixed

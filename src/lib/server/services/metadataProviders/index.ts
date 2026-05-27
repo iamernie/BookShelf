@@ -17,6 +17,7 @@ import { GoodreadsProvider } from './goodreadsProvider';
 import { HardcoverProvider } from './hardcoverProvider';
 import { AmazonProvider } from './amazonProvider';
 import { ComicVineProvider } from './comicVineProvider';
+import { AudibleProvider } from './audibleProvider';
 
 // Re-export types
 export * from './types';
@@ -31,6 +32,10 @@ export interface AmazonProviderConfig extends MetadataProviderConfig {
 	domain?: 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in';
 }
 
+export interface AudibleProviderConfig extends MetadataProviderConfig {
+	domain?: 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in';
+}
+
 export interface MetadataProvidersSettings {
 	googlebooks: MetadataProviderConfig;
 	openlibrary: MetadataProviderConfig;
@@ -38,6 +43,7 @@ export interface MetadataProvidersSettings {
 	hardcover: MetadataProviderConfig;
 	amazon: AmazonProviderConfig;
 	comicvine: MetadataProviderConfig;
+	audible: AudibleProviderConfig;
 }
 
 const DEFAULT_SETTINGS: MetadataProvidersSettings = {
@@ -46,7 +52,8 @@ const DEFAULT_SETTINGS: MetadataProvidersSettings = {
 	goodreads: { enabled: true, priority: 3 },
 	hardcover: { enabled: false, priority: 4 }, // Disabled by default (requires API key)
 	amazon: { enabled: false, priority: 5, domain: 'com' }, // Disabled by default (web scraping, may be unreliable)
-	comicvine: { enabled: false, priority: 6 } // Disabled by default (requires API key)
+	comicvine: { enabled: false, priority: 6 }, // Disabled by default (requires API key)
+	audible: { enabled: true, priority: 7, domain: 'com' } // Enabled by default, great for audiobooks
 };
 
 class MetadataProviderRegistry {
@@ -61,6 +68,7 @@ class MetadataProviderRegistry {
 		this.providers.set('hardcover', new HardcoverProvider());
 		this.providers.set('amazon', new AmazonProvider());
 		this.providers.set('comicvine', new ComicVineProvider());
+		this.providers.set('audible', new AudibleProvider());
 	}
 
 	/**
@@ -85,6 +93,12 @@ class MetadataProviderRegistry {
 		if (settings.comicvine?.apiKey) {
 			const comicvineProvider = this.providers.get('comicvine') as ComicVineProvider;
 			comicvineProvider.setApiKey(settings.comicvine.apiKey);
+		}
+
+		// Update Audible domain if provided
+		if (settings.audible?.domain) {
+			const audibleProvider = this.providers.get('audible') as AudibleProvider;
+			audibleProvider.setDomain(settings.audible.domain);
 		}
 	}
 

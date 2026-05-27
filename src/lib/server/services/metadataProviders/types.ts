@@ -3,7 +3,7 @@
  * Common interfaces for all book metadata providers
  */
 
-export type MetadataProvider = 'openlibrary' | 'googlebooks' | 'goodreads' | 'hardcover' | 'amazon' | 'comicvine';
+export type MetadataProvider = 'openlibrary' | 'googlebooks' | 'goodreads' | 'hardcover' | 'amazon' | 'comicvine' | 'audible';
 
 export interface BookMetadataResult {
 	provider: MetadataProvider;
@@ -13,6 +13,7 @@ export interface BookMetadataResult {
 	title?: string;
 	subtitle?: string;
 	authors?: string[];
+	narrators?: string[]; // For audiobooks (from Audible)
 	description?: string;
 
 	// Publication info
