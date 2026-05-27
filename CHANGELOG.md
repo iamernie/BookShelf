@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.3] - 2026-05-26
+
+### Security
+- **Dependency Updates** - Fixed all 25 Dependabot security alerts
+  - Updated `drizzle-orm` to 0.45.2 (fixes SQL injection via improperly escaped identifiers - High x2)
+  - Updated `vite` to 6.3.5 (fixes path traversal and WebSocket vulnerabilities - High + Medium)
+  - Updated `nodemailer` to 8.0.9 (fixes SMTP command injection via CRLF - Medium x2, Low x2)
+  - Updated `svelte` to 5.55.9 (fixes XSS via DOM clobbering, SSR, promises, ReDoS - Medium x4)
+  - Updated `@sveltejs/kit` to 2.61.1 (fixes query.batch cross-talk - Medium)
+  - Added override for `@xmldom/xmldom` 0.9.10 (fixes XML injection and DoS - High x5)
+  - Added override for `fast-xml-builder` 1.2.0 (fixes attribute value bypass - High)
+  - Updated override for `devalue` to 5.8.1 (fixes DoS via sparse array - High)
+  - Added override for `lodash` 4.18.1 (fixes prototype pollution and code injection - High + Medium)
+  - Added override for `picomatch` 4.0.4 (fixes method injection - Medium x2)
+  - Resolved all npm audit warnings (0 vulnerabilities)
+
 ## [2.9.2] - 2026-03-25
 
 ### Fixed
