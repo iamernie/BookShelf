@@ -6,6 +6,7 @@
 import type {
 	MetadataProviderInterface,
 	MetadataSearchRequest,
+	MetadataSearchResponse,
 	BookMetadataResult
 } from './types';
 import {
@@ -28,12 +29,18 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 	readonly requiresAuth = false;
 
 	async search(request: MetadataSearchRequest, limit = 10): Promise<BookMetadataResult[]> {
+		const response = await this.searchWithStatus(request, limit);
+		return response.results;
+	}
+
+	async searchWithStatus(request: MetadataSearchRequest, limit = 10): Promise<MetadataSearchResponse> {
 		let query = '';
 
 		// Build search query
 		if (request.isbn) {
 			const cleanIsbn = normalizeIsbn(request.isbn);
-			return this.searchByIsbn(cleanIsbn);
+			const results = await this.searchByIsbn(cleanIsbn);
+			return { results };
 		}
 
 		// Title/author search
@@ -47,13 +54,13 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 		query = parts.join(' ');
 
 		if (!query) {
-			return [];
+			return { results: [] };
 		}
 
 		const cacheKey = `ol:search:${query}`;
 		const cached = cache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-			return cached.data as BookMetadataResult[];
+			return { results: cached.data as BookMetadataResult[] };
 		}
 
 		try {
@@ -62,18 +69,40 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 			const url = `${OPEN_LIBRARY_API}/search.json?q=${encoded}&limit=${requestLimit}&fields=key,title,author_name,first_publish_year,isbn,cover_i,publisher,number_of_pages_median,subject,language`;
 
 			const res = await fetch(url);
-			if (!res.ok) return [];
+			if (!res.ok) {
+				console.error(`Open Library search failed with status ${res.status}`);
+
+				if (res.status === 429) {
+					return {
+						results: [],
+						error: 'Open Library rate limit exceeded. Please wait before trying again.',
+						errorCode: 'RATE_LIMITED'
+					};
+				}
+
+				return {
+					results: [],
+					error: `Open Library returned error ${res.status}`,
+					errorCode: 'NETWORK_ERROR'
+				};
+			}
 
 			const data = await res.json();
-			if (!data.docs || data.docs.length === 0) return [];
+			if (!data.docs || data.docs.length === 0) {
+				return { results: [] };
+			}
 
 			const results = data.docs.map((doc: OpenLibrarySearchDoc) => this.mapSearchResult(doc));
 
 			cache.set(cacheKey, { data: results, timestamp: Date.now() });
-			return results.slice(0, limit);
+			return { results: results.slice(0, limit) };
 		} catch (error) {
 			console.error('Open Library search error:', error);
-			return [];
+			return {
+				results: [],
+				error: 'Failed to connect to Open Library',
+				errorCode: 'NETWORK_ERROR'
+			};
 		}
 	}
 

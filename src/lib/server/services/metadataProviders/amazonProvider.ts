@@ -10,6 +10,7 @@
 import type {
 	MetadataProviderInterface,
 	MetadataSearchRequest,
+	MetadataSearchResponse,
 	BookMetadataResult
 } from './types';
 import { decodeHtmlEntities, stripHtmlTags } from './types';
@@ -347,6 +348,11 @@ export class AmazonProvider implements MetadataProviderInterface {
 	}
 
 	async search(request: MetadataSearchRequest, limit = 10): Promise<BookMetadataResult[]> {
+		const response = await this.searchWithStatus(request, limit);
+		return response.results;
+	}
+
+	async searchWithStatus(request: MetadataSearchRequest, limit = 10): Promise<MetadataSearchResponse> {
 		// Build search query
 		let searchTerm = '';
 		if (request.isbn) {
@@ -366,13 +372,13 @@ export class AmazonProvider implements MetadataProviderInterface {
 		}
 
 		if (!searchTerm) {
-			return [];
+			return { results: [] };
 		}
 
 		const cacheKey = `amz:search:${this.domain}:${searchTerm}`;
 		const cached = cache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-			return cached.data as BookMetadataResult[];
+			return { results: cached.data as BookMetadataResult[] };
 		}
 
 		try {
@@ -382,10 +388,42 @@ export class AmazonProvider implements MetadataProviderInterface {
 			const res = await rateLimitedFetch(url, this.domain);
 			if (!res.ok) {
 				console.error(`Amazon search failed with status ${res.status}`);
-				return [];
+
+				if (res.status === 503) {
+					return {
+						results: [],
+						error: 'Amazon is blocking requests. This provider may not work from server environments.',
+						errorCode: 'BLOCKED'
+					};
+				}
+
+				if (res.status === 429) {
+					return {
+						results: [],
+						error: 'Amazon rate limit exceeded. Please wait before trying again.',
+						errorCode: 'RATE_LIMITED'
+					};
+				}
+
+				return {
+					results: [],
+					error: `Amazon returned error ${res.status}`,
+					errorCode: 'NETWORK_ERROR'
+				};
 			}
 
 			const html = await res.text();
+
+			// Check for CAPTCHA or blocking page
+			if (html.includes('captcha') || html.includes('robot') || html.includes('automated access')) {
+				console.error('Amazon: CAPTCHA or bot detection triggered');
+				return {
+					results: [],
+					error: 'Amazon detected automated access. This provider may not work from server environments.',
+					errorCode: 'BLOCKED'
+				};
+			}
+
 			const searchResults = parseSearchResults(html);
 
 			// Convert to BookMetadataResult
@@ -399,10 +437,14 @@ export class AmazonProvider implements MetadataProviderInterface {
 			}));
 
 			cache.set(cacheKey, { data: results, timestamp: Date.now() });
-			return results;
+			return { results };
 		} catch (error) {
 			console.error('Amazon search error:', error);
-			return [];
+			return {
+				results: [],
+				error: 'Failed to connect to Amazon',
+				errorCode: 'NETWORK_ERROR'
+			};
 		}
 	}
 

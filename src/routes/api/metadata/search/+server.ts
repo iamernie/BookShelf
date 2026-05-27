@@ -59,15 +59,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	try {
-		const results = await metadataProviders.searchAll(
+		const results = await metadataProviders.searchAllWithStatus(
 			{ title, author, isbn },
 			{ providers, limit: limit || 10 }
 		);
 
 		// Convert Map to object for JSON serialization
-		const resultsObject: Record<string, unknown[]> = {};
-		for (const [provider, providerResults] of results) {
-			resultsObject[provider] = providerResults;
+		const resultsObject: Record<string, { results: unknown[]; error?: string; errorCode?: string }> = {};
+		for (const [provider, providerResponse] of results) {
+			resultsObject[provider] = {
+				results: providerResponse.results,
+				error: providerResponse.error,
+				errorCode: providerResponse.errorCode
+			};
 		}
 
 		return json({
@@ -108,20 +112,41 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		if (provider) {
 			// Search specific provider
 			console.log('[metadata-search] Searching single provider:', provider);
-			const results = await metadataProviders.search(
+			const providerInstance = metadataProviders.getProvider(provider);
+			if (!providerInstance) {
+				throw error(400, `Unknown provider: ${provider}`);
+			}
+
+			let response;
+			if (providerInstance.searchWithStatus) {
+				response = await providerInstance.searchWithStatus(
+					{ title: query || undefined, isbn: isbn || undefined },
+					limit
+				);
+			} else {
+				const results = await providerInstance.search(
+					{ title: query || undefined, isbn: isbn || undefined },
+					limit
+				);
+				response = { results };
+			}
+
+			console.log('[metadata-search] Results from', provider, ':', response.results.length);
+			if (response.error) {
+				console.log('[metadata-search] Error from', provider, ':', response.error);
+			}
+
+			return json({
+				success: true,
 				provider,
-				{
-					title: query || undefined,
-					isbn: isbn || undefined
-				},
-				limit
-			);
-			console.log('[metadata-search] Results from', provider, ':', results.length);
-			return json({ success: true, provider, results });
+				results: response.results,
+				error: response.error,
+				errorCode: response.errorCode
+			});
 		} else {
 			// Search all enabled providers
 			console.log('[metadata-search] Searching all enabled providers');
-			const results = await metadataProviders.searchAll(
+			const results = await metadataProviders.searchAllWithStatus(
 				{
 					title: query || undefined,
 					isbn: isbn || undefined
@@ -129,10 +154,14 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 				{ limit }
 			);
 
-			const resultsObject: Record<string, unknown[]> = {};
-			for (const [prov, provResults] of results) {
-				resultsObject[prov] = provResults;
-				console.log('[metadata-search] Results from', prov, ':', provResults.length);
+			const resultsObject: Record<string, { results: unknown[]; error?: string; errorCode?: string }> = {};
+			for (const [prov, provResponse] of results) {
+				resultsObject[prov] = {
+					results: provResponse.results,
+					error: provResponse.error,
+					errorCode: provResponse.errorCode
+				};
+				console.log('[metadata-search] Results from', prov, ':', provResponse.results.length, provResponse.error ? `(${provResponse.error})` : '');
 			}
 
 			console.log('[metadata-search] Total providers with results:', Object.keys(resultsObject).length);

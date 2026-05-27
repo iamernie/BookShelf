@@ -8,6 +8,7 @@ import type {
 	MetadataProvider,
 	MetadataProviderInterface,
 	MetadataSearchRequest,
+	MetadataSearchResponse,
 	BookMetadataResult
 } from './types';
 import { GoogleBooksProvider } from './googleBooksProvider';
@@ -139,8 +140,28 @@ class MetadataProviderRegistry {
 			providers?: MetadataProvider[];
 		}
 	): Promise<Map<MetadataProvider, BookMetadataResult[]>> {
-		const limit = options?.limit || 10;
+		const response = await this.searchAllWithStatus(request, options);
 		const results = new Map<MetadataProvider, BookMetadataResult[]>();
+
+		for (const [provider, providerResponse] of response) {
+			results.set(provider, providerResponse.results);
+		}
+
+		return results;
+	}
+
+	/**
+	 * Search all enabled providers and return combined results with error info
+	 */
+	async searchAllWithStatus(
+		request: MetadataSearchRequest,
+		options?: {
+			limit?: number;
+			providers?: MetadataProvider[];
+		}
+	): Promise<Map<MetadataProvider, MetadataSearchResponse>> {
+		const limit = options?.limit || 10;
+		const results = new Map<MetadataProvider, MetadataSearchResponse>();
 
 		// Determine which providers to use
 		let providers = this.getEnabledProviders();
@@ -151,18 +172,31 @@ class MetadataProviderRegistry {
 		// Search all providers in parallel
 		const searchPromises = providers.map(async (provider) => {
 			try {
-				const providerResults = await provider.search(request, limit);
-				return { provider: provider.name, results: providerResults };
+				// Use searchWithStatus if available, otherwise fall back to search
+				if (provider.searchWithStatus) {
+					const response = await provider.searchWithStatus(request, limit);
+					return { provider: provider.name, response };
+				} else {
+					const providerResults = await provider.search(request, limit);
+					return { provider: provider.name, response: { results: providerResults } };
+				}
 			} catch (error) {
 				console.error(`Error searching ${provider.name}:`, error);
-				return { provider: provider.name, results: [] };
+				return {
+					provider: provider.name,
+					response: {
+						results: [],
+						error: `Failed to search ${provider.name}`,
+						errorCode: 'NETWORK_ERROR' as const
+					}
+				};
 			}
 		});
 
 		const allResults = await Promise.all(searchPromises);
 
-		for (const { provider, results: providerResults } of allResults) {
-			results.set(provider, providerResults);
+		for (const { provider, response } of allResults) {
+			results.set(provider, response);
 		}
 
 		return results;

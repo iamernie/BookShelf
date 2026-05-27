@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.4] - 2026-05-26
+
+### Fixed
+- **Metadata Search Error Handling** - Improved error reporting for book metadata providers
+  - Google Books now properly reports quota exceeded errors (429/RESOURCE_EXHAUSTED)
+  - Amazon provider now detects blocking/CAPTCHA and reports meaningful errors
+  - Goodreads provider now handles rate limiting and blocking gracefully
+  - Open Library provider improved error handling for network issues
+  - Search API now returns error details per provider so UI can show what went wrong
+  - All providers return `error` and `errorCode` fields when searches fail
+
+### Changed
+- **CI/CD Cleanup** - Removed HookFlow deployment webhook from GitHub Actions (server no longer in use)
+
 ## [2.9.3] - 2026-05-26
 
 ### Security

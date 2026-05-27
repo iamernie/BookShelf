@@ -6,6 +6,7 @@
 import type {
 	MetadataProviderInterface,
 	MetadataSearchRequest,
+	MetadataSearchResponse,
 	BookMetadataResult
 } from './types';
 import {
@@ -61,6 +62,11 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 	readonly requiresAuth = false;
 
 	async search(request: MetadataSearchRequest, limit = 10): Promise<BookMetadataResult[]> {
+		const response = await this.searchWithStatus(request, limit);
+		return response.results;
+	}
+
+	async searchWithStatus(request: MetadataSearchRequest, limit = 10): Promise<MetadataSearchResponse> {
 		let query = '';
 
 		// Build search query
@@ -77,13 +83,13 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 		}
 
 		if (!query) {
-			return [];
+			return { results: [] };
 		}
 
 		const cacheKey = `google:${query}`;
 		const cached = cache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-			return cached.data as BookMetadataResult[];
+			return { results: cached.data as BookMetadataResult[] };
 		}
 
 		try {
@@ -92,18 +98,67 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 			url.searchParams.set('maxResults', String(Math.min(limit, 40)));
 
 			const res = await fetch(url.toString());
-			if (!res.ok) return [];
+
+			if (!res.ok) {
+				// Check for specific error codes
+				if (res.status === 429) {
+					console.error('Google Books API: Rate limit exceeded (429)');
+					return {
+						results: [],
+						error: 'Google Books API rate limit exceeded. Please try again later.',
+						errorCode: 'RATE_LIMITED'
+					};
+				}
+
+				// Try to parse error response
+				try {
+					const errorData = await res.json();
+					if (errorData.error?.status === 'RESOURCE_EXHAUSTED') {
+						console.error('Google Books API: Quota exceeded');
+						return {
+							results: [],
+							error: 'Google Books API daily quota exceeded. Try again tomorrow or add an API key.',
+							errorCode: 'QUOTA_EXCEEDED'
+						};
+					}
+				} catch {
+					// Ignore JSON parse errors
+				}
+
+				console.error(`Google Books API error: ${res.status}`);
+				return {
+					results: [],
+					error: `Google Books API error (${res.status})`,
+					errorCode: 'NETWORK_ERROR'
+				};
+			}
 
 			const data: GoogleBooksResponse = await res.json();
-			if (!data.items || data.items.length === 0) return [];
+
+			// Check for quota exceeded in response body
+			if ('error' in data && (data as { error?: { status?: string } }).error?.status === 'RESOURCE_EXHAUSTED') {
+				return {
+					results: [],
+					error: 'Google Books API daily quota exceeded. Try again tomorrow or add an API key.',
+					errorCode: 'QUOTA_EXCEEDED'
+				};
+			}
+
+			if (!data.items || data.items.length === 0) {
+				return { results: [] };
+			}
 
 			const results = data.items.map((item) => this.mapToResult(item));
 
 			cache.set(cacheKey, { data: results, timestamp: Date.now() });
-			return results;
+			return { results };
 		} catch (error) {
 			console.error('Google Books search error:', error);
-			return [];
+			return {
+				results: [],
+				error: 'Failed to connect to Google Books API',
+				errorCode: 'NETWORK_ERROR'
+			};
 		}
 	}
 

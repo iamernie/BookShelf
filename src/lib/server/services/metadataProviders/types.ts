@@ -66,6 +66,12 @@ export interface MetadataSearchRequest {
 	isbn?: string;
 }
 
+export interface MetadataSearchResponse {
+	results: BookMetadataResult[];
+	error?: string;
+	errorCode?: 'QUOTA_EXCEEDED' | 'RATE_LIMITED' | 'BLOCKED' | 'NETWORK_ERROR' | 'PARSE_ERROR' | 'AUTH_REQUIRED';
+}
+
 export interface MetadataProviderInterface {
 	readonly name: MetadataProvider;
 	readonly displayName: string;
@@ -75,6 +81,11 @@ export interface MetadataProviderInterface {
 	 * Search for books and return preview results
 	 */
 	search(request: MetadataSearchRequest, limit?: number): Promise<BookMetadataResult[]>;
+
+	/**
+	 * Search with full response including error info
+	 */
+	searchWithStatus?(request: MetadataSearchRequest, limit?: number): Promise<MetadataSearchResponse>;
 
 	/**
 	 * Fetch detailed metadata for a specific book
