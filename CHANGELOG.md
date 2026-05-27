@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.7] - 2026-05-26
+
+### Fixed
+- **Metadata Provider User Agents** - All metadata providers now use browser-like user agents
+  - Prevents blocking by APIs that reject non-browser requests
+  - Updated: Audible, Google Books, Open Library, ComicVine, Hardcover
+  - Amazon and Goodreads already had browser user agents
+
 ## [2.9.6] - 2026-05-26
 
 ### Added

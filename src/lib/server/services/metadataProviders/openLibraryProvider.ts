@@ -19,6 +19,9 @@ import {
 
 const OPEN_LIBRARY_API = 'https://openlibrary.org';
 
+// Browser-like user agent
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0';
+
 // Simple in-memory cache (15 min TTL)
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000;
@@ -68,7 +71,13 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 			const requestLimit = Math.min(limit * 2, 40);
 			const url = `${OPEN_LIBRARY_API}/search.json?q=${encoded}&limit=${requestLimit}&fields=key,title,author_name,first_publish_year,isbn,cover_i,publisher,number_of_pages_median,subject,language`;
 
-			const res = await fetch(url);
+			const res = await fetch(url, {
+				headers: {
+					'Accept': 'application/json',
+					'Accept-Language': 'en-US,en;q=0.9',
+					'User-Agent': USER_AGENT
+				}
+			});
 			if (!res.ok) {
 				console.error(`Open Library search failed with status ${res.status}`);
 
@@ -116,7 +125,14 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 
 		try {
 			const res = await fetch(
-				`${OPEN_LIBRARY_API}/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
+				`${OPEN_LIBRARY_API}/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`,
+				{
+					headers: {
+						'Accept': 'application/json',
+						'Accept-Language': 'en-US,en;q=0.9',
+						'User-Agent': USER_AGENT
+					}
+				}
 			);
 
 			if (!res.ok) return [];
@@ -144,7 +160,13 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 		}
 
 		try {
-			const res = await fetch(`${OPEN_LIBRARY_API}${providerId}.json`);
+			const res = await fetch(`${OPEN_LIBRARY_API}${providerId}.json`, {
+				headers: {
+					'Accept': 'application/json',
+					'Accept-Language': 'en-US,en;q=0.9',
+					'User-Agent': USER_AGENT
+				}
+			});
 			if (!res.ok) return null;
 
 			const workData = await res.json();
@@ -156,7 +178,13 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 					try {
 						const authorKey = authorRef.author?.key || authorRef.key;
 						if (authorKey) {
-							const authorRes = await fetch(`${OPEN_LIBRARY_API}${authorKey}.json`);
+							const authorRes = await fetch(`${OPEN_LIBRARY_API}${authorKey}.json`, {
+								headers: {
+									'Accept': 'application/json',
+									'Accept-Language': 'en-US,en;q=0.9',
+									'User-Agent': USER_AGENT
+								}
+							});
 							if (authorRes.ok) {
 								const authorData = await authorRes.json();
 								if (authorData.name) {

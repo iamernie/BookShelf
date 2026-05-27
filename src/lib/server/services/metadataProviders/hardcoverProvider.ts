@@ -14,6 +14,9 @@ import { decodeHtmlEntities, extractYear, escapeGraphQLString, stripHtmlTags } f
 
 const HARDCOVER_API_URL = 'https://api.hardcover.app/v1/graphql';
 
+// Browser-like user agent
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0';
+
 // Simple in-memory cache (15 min TTL)
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000;
@@ -125,6 +128,9 @@ export class HardcoverProvider implements MetadataProviderInterface {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
+					'Accept': 'application/json',
+					'Accept-Language': 'en-US,en;q=0.9',
+					'User-Agent': USER_AGENT,
 					Authorization: `Bearer ${this.config.apiKey}`
 				},
 				body: JSON.stringify({
