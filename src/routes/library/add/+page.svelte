@@ -1282,7 +1282,7 @@
 									style="background: var(--bg-primary); border-color: var(--border-color); color: var(--text-primary);"
 									placeholder="Search series..."
 								/>
-								{#if showSeriesDropdown && (filteredSeries.length > 0 || canCreateSeries)}
+								{#if showSeriesDropdown}
 									<div class="absolute z-20 w-full mt-1 rounded-lg shadow-lg overflow-hidden" style="background: var(--bg-secondary); border: 1px solid var(--border-color);">
 										{#each filteredSeries as s}
 											<button
@@ -1310,6 +1310,14 @@
 													Create "{seriesSearch.trim()}"
 												{/if}
 											</button>
+										{:else if filteredSeries.length === 0 && seriesSearch.trim().length === 0}
+											<div class="px-4 py-2 text-sm" style="color: var(--text-muted);">
+												Type to search or create a new series
+											</div>
+										{:else if filteredSeries.length === 0}
+											<div class="px-4 py-2 text-sm" style="color: var(--text-muted);">
+												No matching series found
+											</div>
 										{/if}
 									</div>
 								{/if}

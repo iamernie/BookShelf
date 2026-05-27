@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getBooks, createBook, getStatuses, getGenres, getFormats, getNarrators, getTags, getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 import { notifyBookAdded } from '$lib/server/services/notificationService';
+import { downloadCoverImage } from '$lib/server/services/coverService';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
@@ -31,12 +32,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, { message: 'Title is required' });
 	}
 
+	// If there's an originalCoverUrl but no coverImageUrl, try to download the cover
+	let coverImageUrl = data.coverImageUrl?.trim() || null;
+	const originalCoverUrl = data.originalCoverUrl?.trim() || null;
+
+	if (originalCoverUrl && !coverImageUrl) {
+		// Auto-download cover image in the background
+		const downloadedPath = await downloadCoverImage(originalCoverUrl);
+		if (downloadedPath) {
+			coverImageUrl = downloadedPath;
+		}
+	}
+
 	const book = await createBook({
 		title: data.title.trim(),
 		summary: data.summary?.trim() || null,
 		comments: data.comments?.trim() || null,
 		rating: data.rating || null,
-		coverImageUrl: data.coverImageUrl?.trim() || null,
+		coverImageUrl,
+		originalCoverUrl,
 		statusId: data.statusId || null,
 		genreId: data.genreId || null,
 		formatId: data.formatId || null,
@@ -50,6 +64,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		goodreadsId: data.goodreadsId?.trim() || null,
 		googleBooksId: data.googleBooksId?.trim() || null,
 		pageCount: data.pageCount || null,
+		booksContained: data.booksContained || 1,
 		publisher: data.publisher?.trim() || null,
 		publishYear: data.publishYear || null,
 		language: data.language?.trim() || 'English',

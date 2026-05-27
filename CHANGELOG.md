@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.5] - 2026-05-26
+
+### Fixed
+- **Cover Image Download** - Cover images from URLs are now automatically downloaded when adding/editing books
+  - Added `coverService.ts` for centralized cover download logic
+  - Books API now auto-downloads cover from `originalCoverUrl` if no `coverImageUrl` is provided
+  - Works for both creating new books and updating existing ones
+- **Series Dropdown** - Fixed "Add new series" option not appearing when no series exist
+  - Dropdown now always shows when focused, with helpful prompts
+  - Shows "Type to search or create a new series" when empty
+- **Narrator Dropdown** - Same fix applied to narrator selection
+  - Dropdown now always shows when focused
+  - Shows "Type to search or create a new narrator" when empty
+
 ## [2.9.4] - 2026-05-26
 
 ### Fixed

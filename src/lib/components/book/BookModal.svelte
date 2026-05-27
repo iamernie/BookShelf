@@ -1072,7 +1072,7 @@
 												oninput={() => showSeriesDropdown = true}
 												class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
 											/>
-											{#if showSeriesDropdown && (filteredSeries.length > 0 || canCreateSeries)}
+											{#if showSeriesDropdown}
 												<div class="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
 													{#each filteredSeries as s}
 														<button
@@ -1096,6 +1096,14 @@
 																<Plus class="w-4 h-4" /> Create "{seriesSearch.trim()}"
 															{/if}
 														</button>
+													{:else if filteredSeries.length === 0 && seriesSearch.trim().length === 0}
+														<div class="px-3 py-2 text-sm text-gray-500">
+															Type to search or create a new series
+														</div>
+													{:else if filteredSeries.length === 0}
+														<div class="px-3 py-2 text-sm text-gray-500">
+															No matching series found
+														</div>
 													{/if}
 												</div>
 											{/if}
@@ -1193,7 +1201,7 @@
 													oninput={() => showNarratorDropdown = true}
 													class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
 												/>
-												{#if showNarratorDropdown && (filteredNarrators.length > 0 || canCreateNarrator)}
+												{#if showNarratorDropdown}
 													<div class="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
 														{#each filteredNarrators as n}
 															<button
@@ -1217,6 +1225,14 @@
 																	<Plus class="w-4 h-4" /> Create "{narratorSearch.trim()}"
 																{/if}
 															</button>
+														{:else if filteredNarrators.length === 0 && narratorSearch.trim().length === 0}
+															<div class="px-3 py-2 text-sm text-gray-500">
+																Type to search or create a new narrator
+															</div>
+														{:else if filteredNarrators.length === 0}
+															<div class="px-3 py-2 text-sm text-gray-500">
+																No matching narrators found
+															</div>
 														{/if}
 													</div>
 												{/if}

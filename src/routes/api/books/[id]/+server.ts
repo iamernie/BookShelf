@@ -5,6 +5,7 @@ import { removeBookFromUserLibrary, getUserBook } from '$lib/server/services/use
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { canAccessBook, canModifyBook, canDeleteBook } from '$lib/server/services/libraryShareService';
 import { getStatusByKey } from '$lib/server/services/statusService';
+import { downloadCoverImage } from '$lib/server/services/coverService';
 import { db, books } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { notifyBookCompleted, checkAndNotifySeriesCompletion } from '$lib/server/services/notificationService';
@@ -89,8 +90,21 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	// Text fields
 	if (data.summary !== undefined) updateData.summary = data.summary?.trim() || null;
 	if (data.comments !== undefined) updateData.comments = data.comments?.trim() || null;
-	if (data.coverImageUrl !== undefined) updateData.coverImageUrl = data.coverImageUrl?.trim() || null;
-	if (data.originalCoverUrl !== undefined) updateData.originalCoverUrl = data.originalCoverUrl?.trim() || null;
+
+	// Handle cover image - auto-download if originalCoverUrl provided but no coverImageUrl
+	let coverImageUrl = data.coverImageUrl?.trim() || null;
+	const originalCoverUrl = data.originalCoverUrl?.trim() || null;
+
+	if (originalCoverUrl && !coverImageUrl) {
+		// Auto-download cover image
+		const downloadedPath = await downloadCoverImage(originalCoverUrl, id);
+		if (downloadedPath) {
+			coverImageUrl = downloadedPath;
+		}
+	}
+
+	if (data.coverImageUrl !== undefined || coverImageUrl) updateData.coverImageUrl = coverImageUrl;
+	if (data.originalCoverUrl !== undefined) updateData.originalCoverUrl = originalCoverUrl;
 	if (data.isbn10 !== undefined) updateData.isbn10 = data.isbn10?.trim() || null;
 	if (data.isbn13 !== undefined) updateData.isbn13 = data.isbn13?.trim() || null;
 	if (data.asin !== undefined) updateData.asin = data.asin?.trim() || null;
