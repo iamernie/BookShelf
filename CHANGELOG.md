@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.8] - 2026-05-26
+
+### Fixed
+- **Audible Search** - Fixed Audible provider returning 0 results
+  - Changed from using separate `title` and `author` params to combined `keywords` param
+  - Audible API requires the `keywords` parameter for general search
+
 ## [2.9.7] - 2026-05-26
 
 ### Fixed

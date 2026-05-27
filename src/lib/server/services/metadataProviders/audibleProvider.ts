@@ -103,21 +103,25 @@ export class AudibleProvider implements MetadataProviderInterface {
 	}
 
 	async searchWithStatus(request: MetadataSearchRequest, limit = 10): Promise<MetadataSearchResponse> {
-		// Build search query
+		// Build search query - Audible uses 'keywords' for general search
 		const params = new URLSearchParams();
 
+		// Build a combined search term
+		const searchParts: string[] = [];
 		if (request.title) {
-			params.set('title', request.title);
+			searchParts.push(request.title);
 		}
 		if (request.author) {
-			params.set('author', request.author);
+			searchParts.push(request.author);
 		}
 
 		// If no title or author, we can't search
-		if (!request.title && !request.author) {
+		if (searchParts.length === 0) {
 			return { results: [] };
 		}
 
+		// Use 'keywords' parameter for combined search
+		params.set('keywords', searchParts.join(' '));
 		params.set('num_results', String(Math.min(limit, 50)));
 		params.set('response_groups', 'product_desc,contributors,product_attrs,media,series,rating,category_ladders');
 
