@@ -1,6 +1,6 @@
 {
   "name": "bookshelf",
-  "version": "2.9.12",
+  "version": "2.9.13",
   "description": "Personal book library management application",
   "private": true,
   "type": "module",
@@ -55,7 +55,7 @@
   },
   "overrides": {
     "cookie": "^0.7.0",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.1",
     "fast-xml-parser": "^5.5.7",
     "fast-xml-builder": "^1.2.0",
     "devalue": "^5.8.1",

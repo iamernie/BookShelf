@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.13] - 2026-06-14
+
+### Security
+- **esbuild** - Updated to 0.28.1 (fixes remote code execution via NPM_CONFIG_REGISTRY - High)
+
 ## [2.9.12] - 2026-06-14
 
 ### Fixed
