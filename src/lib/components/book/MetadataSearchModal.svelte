@@ -379,7 +379,7 @@
 												{#if result.publishYear}
 													<span class="text-xs" style="color: var(--text-muted);">{result.publishYear}</span>
 												{/if}
-												{#if result.rating}
+												{#if result.rating && typeof result.rating === 'number'}
 													<span class="text-xs flex items-center gap-0.5" style="color: #fbbf24;">
 														<Star class="w-3 h-3" style="fill: currentColor;" />
 														{result.rating.toFixed(1)}
@@ -459,11 +459,11 @@
 													{selectedResult.pageCount} pages
 												</span>
 											{/if}
-											{#if selectedResult.rating}
+											{#if selectedResult.rating && typeof selectedResult.rating === 'number'}
 												<span class="px-2 py-0.5 rounded text-xs flex items-center gap-1" style="background-color: rgba(251, 191, 36, 0.1); color: #fbbf24;">
 													<Star class="w-3 h-3" style="fill: currentColor;" />
 													{selectedResult.rating.toFixed(1)}
-													{#if selectedResult.ratingCount}
+													{#if selectedResult.ratingCount && typeof selectedResult.ratingCount === 'number'}
 														<span style="color: var(--text-muted);">({selectedResult.ratingCount.toLocaleString()})</span>
 													{/if}
 												</span>

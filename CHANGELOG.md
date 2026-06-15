@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.14] - 2026-06-14
+
+### Fixed
+- **Audible Results Crash** - Fixed TypeError when displaying Audible search results
+  - Rating field from Audible API was not always a number, causing `.toFixed()` to fail
+  - Added proper type checking before formatting rating values
+- **Deprecated Meta Tag** - Replaced `apple-mobile-web-app-capable` with `mobile-web-app-capable`
+
 ## [2.9.13] - 2026-06-14
 
 ### Security

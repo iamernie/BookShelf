@@ -272,12 +272,20 @@ export class AudibleProvider implements MetadataProviderInterface {
 			}
 		}
 
-		// Get rating
+		// Get rating (ensure it's a number)
 		let rating: number | undefined;
 		let ratingCount: number | undefined;
 		if (product.rating?.overall_distribution) {
-			rating = product.rating.overall_distribution.display_average_rating;
-			ratingCount = product.rating.overall_distribution.num_ratings;
+			const rawRating = product.rating.overall_distribution.display_average_rating;
+			if (rawRating !== undefined && rawRating !== null) {
+				rating = typeof rawRating === 'number' ? rawRating : parseFloat(String(rawRating));
+				if (isNaN(rating)) rating = undefined;
+			}
+			const rawCount = product.rating.overall_distribution.num_ratings;
+			if (rawCount !== undefined && rawCount !== null) {
+				ratingCount = typeof rawCount === 'number' ? rawCount : parseInt(String(rawCount), 10);
+				if (isNaN(ratingCount)) ratingCount = undefined;
+			}
 		}
 
 		// Get description (prefer merchandising_summary, fall back to publisher_summary)
