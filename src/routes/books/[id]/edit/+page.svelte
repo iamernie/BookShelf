@@ -139,11 +139,17 @@
 	let seriesSearch = $state('');
 	let seriesBookNum = $state('');
 	let showSeriesDropdown = $state(false);
+	let creatingSeries = $state(false);
+	let availableSeries = $state(options.series);
 	let filteredSeries = $derived(
-		options.series.filter((s: any) =>
+		availableSeries.filter((s: any) =>
 			s.title.toLowerCase().includes(seriesSearch.toLowerCase()) &&
 			!selectedSeries.some(ss => ss.id === s.id)
 		).slice(0, 10)
+	);
+	let canCreateSeries = $derived(
+		seriesSearch.trim().length > 0 &&
+		!availableSeries.some((s: any) => s.title.toLowerCase() === seriesSearch.trim().toLowerCase())
 	);
 
 	const tabs = [
@@ -174,6 +180,30 @@
 		seriesSearch = '';
 		seriesBookNum = '';
 		showSeriesDropdown = false;
+	}
+
+	async function createNewSeries() {
+		const title = seriesSearch.trim();
+		if (!title) return;
+
+		creatingSeries = true;
+		try {
+			const res = await fetch('/api/series', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title })
+			});
+
+			if (res.ok) {
+				const newSeries = await res.json();
+				availableSeries = [...availableSeries, { id: newSeries.id, title: newSeries.title }];
+				addSeries({ id: newSeries.id, title: newSeries.title });
+			}
+		} catch (e) {
+			console.error('Failed to create series:', e);
+		} finally {
+			creatingSeries = false;
+		}
 	}
 
 	function removeSeries(id: number) {
@@ -1013,10 +1043,11 @@
 											placeholder="Search series..."
 											bind:value={seriesSearch}
 											onfocus={() => showSeriesDropdown = true}
+											oninput={() => showSeriesDropdown = true}
 											class="w-full px-3 py-2 rounded-md text-sm"
 											style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
 										/>
-										{#if showSeriesDropdown && filteredSeries.length > 0}
+										{#if showSeriesDropdown}
 											<div
 												class="absolute z-20 w-full mt-1 rounded-lg shadow-xl max-h-40 overflow-y-auto"
 												style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);"
@@ -1034,6 +1065,33 @@
 														{s.title}
 													</button>
 												{/each}
+												{#if canCreateSeries}
+													<button
+														type="button"
+														class="w-full px-3 py-2 text-left text-sm transition-colors flex items-center gap-2 font-medium"
+														style="color: var(--success); border-top: 1px solid var(--border-color);"
+														onmouseenter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+														onmouseleave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+														onclick={createNewSeries}
+														disabled={creatingSeries}
+													>
+														{#if creatingSeries}
+															<Loader2 class="w-3.5 h-3.5 animate-spin" />
+															Creating...
+														{:else}
+															<Plus class="w-3.5 h-3.5" />
+															Create "{seriesSearch.trim()}"
+														{/if}
+													</button>
+												{:else if filteredSeries.length === 0 && seriesSearch.trim().length === 0}
+													<div class="px-3 py-2 text-sm" style="color: var(--text-muted);">
+														Type to search or create a new series
+													</div>
+												{:else if filteredSeries.length === 0}
+													<div class="px-3 py-2 text-sm" style="color: var(--text-muted);">
+														No matching series found
+													</div>
+												{/if}
 											</div>
 										{/if}
 									</div>

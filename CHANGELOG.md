@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.15] - 2026-06-14
+
+### Fixed
+- **Series Dropdown on Edit Page** - Fixed "create new series" option not appearing when typing a new series name on book edit page
+
 ## [2.9.14] - 2026-06-14
 
 ### Fixed
