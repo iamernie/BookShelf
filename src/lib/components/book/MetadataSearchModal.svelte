@@ -57,15 +57,17 @@
 	const providerNames: Record<string, string> = {
 		googlebooks: 'Google Books',
 		openlibrary: 'Open Library',
-		goodreads: 'Goodreads',
-		hardcover: 'Hardcover'
+		hardcover: 'Hardcover',
+		comicvine: 'ComicVine',
+		audible: 'Audible'
 	};
 
 	const providerColors: Record<string, string> = {
 		googlebooks: '#4285F4',
 		openlibrary: '#e08741',
-		goodreads: '#553B08',
-		hardcover: '#8B5CF6'
+		hardcover: '#8B5CF6',
+		comicvine: '#ED1D24',
+		audible: '#FF9900'
 	};
 
 	const fieldLabels: Record<string, string> = {
@@ -129,7 +131,16 @@
 			}
 
 			const data = await res.json();
-			results = data.results || {};
+
+			// Extract results arrays from the nested response structure
+			// API returns { provider: { results: [...], error: ... } }
+			// We need { provider: [...] }
+			const rawResults = data.results || {};
+			results = {};
+			for (const [provider, providerData] of Object.entries(rawResults)) {
+				const pd = providerData as { results?: MetadataResult[]; error?: string };
+				results[provider] = pd.results || [];
+			}
 
 			// Auto-select first provider with results
 			const providersWithResults = Object.keys(results).filter(p => results[p]?.length > 0);
@@ -525,7 +536,7 @@
 					{#if selectedResult}
 						Source: {providerNames[selectedResult.provider] || selectedResult.provider}
 					{:else}
-						Search across Google Books, Open Library, Goodreads, and Hardcover
+						Search across Google Books, Open Library, Audible, and more
 					{/if}
 				</p>
 				<div class="flex gap-3">

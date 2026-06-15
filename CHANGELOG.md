@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.12] - 2026-06-14
+
+### Fixed
+- **Metadata Search Results Not Displaying** - Fixed UI not showing search results
+  - Component was not correctly parsing nested API response structure
+  - Added Audible to provider names and colors in search modal
+  - Updated footer text to reflect current providers
+
 ## [2.9.11] - 2026-06-14
 
 ### Removed
