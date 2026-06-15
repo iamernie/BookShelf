@@ -32,6 +32,11 @@ async function configureProviders() {
 			enabled: settings.comicvine.enabled,
 			priority: 6,
 			apiKey: settings.comicvine.apiKey
+		},
+		audible: {
+			enabled: settings.audible.enabled,
+			priority: 7,
+			domain: settings.audible.domain as 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in'
 		}
 	});
 }

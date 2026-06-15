@@ -264,6 +264,32 @@ export const DEFAULT_SETTINGS = {
 		label: 'Comic Vine API Key',
 		description: 'API key from comicvine.gamespot.com/api (required for Comic Vine)'
 	},
+	'metadata.audible_enabled': {
+		value: 'true',
+		type: 'boolean',
+		category: 'metadata',
+		label: 'Audible',
+		description: 'Enable Audible for audiobook metadata (narrators, runtime, series)'
+	},
+	'metadata.audible_domain': {
+		value: 'com',
+		type: 'select',
+		category: 'metadata',
+		label: 'Audible Domain',
+		description: 'Audible regional domain to use for lookups',
+		options: [
+			{ value: 'com', label: 'United States (.com)' },
+			{ value: 'co.uk', label: 'United Kingdom (.co.uk)' },
+			{ value: 'de', label: 'Germany (.de)' },
+			{ value: 'fr', label: 'France (.fr)' },
+			{ value: 'it', label: 'Italy (.it)' },
+			{ value: 'es', label: 'Spain (.es)' },
+			{ value: 'ca', label: 'Canada (.ca)' },
+			{ value: 'com.au', label: 'Australia (.com.au)' },
+			{ value: 'co.jp', label: 'Japan (.co.jp)' },
+			{ value: 'in', label: 'India (.in)' }
+		]
+	},
 	// Email/SMTP settings
 	'email.smtp_host': {
 		value: '',
@@ -474,6 +500,7 @@ export async function getMetadataProviderSettings(): Promise<{
 	hardcover: { enabled: boolean; apiKey: string };
 	amazon: { enabled: boolean; domain: string };
 	comicvine: { enabled: boolean; apiKey: string };
+	audible: { enabled: boolean; domain: string };
 }> {
 	const [
 		googleEnabled,
@@ -484,7 +511,9 @@ export async function getMetadataProviderSettings(): Promise<{
 		amazonEnabled,
 		amazonDomain,
 		comicvineEnabled,
-		comicvineApiKey
+		comicvineApiKey,
+		audibleEnabled,
+		audibleDomain
 	] = await Promise.all([
 		getSettingAs<boolean>('metadata.googlebooks_enabled', 'boolean'),
 		getSettingAs<boolean>('metadata.openlibrary_enabled', 'boolean'),
@@ -494,7 +523,9 @@ export async function getMetadataProviderSettings(): Promise<{
 		getSettingAs<boolean>('metadata.amazon_enabled', 'boolean'),
 		getSetting('metadata.amazon_domain'),
 		getSettingAs<boolean>('metadata.comicvine_enabled', 'boolean'),
-		getSetting('metadata.comicvine_api_key')
+		getSetting('metadata.comicvine_api_key'),
+		getSettingAs<boolean>('metadata.audible_enabled', 'boolean'),
+		getSetting('metadata.audible_domain')
 	]);
 
 	return {
@@ -503,7 +534,8 @@ export async function getMetadataProviderSettings(): Promise<{
 		goodreads: { enabled: goodreadsEnabled as boolean },
 		hardcover: { enabled: hardcoverEnabled as boolean, apiKey: hardcoverApiKey },
 		amazon: { enabled: amazonEnabled as boolean, domain: amazonDomain },
-		comicvine: { enabled: comicvineEnabled as boolean, apiKey: comicvineApiKey }
+		comicvine: { enabled: comicvineEnabled as boolean, apiKey: comicvineApiKey },
+		audible: { enabled: audibleEnabled as boolean, domain: audibleDomain }
 	};
 }
 

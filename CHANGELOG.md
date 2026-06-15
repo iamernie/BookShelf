@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.9] - 2026-06-14
+
+### Fixed
+- **Audible Provider Missing from Search** - Audible wasn't being configured in metadata search
+  - Added Audible settings to settingsService (enabled by default)
+  - Added Audible domain setting for regional support
+  - Added Audible to the search API's provider configuration
+
 ## [2.9.8] - 2026-05-26
 
 ### Fixed
