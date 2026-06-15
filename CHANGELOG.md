@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.16] - 2026-06-15
+
+### Fixed
+- **Docker Build Failure** - Updated Vite build target to ES2022 for compatibility with esbuild 0.28.1
+
 ## [2.9.15] - 2026-06-14
 
 ### Fixed

@@ -11,6 +11,9 @@ export default defineConfig({
 		// Inject version as a global constant at build time
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
+	build: {
+		target: 'es2022'
+	},
 	server: {
 		port: 5173,
 		host: true
