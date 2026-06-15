@@ -8,7 +8,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { metadataProviders, type MetadataProvider } from '$lib/server/services/metadataProviders';
 
-const VALID_PROVIDERS: MetadataProvider[] = ['googlebooks', 'openlibrary', 'goodreads', 'hardcover'];
+const VALID_PROVIDERS: MetadataProvider[] = ['googlebooks', 'openlibrary', 'hardcover', 'comicvine', 'audible'];
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {

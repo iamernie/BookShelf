@@ -13,9 +13,7 @@ import type {
 } from './types';
 import { GoogleBooksProvider } from './googleBooksProvider';
 import { OpenLibraryProvider } from './openLibraryProvider';
-import { GoodreadsProvider } from './goodreadsProvider';
 import { HardcoverProvider } from './hardcoverProvider';
-import { AmazonProvider } from './amazonProvider';
 import { ComicVineProvider } from './comicVineProvider';
 import { AudibleProvider } from './audibleProvider';
 
@@ -28,10 +26,6 @@ export interface MetadataProviderConfig {
 	apiKey?: string;
 }
 
-export interface AmazonProviderConfig extends MetadataProviderConfig {
-	domain?: 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in';
-}
-
 export interface AudibleProviderConfig extends MetadataProviderConfig {
 	domain?: 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in';
 }
@@ -39,9 +33,7 @@ export interface AudibleProviderConfig extends MetadataProviderConfig {
 export interface MetadataProvidersSettings {
 	googlebooks: MetadataProviderConfig;
 	openlibrary: MetadataProviderConfig;
-	goodreads: MetadataProviderConfig;
 	hardcover: MetadataProviderConfig;
-	amazon: AmazonProviderConfig;
 	comicvine: MetadataProviderConfig;
 	audible: AudibleProviderConfig;
 }
@@ -49,11 +41,9 @@ export interface MetadataProvidersSettings {
 const DEFAULT_SETTINGS: MetadataProvidersSettings = {
 	googlebooks: { enabled: true, priority: 1 },
 	openlibrary: { enabled: true, priority: 2 },
-	goodreads: { enabled: false, priority: 3 }, // Disabled by default (blocked by bot detection)
-	hardcover: { enabled: false, priority: 4 }, // Disabled by default (requires API key)
-	amazon: { enabled: false, priority: 5, domain: 'com' }, // Disabled by default (blocked by bot detection)
-	comicvine: { enabled: false, priority: 6 }, // Disabled by default (requires API key)
-	audible: { enabled: true, priority: 7, domain: 'com' } // Enabled by default, great for audiobooks
+	hardcover: { enabled: false, priority: 3 }, // Disabled by default (requires API key)
+	comicvine: { enabled: false, priority: 4 }, // Disabled by default (requires API key)
+	audible: { enabled: true, priority: 5, domain: 'com' } // Enabled by default, great for audiobooks
 };
 
 class MetadataProviderRegistry {
@@ -64,9 +54,7 @@ class MetadataProviderRegistry {
 		// Initialize all providers
 		this.providers.set('googlebooks', new GoogleBooksProvider());
 		this.providers.set('openlibrary', new OpenLibraryProvider());
-		this.providers.set('goodreads', new GoodreadsProvider());
 		this.providers.set('hardcover', new HardcoverProvider());
-		this.providers.set('amazon', new AmazonProvider());
 		this.providers.set('comicvine', new ComicVineProvider());
 		this.providers.set('audible', new AudibleProvider());
 	}
@@ -87,12 +75,6 @@ class MetadataProviderRegistry {
 		if (settings.hardcover?.apiKey) {
 			const hardcoverProvider = this.providers.get('hardcover') as HardcoverProvider;
 			hardcoverProvider.setApiKey(settings.hardcover.apiKey);
-		}
-
-		// Update Amazon domain if provided
-		if (settings.amazon?.domain) {
-			const amazonProvider = this.providers.get('amazon') as AmazonProvider;
-			amazonProvider.setDomain(settings.amazon.domain);
 		}
 
 		// Update ComicVine API key if provided

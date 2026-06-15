@@ -210,13 +210,6 @@ export const DEFAULT_SETTINGS = {
 		label: 'Open Library',
 		description: 'Enable Open Library API for metadata lookups'
 	},
-	'metadata.goodreads_enabled': {
-		value: 'false',
-		type: 'boolean',
-		category: 'metadata',
-		label: 'Goodreads',
-		description: 'Enable Goodreads scraping for metadata (often blocked by bot detection)'
-	},
 	'metadata.hardcover_enabled': {
 		value: 'false',
 		type: 'boolean',
@@ -230,32 +223,6 @@ export const DEFAULT_SETTINGS = {
 		category: 'metadata',
 		label: 'Hardcover API Key',
 		description: 'API key from hardcover.app/account/api (required for Hardcover)'
-	},
-	'metadata.amazon_enabled': {
-		value: 'false',
-		type: 'boolean',
-		category: 'metadata',
-		label: 'Amazon',
-		description: 'Enable Amazon for metadata lookups (web scraping, may be unreliable)'
-	},
-	'metadata.amazon_domain': {
-		value: 'com',
-		type: 'select',
-		category: 'metadata',
-		label: 'Amazon Domain',
-		description: 'Amazon regional domain to use for lookups',
-		options: [
-			{ value: 'com', label: 'United States (.com)' },
-			{ value: 'co.uk', label: 'United Kingdom (.co.uk)' },
-			{ value: 'de', label: 'Germany (.de)' },
-			{ value: 'fr', label: 'France (.fr)' },
-			{ value: 'it', label: 'Italy (.it)' },
-			{ value: 'es', label: 'Spain (.es)' },
-			{ value: 'ca', label: 'Canada (.ca)' },
-			{ value: 'com.au', label: 'Australia (.com.au)' },
-			{ value: 'co.jp', label: 'Japan (.co.jp)' },
-			{ value: 'in', label: 'India (.in)' }
-		]
 	},
 	'metadata.comicvine_enabled': {
 		value: 'false',
@@ -503,9 +470,7 @@ export async function initializeSettings(): Promise<void> {
 export async function getMetadataProviderSettings(): Promise<{
 	googlebooks: { enabled: boolean; apiKey: string };
 	openlibrary: { enabled: boolean };
-	goodreads: { enabled: boolean };
 	hardcover: { enabled: boolean; apiKey: string };
-	amazon: { enabled: boolean; domain: string };
 	comicvine: { enabled: boolean; apiKey: string };
 	audible: { enabled: boolean; domain: string };
 }> {
@@ -513,11 +478,8 @@ export async function getMetadataProviderSettings(): Promise<{
 		googleEnabled,
 		googleApiKey,
 		openLibraryEnabled,
-		goodreadsEnabled,
 		hardcoverEnabled,
 		hardcoverApiKey,
-		amazonEnabled,
-		amazonDomain,
 		comicvineEnabled,
 		comicvineApiKey,
 		audibleEnabled,
@@ -526,11 +488,8 @@ export async function getMetadataProviderSettings(): Promise<{
 		getSettingAs<boolean>('metadata.googlebooks_enabled', 'boolean'),
 		getSetting('metadata.googlebooks_api_key'),
 		getSettingAs<boolean>('metadata.openlibrary_enabled', 'boolean'),
-		getSettingAs<boolean>('metadata.goodreads_enabled', 'boolean'),
 		getSettingAs<boolean>('metadata.hardcover_enabled', 'boolean'),
 		getSetting('metadata.hardcover_api_key'),
-		getSettingAs<boolean>('metadata.amazon_enabled', 'boolean'),
-		getSetting('metadata.amazon_domain'),
 		getSettingAs<boolean>('metadata.comicvine_enabled', 'boolean'),
 		getSetting('metadata.comicvine_api_key'),
 		getSettingAs<boolean>('metadata.audible_enabled', 'boolean'),
@@ -540,9 +499,7 @@ export async function getMetadataProviderSettings(): Promise<{
 	return {
 		googlebooks: { enabled: googleEnabled as boolean, apiKey: googleApiKey },
 		openlibrary: { enabled: openLibraryEnabled as boolean },
-		goodreads: { enabled: goodreadsEnabled as boolean },
 		hardcover: { enabled: hardcoverEnabled as boolean, apiKey: hardcoverApiKey },
-		amazon: { enabled: amazonEnabled as boolean, domain: amazonDomain },
 		comicvine: { enabled: comicvineEnabled as boolean, apiKey: comicvineApiKey },
 		audible: { enabled: audibleEnabled as boolean, domain: audibleDomain }
 	};

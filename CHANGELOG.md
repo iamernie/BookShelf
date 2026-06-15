@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.11] - 2026-06-14
+
+### Removed
+- **Goodreads Provider** - Removed (blocked by AWS WAF bot detection)
+- **Amazon Provider** - Removed (blocked by robot mitigation)
+  - These providers cannot work from server environments without a headless browser
+
+### Changed
+- **Open Library User-Agent** - Now identifies as BookShelf app for 3x rate limit (3 req/sec)
+
+### Working Providers
+- Google Books (with optional API key for higher quota)
+- Open Library
+- Audible (audiobooks with narrators)
+- Hardcover (requires free API key)
+- ComicVine (requires free API key)
+
 ## [2.9.10] - 2026-06-14
 
 ### Added

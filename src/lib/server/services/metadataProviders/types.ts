@@ -3,7 +3,7 @@
  * Common interfaces for all book metadata providers
  */
 
-export type MetadataProvider = 'openlibrary' | 'googlebooks' | 'goodreads' | 'hardcover' | 'amazon' | 'comicvine' | 'audible';
+export type MetadataProvider = 'openlibrary' | 'googlebooks' | 'hardcover' | 'comicvine' | 'audible';
 
 export interface BookMetadataResult {
 	provider: MetadataProvider;

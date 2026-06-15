@@ -21,25 +21,19 @@ async function configureProviders() {
 			apiKey: settings.googlebooks.apiKey
 		},
 		openlibrary: { enabled: settings.openlibrary.enabled, priority: 2 },
-		goodreads: { enabled: settings.goodreads.enabled, priority: 3 },
 		hardcover: {
 			enabled: settings.hardcover.enabled,
-			priority: 4,
+			priority: 3,
 			apiKey: settings.hardcover.apiKey
-		},
-		amazon: {
-			enabled: settings.amazon.enabled,
-			priority: 5,
-			domain: settings.amazon.domain as 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in'
 		},
 		comicvine: {
 			enabled: settings.comicvine.enabled,
-			priority: 6,
+			priority: 4,
 			apiKey: settings.comicvine.apiKey
 		},
 		audible: {
 			enabled: settings.audible.enabled,
-			priority: 7,
+			priority: 5,
 			domain: settings.audible.domain as 'com' | 'co.uk' | 'de' | 'fr' | 'it' | 'es' | 'ca' | 'com.au' | 'co.jp' | 'in'
 		}
 	});

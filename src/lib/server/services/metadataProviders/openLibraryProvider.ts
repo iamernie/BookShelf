@@ -19,8 +19,8 @@ import {
 
 const OPEN_LIBRARY_API = 'https://openlibrary.org';
 
-// Browser-like user agent
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0';
+// Open Library recommends identifying your app for 3x rate limit (3 req/sec vs 1 req/sec)
+const USER_AGENT = 'BookShelf/2.0 (https://github.com/iamernie/BookShelf)';
 
 // Simple in-memory cache (15 min TTL)
 const cache = new Map<string, { data: unknown; timestamp: number }>();
