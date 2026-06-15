@@ -49,9 +49,9 @@ export interface MetadataProvidersSettings {
 const DEFAULT_SETTINGS: MetadataProvidersSettings = {
 	googlebooks: { enabled: true, priority: 1 },
 	openlibrary: { enabled: true, priority: 2 },
-	goodreads: { enabled: true, priority: 3 },
+	goodreads: { enabled: false, priority: 3 }, // Disabled by default (blocked by bot detection)
 	hardcover: { enabled: false, priority: 4 }, // Disabled by default (requires API key)
-	amazon: { enabled: false, priority: 5, domain: 'com' }, // Disabled by default (web scraping, may be unreliable)
+	amazon: { enabled: false, priority: 5, domain: 'com' }, // Disabled by default (blocked by bot detection)
 	comicvine: { enabled: false, priority: 6 }, // Disabled by default (requires API key)
 	audible: { enabled: true, priority: 7, domain: 'com' } // Enabled by default, great for audiobooks
 };
@@ -76,6 +76,12 @@ class MetadataProviderRegistry {
 	 */
 	configure(settings: Partial<MetadataProvidersSettings>): void {
 		this.settings = { ...this.settings, ...settings };
+
+		// Update Google Books API key if provided
+		if (settings.googlebooks?.apiKey) {
+			const googleBooksProvider = this.providers.get('googlebooks') as GoogleBooksProvider;
+			googleBooksProvider.setApiKey(settings.googlebooks.apiKey);
+		}
 
 		// Update Hardcover API key if provided
 		if (settings.hardcover?.apiKey) {

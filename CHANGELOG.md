@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.10] - 2026-06-14
+
+### Added
+- **Google Books API Key Support** - Add optional API key for higher quota
+  - New setting `metadata.googlebooks_api_key` in admin settings
+  - Without API key: uses shared quota (often exhausted)
+  - With API key: 1000 requests/day free tier from Google Cloud
+
+### Changed
+- **Goodreads Disabled by Default** - Blocked by AWS WAF bot detection
+- **Amazon Disabled by Default** - Blocked by robot mitigation
+  - Both providers can still be enabled in settings but may not work from server environments
+
 ## [2.9.9] - 2026-06-14
 
 ### Fixed

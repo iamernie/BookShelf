@@ -64,6 +64,12 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 	readonly displayName = 'Google Books';
 	readonly requiresAuth = false;
 
+	private apiKey: string | null = null;
+
+	setApiKey(apiKey: string): void {
+		this.apiKey = apiKey || null;
+	}
+
 	async search(request: MetadataSearchRequest, limit = 10): Promise<BookMetadataResult[]> {
 		const response = await this.searchWithStatus(request, limit);
 		return response.results;
@@ -99,6 +105,9 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 			const url = new URL(GOOGLE_BOOKS_API_URL);
 			url.searchParams.set('q', query);
 			url.searchParams.set('maxResults', String(Math.min(limit, 40)));
+			if (this.apiKey) {
+				url.searchParams.set('key', this.apiKey);
+			}
 
 			const res = await fetch(url.toString(), {
 				headers: {
@@ -179,7 +188,12 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 		}
 
 		try {
-			const res = await fetch(`${GOOGLE_BOOKS_API_URL}/${providerId}`, {
+			const url = new URL(`${GOOGLE_BOOKS_API_URL}/${providerId}`);
+			if (this.apiKey) {
+				url.searchParams.set('key', this.apiKey);
+			}
+
+			const res = await fetch(url.toString(), {
 				headers: {
 					'Accept': 'application/json',
 					'Accept-Language': 'en-US,en;q=0.9',

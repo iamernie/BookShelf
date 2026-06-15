@@ -15,7 +15,11 @@ import { getMetadataProviderSettings } from '$lib/server/services/settingsServic
 async function configureProviders() {
 	const settings = await getMetadataProviderSettings();
 	metadataProviders.configure({
-		googlebooks: { enabled: settings.googlebooks.enabled, priority: 1 },
+		googlebooks: {
+			enabled: settings.googlebooks.enabled,
+			priority: 1,
+			apiKey: settings.googlebooks.apiKey
+		},
 		openlibrary: { enabled: settings.openlibrary.enabled, priority: 2 },
 		goodreads: { enabled: settings.goodreads.enabled, priority: 3 },
 		hardcover: {

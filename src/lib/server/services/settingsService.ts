@@ -196,6 +196,13 @@ export const DEFAULT_SETTINGS = {
 		label: 'Google Books',
 		description: 'Enable Google Books API for metadata lookups'
 	},
+	'metadata.googlebooks_api_key': {
+		value: '',
+		type: 'string',
+		category: 'metadata',
+		label: 'Google Books API Key',
+		description: 'API key from Google Cloud Console (optional, increases daily quota)'
+	},
 	'metadata.openlibrary_enabled': {
 		value: 'true',
 		type: 'boolean',
@@ -204,11 +211,11 @@ export const DEFAULT_SETTINGS = {
 		description: 'Enable Open Library API for metadata lookups'
 	},
 	'metadata.goodreads_enabled': {
-		value: 'true',
+		value: 'false',
 		type: 'boolean',
 		category: 'metadata',
 		label: 'Goodreads',
-		description: 'Enable Goodreads scraping for metadata (ratings, reviews, series)'
+		description: 'Enable Goodreads scraping for metadata (often blocked by bot detection)'
 	},
 	'metadata.hardcover_enabled': {
 		value: 'false',
@@ -494,7 +501,7 @@ export async function initializeSettings(): Promise<void> {
 
 // Get metadata provider settings
 export async function getMetadataProviderSettings(): Promise<{
-	googlebooks: { enabled: boolean };
+	googlebooks: { enabled: boolean; apiKey: string };
 	openlibrary: { enabled: boolean };
 	goodreads: { enabled: boolean };
 	hardcover: { enabled: boolean; apiKey: string };
@@ -504,6 +511,7 @@ export async function getMetadataProviderSettings(): Promise<{
 }> {
 	const [
 		googleEnabled,
+		googleApiKey,
 		openLibraryEnabled,
 		goodreadsEnabled,
 		hardcoverEnabled,
@@ -516,6 +524,7 @@ export async function getMetadataProviderSettings(): Promise<{
 		audibleDomain
 	] = await Promise.all([
 		getSettingAs<boolean>('metadata.googlebooks_enabled', 'boolean'),
+		getSetting('metadata.googlebooks_api_key'),
 		getSettingAs<boolean>('metadata.openlibrary_enabled', 'boolean'),
 		getSettingAs<boolean>('metadata.goodreads_enabled', 'boolean'),
 		getSettingAs<boolean>('metadata.hardcover_enabled', 'boolean'),
@@ -529,7 +538,7 @@ export async function getMetadataProviderSettings(): Promise<{
 	]);
 
 	return {
-		googlebooks: { enabled: googleEnabled as boolean },
+		googlebooks: { enabled: googleEnabled as boolean, apiKey: googleApiKey },
 		openlibrary: { enabled: openLibraryEnabled as boolean },
 		goodreads: { enabled: goodreadsEnabled as boolean },
 		hardcover: { enabled: hardcoverEnabled as boolean, apiKey: hardcoverApiKey },
