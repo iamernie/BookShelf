@@ -37,6 +37,7 @@ export class OpenLibraryProvider implements MetadataProviderInterface {
 	}
 
 	async searchWithStatus(request: MetadataSearchRequest, limit = 10): Promise<MetadataSearchResponse> {
+		console.log('[openlibrary] searchWithStatus called:', { request, limit });
 		let query = '';
 
 		// Build search query

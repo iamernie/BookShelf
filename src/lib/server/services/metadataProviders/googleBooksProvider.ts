@@ -76,6 +76,7 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 	}
 
 	async searchWithStatus(request: MetadataSearchRequest, limit = 10): Promise<MetadataSearchResponse> {
+		console.log('[googlebooks] searchWithStatus called:', { request, limit, hasApiKey: !!this.apiKey });
 		let query = '';
 
 		// Build search query
@@ -109,6 +110,7 @@ export class GoogleBooksProvider implements MetadataProviderInterface {
 				url.searchParams.set('key', this.apiKey);
 			}
 
+			console.log('[googlebooks] Fetching:', url.toString().replace(/key=[^&]+/, 'key=***'));
 			const res = await fetch(url.toString(), {
 				headers: {
 					'Accept': 'application/json',

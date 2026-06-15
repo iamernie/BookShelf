@@ -14,6 +14,13 @@ import { getMetadataProviderSettings } from '$lib/server/services/settingsServic
 // Configure providers from database settings
 async function configureProviders() {
 	const settings = await getMetadataProviderSettings();
+	console.log('[metadata-search] Provider settings:', {
+		googlebooks: { enabled: settings.googlebooks.enabled, hasApiKey: !!settings.googlebooks.apiKey },
+		openlibrary: { enabled: settings.openlibrary.enabled },
+		hardcover: { enabled: settings.hardcover.enabled, hasApiKey: !!settings.hardcover.apiKey },
+		comicvine: { enabled: settings.comicvine.enabled, hasApiKey: !!settings.comicvine.apiKey },
+		audible: { enabled: settings.audible.enabled, domain: settings.audible.domain }
+	});
 	metadataProviders.configure({
 		googlebooks: {
 			enabled: settings.googlebooks.enabled,
@@ -61,6 +68,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'At least one of title, author, or isbn is required');
 	}
 
+	console.log('[metadata-search] POST request:', { title, author, isbn, providers, limit });
+
 	try {
 		const results = await metadataProviders.searchAllWithStatus(
 			{ title, author, isbn },
@@ -75,7 +84,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				error: providerResponse.error,
 				errorCode: providerResponse.errorCode
 			};
+			console.log('[metadata-search] Results from', provider, ':', providerResponse.results.length, providerResponse.error ? `(${providerResponse.error})` : '');
 		}
+
+		console.log('[metadata-search] Total providers searched:', Object.keys(resultsObject).length);
 
 		return json({
 			success: true,

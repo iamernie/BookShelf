@@ -103,6 +103,7 @@ export class AudibleProvider implements MetadataProviderInterface {
 	}
 
 	async searchWithStatus(request: MetadataSearchRequest, limit = 10): Promise<MetadataSearchResponse> {
+		console.log('[audible] searchWithStatus called:', { request, limit });
 		// Build search query - Audible uses 'keywords' for general search
 		const params = new URLSearchParams();
 
