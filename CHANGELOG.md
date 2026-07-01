@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.17] - 2026-06-30
+
+### Security
+- **Dependencies** - Updated Vite to 6.4.3 and Nodemailer to 9.0.3 to resolve Dependabot security alerts.
+
 ## [2.9.16] - 2026-06-15
 
 ### Fixed
