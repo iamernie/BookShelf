@@ -1245,3 +1245,4 @@ This is the first stable release of BookShelf V2, a complete rewrite from the gr
 - OPDS feed support
 - Dark mode
 - Mobile-responsive design
+- v2.9.18: Security updates — drizzle-orm, xmldom, vite, nodemailer, svelte, lodash CVE fixes
