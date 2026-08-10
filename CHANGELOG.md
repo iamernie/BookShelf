@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.19] - 2026-08-10
+
+### Security
+- **pdfjs-dist** - Updated from 5.7.284 to 6.2.108 to resolve high-severity Dependabot alert (CVE-2026-16633: arbitrary JavaScript execution via malicious PDF).
+
 ## [2.9.17] - 2026-06-30
 
 ### Security

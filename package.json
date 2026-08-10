@@ -1,6 +1,6 @@
 {
   "name": "bookshelf",
-  "version": "2.9.18",
+  "version": "2.9.19",
   "description": "Personal book library management application",
   "private": true,
   "type": "module",
@@ -47,7 +47,7 @@
     "music-metadata": "^11.12.3",
     "nodemailer": "^9.0.3",
     "openid-client": "^6.8.1",
-    "pdfjs-dist": "^5.4.449",
+    "pdfjs-dist": "^6.2.108",
     "rollup": "^4.59.0",
     "swagger-ui-dist": "^5.31.0",
     "winston": "^3.19.0",
