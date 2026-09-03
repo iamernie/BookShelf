@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.21] - 2026-09-02
+
+### Security
+- **browserslist** - Added override to ^4.28.7 to resolve high-severity Dependabot alert (transitive dependency via autoprefixer).
+- **postcss-selector-parser** - Added override to ^6.1.3 to resolve low-severity Dependabot alert (transitive dependency via tailwindcss/postcss-nested).
+
 ## [2.9.20] - 2026-09-02
 
 ### Security
