@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.20] - 2026-09-02
+
+### Security
+- **@xmldom/xmldom** - Updated override from ^0.9.10 to ^0.9.12 to resolve moderate-severity Dependabot alert (CVE-2026-83610), transitive dependency via epubjs.
+
 ## [2.9.19] - 2026-08-10
 
 ### Security
