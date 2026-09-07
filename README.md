@@ -218,3 +218,11 @@ MIT - Do what you want, just don't blame me if it eats your homework.
 ---
 
 **Happy reading!**
+
+---
+
+## Development & Contributions
+
+> **Note:** The GitHub copy of this repository (github.com/iamernie/BookShelf) is a **read-only mirror used for CI/CD builds only** (Docker images via GitHub Actions + Dependabot scanning).
+>
+> **All pull requests, issues, and bug reports should go to the primary repo on Forgejo:** [https://git.ernieverse.net/ernie/BookShelf](https://git.ernieverse.net/ernie/BookShelf)
