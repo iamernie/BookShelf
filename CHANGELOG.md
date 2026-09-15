@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.22] - 2026-09-15
+
+### Security
+
+- **nodemailer** - Updated to ^9.1.1 to resolve 4 Dependabot alerts: resolveContent() MailMessage bypass (MEDIUM), O(n^2) addressparser DoS (HIGH), IDN/Punycode domain allow-list bypass (MEDIUM), RFC 5322 comment mis-parse (MEDIUM).
+- **@sveltejs/kit** - Refreshed to 2.70.3 (devDependency, in-range) to clear moderate advisory affecting <= 2.70.1.
+- **nanoid** - Transitive bump to 3.3.19 to clear high advisory affecting < 3.3.18.
+
+Known remaining: adm-zip (via epub2) advisory has no patched release yet (advisory first-patched: none; fix would require downgrading epub2 to 2.0.7). npm audit: 2 moderate remaining (adm-zip pair only).
+
 ## [2.9.21] - 2026-09-02
 
 ### Security
