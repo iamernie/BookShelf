@@ -9,6 +9,10 @@ import { migrationStatus } from '$lib/server/db';
 
 const log = createLogger('hooks');
 
+// Optional analytics snippet (operator-set env var, full script tag).
+// Injected before </body> on rendered pages; unset = zero markup emitted.
+const UMAMI_SNIPPET = process.env.UMAMI_SNIPPET?.trim() || null;
+
 // Security headers to add to all responses
 const securityHeaders: Record<string, string> = {
 	'X-Frame-Options': 'SAMEORIGIN',
@@ -209,7 +213,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Log request with timing
 	const start = Date.now();
-	const response = await resolve(event);
+	const response = await resolve(event, UMAMI_SNIPPET ? {
+		transformPageChunk: ({ html, done }) =>
+			(done && html.includes('</body>') ? html.replace('</body>', `${UMAMI_SNIPPET}</body>`) : html)
+	} : undefined);
 	const duration = Date.now() - start;
 
 	logRequest(event.request.method, event.url.pathname, response.status, duration);

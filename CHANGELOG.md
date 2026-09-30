@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.23] - 2026-09-30
+
+### Security
+
+- **adm-zip** - Override bumped to ^0.6.1: resolves uncontrolled memory allocation via declared uncompressed size (HIGH) and moves the lockfile out of the vulnerable 0.5.9-0.6.0 symlink-traversal range (MEDIUM).
+- **devalue** - Override bumped to ^5.9.2: resolves DoS via malformed input (MEDIUM).
+- **nodemailer** - Updated to ^10.0.13: resolves 5 HIGH advisories (process-global DNS cache TLS servername reuse, nested structured recipient stack exhaustion, RFC 5322 comment parsing malformed envelope, addressparser quadratic backtracking, O(n^2) comment-joined address DoS). BookShelf uses only createTransport/sendMail, which is unchanged in v10.
+- **moment** - Override added at ^2.31.0: resolves path traversal via crafted non-string locale name (MODERATE, transitive via winston-daily-rotate-file).
+
+### Added
+
+- **Analytics injection** - Optional `UMAMI_SNIPPET` env var (full script tag) injects a tracker before `</body>` on server-rendered pages; unset = zero markup. Repos stay analytics-clean for public mirrors; the value is operator-set in the deployment environment only.
 ## [2.9.22] - 2026-09-15
 
 ### Security
