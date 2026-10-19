@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.25] - 2026-10-19
+
+### Security
+
+- **postcss-selector-parser** - Override bumped from ^6.1.3 to ^7.1.6: resolves MEDIUM quadratic-complexity CPU exhaustion in flat selector parsing (development/build chain only, no runtime surface).
+
+
 ## [2.9.24] - 2026-10-19
 
 ### Security
