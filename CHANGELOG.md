@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.24] - 2026-10-19
+
+### Security
+
+- **music-metadata** - Updated direct dependency from ^11.12.3 to ^11.16.0 (locked 11.16.1): resolves 5 MEDIUM advisories - MP4 stsd sample-entry infinite loop, APEv2 parser uncontrolled memory allocation, EBML element-length memory exhaustion, ID3v2 tag-size memory-extinction DoS, and uncatchable process crash parsing a crafted .dsf. BookShelf parses user-supplied audiobook files, so these are real attack surface, not lint.
+- **source-map-js** - Override added at ^1.2.2 (transitive via postcss@8.5.23): resolves HIGH event-loop DoS through indexed source-map section offsets.
+- The remaining open Dependabot alerts (adm-zip, nodemailer, devalue, moment families) are false positives: the lockfile and production code are already at or past every patched version. A manifest-touching commit nudges GitHub's dependency graph to re-analyze; they should auto-close within 5-20 minutes.
+
+
 ## [2.9.23] - 2026-09-30
 
 ### Security
