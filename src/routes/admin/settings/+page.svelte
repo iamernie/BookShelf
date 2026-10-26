@@ -2,8 +2,9 @@
 	import {
 		Settings, FolderOpen, BookOpen, Monitor, Rss, Upload, Save, Check,
 		AlertCircle, Loader2, Database, Sparkles, Eye, EyeOff, FileText,
-		HelpCircle, UserPlus, KeyRound, Users, Shield, Mail, Send, Bell, Hash, Plug, Headphones, RefreshCw
+		HelpCircle, UserPlus, KeyRound, Users, Shield, Mail, Send, Bell, Hash, Plug, Headphones, RefreshCw, Search
 	} from 'lucide-svelte';
+	import AbsLinkModal from '$lib/components/audiobook/AbsLinkModal.svelte';
 
 	interface Placeholder {
 		placeholder: string;
@@ -101,6 +102,33 @@
 	let absTestResult = $state<{ success: boolean; message: string } | null>(null);
 	let syncingAbs = $state(false);
 	let absSyncResult = $state<{ success: boolean; message: string } | null>(null);
+	const absSyncHours = $derived(editedSettings['integration.abs_sync_interval_hours'] || '6');
+
+	// Audiobookshelf manual linking
+	let absLinkStats = $state<{ linkedCount: number; unlinkedCount: number; unlinked: { id: number; title: string; author: string | null }[] } | null>(null);
+	let absLinkStatsError = $state('');
+	let absLinkTarget = $state<{ id: number; title: string } | null>(null);
+
+	async function loadAbsLinkStats() {
+		absLinkStatsError = '';
+		try {
+			const res = await fetch('/api/v1/admin/abs/unlinked');
+			const body = await res.json();
+			if (!res.ok) throw new Error(body.message || 'Failed to load audiobooks');
+			absLinkStats = body;
+		} catch (e) {
+			absLinkStatsError = e instanceof Error ? e.message : 'Failed to load audiobooks';
+		}
+	}
+
+	$effect(() => {
+		if (activeTab === 'integrations' && data.isAdmin && absLinkStats === null && !absLinkStatsError) loadAbsLinkStats();
+	});
+
+	function clampAbsSyncHours(value: string): string {
+		const n = parseInt(value, 10);
+		return String(Number.isNaN(n) ? 6 : Math.min(48, Math.max(1, n)));
+	}
 
 	// ntfy test state
 	let testingNtfy = $state(false);
@@ -967,7 +995,7 @@
 					<div class="p-4 flex items-start gap-4">
 						<div class="flex-1">
 							<label class="font-medium" style="color: var(--text-primary);">Enable Audiobookshelf</label>
-							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Sync every 6 hours and show the Listen on Audiobookshelf button on linked books</p>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Sync every {absSyncHours} hours and show the Listen on Audiobookshelf button on linked books</p>
 						</div>
 						<div class="w-72">
 							<button
@@ -1050,6 +1078,32 @@
 							{/if}
 						</div>
 					</div>
+
+					<!-- Sync Interval -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label for="integration.abs_sync_interval_hours" class="font-medium" style="color: var(--text-primary);">Sync every N hours</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">How often the automatic sync runs (1-48 hours). Takes effect without a restart.</p>
+						</div>
+						<div class="w-72">
+							<input
+								type="number"
+								id="integration.abs_sync_interval_hours"
+								min="1"
+								max="48"
+								step="1"
+								value={editedSettings['integration.abs_sync_interval_hours'] ?? '6'}
+								onchange={(e) => {
+									const input = e.target as HTMLInputElement;
+									input.value = clampAbsSyncHours(input.value);
+									updateSetting('integration.abs_sync_interval_hours', input.value);
+								}}
+								disabled={!data.isAdmin}
+								class="w-full px-3 py-2 rounded-lg text-sm"
+								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							/>
+						</div>
+					</div>
 				</div>
 
 				<!-- Connection & Sync -->
@@ -1103,13 +1157,89 @@
 				</div>
 			</div>
 
+			<!-- Unlinked audiobooks -->
+			{#if data.isAdmin}
+				<div class="rounded-xl overflow-hidden" style="background: var(--bg-secondary);">
+					<div class="p-4 border-b flex items-center justify-between gap-3" style="border-color: var(--border-color);">
+						<div>
+							<h2 class="text-lg font-semibold" style="color: var(--text-primary);">Unlinked audiobooks</h2>
+							<p class="text-sm" style="color: var(--text-muted);">
+								{#if absLinkStats}
+									{absLinkStats.unlinkedCount} unlinked · {absLinkStats.linkedCount} linked
+								{:else if !absLinkStatsError}
+									Loading...
+								{/if}
+							</p>
+						</div>
+						<button
+							type="button"
+							class="p-2 rounded-lg"
+							style="color: var(--text-muted);"
+							onclick={loadAbsLinkStats}
+							title="Refresh"
+							aria-label="Refresh unlinked audiobooks"
+						>
+							<RefreshCw class="w-4 h-4" />
+						</button>
+					</div>
+					{#if absLinkStatsError}
+						<p class="p-4 text-sm" style="color: #ef4444;">{absLinkStatsError}</p>
+					{:else if absLinkStats && absLinkStats.unlinked.length === 0}
+						<p class="p-4 text-sm" style="color: var(--text-muted);">Every audiobook is linked to Audiobookshelf.</p>
+					{:else if absLinkStats}
+						<div class="divide-y max-h-[28rem] overflow-y-auto" style="border-color: var(--border-color);">
+							{#each absLinkStats.unlinked as book (book.id)}
+								<div class="px-4 py-3 flex items-center gap-4">
+									<div class="flex-1 min-w-0">
+										<a href="/books/{book.id}" class="font-medium truncate block hover:underline" style="color: var(--text-primary);">{book.title}</a>
+										<p class="text-sm truncate" style="color: var(--text-muted);">{book.author || 'Unknown author'}</p>
+									</div>
+									<button
+										type="button"
+										class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium flex-shrink-0"
+										style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+										onclick={() => absLinkTarget = { id: book.id, title: book.title }}
+										disabled={editedSettings['integration.abs_enabled'] !== 'true'}
+										title={editedSettings['integration.abs_enabled'] === 'true' ? 'Search Audiobookshelf for this book' : 'Enable and save the integration first'}
+									>
+										<Search class="w-4 h-4" />
+										Find match
+									</button>
+								</div>
+							{/each}
+							{#if absLinkStats.unlinkedCount > absLinkStats.unlinked.length}
+								<p class="px-4 py-3 text-sm" style="color: var(--text-muted);">
+									Showing the first {absLinkStats.unlinked.length} of {absLinkStats.unlinkedCount}.
+								</p>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				<AbsLinkModal
+					open={absLinkTarget !== null}
+					bookId={absLinkTarget?.id ?? null}
+					initialQuery={absLinkTarget?.title ?? ''}
+					onClose={() => absLinkTarget = null}
+					onLinked={(bookId) => {
+						if (absLinkStats) {
+							absLinkStats = {
+								linkedCount: absLinkStats.linkedCount + 1,
+								unlinkedCount: absLinkStats.unlinkedCount - 1,
+								unlinked: absLinkStats.unlinked.filter((b) => b.id !== bookId)
+							};
+						}
+					}}
+				/>
+			{/if}
+
 			<!-- Audiobookshelf info box -->
 			<div class="p-4 rounded-lg" style="background: var(--bg-secondary);">
 				<h3 class="font-medium mb-2" style="color: var(--text-primary);">About Audiobookshelf Sync</h3>
 				<p class="text-sm" style="color: var(--text-muted);">
 					When enabled, BookShelf syncs with the audiobook library on your
 					<a href="https://www.audiobookshelf.org" target="_blank" rel="noopener" class="underline" style="color: var(--accent);">Audiobookshelf</a>
-					server every 6 hours. Books added in the last 14 days are linked by ASIN (or by a single exact title match),
+					server every {absSyncHours} hours. Books added in the last 14 days are linked by ASIN (or by a single exact title match),
 					and audiobooks that are not yet in BookShelf are added with the Audio format and Unread status.
 					Save your changes before using Sync Now.
 				</p>

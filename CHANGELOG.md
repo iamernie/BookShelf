@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-10-26
+
+### Added
+
+- **Manual Audiobookshelf linking on the book page** - Admins (with the integration enabled) can link a book by hand.
+  - Unlinked books with the Audio/Audiobook format show **Find on Audiobookshelf**, which opens a search panel pre-filled with the title; the query is editable, and clicking a result links the book so the **Listen on Audiobookshelf** button appears
+  - Linked books show **Change link** (same panel) and an **Unlink** control
+- **Unlinked audiobooks list** - The Integrations tab lists Audio/Audiobook-format books with no Audiobookshelf link (title, author, **Find match**), with unlinked and linked counts
+- **Configurable sync interval** - **Sync every N hours** on the Integrations tab (`integration.abs_sync_interval_hours`, 1-48, default 6). The scheduler re-reads it every check, so changes apply without a restart.
+- **Admin endpoints** - `GET /api/v1/admin/abs/search?q=&limit=20` (Audiobookshelf library search: `id`, `title`, `authorName`, `narratorName`, `asin`) and `GET /api/v1/admin/abs/unlinked` (linked/unlinked counts and the unlinked list)
+
 ## [2.11.0] - 2026-10-26
 
 ### Added

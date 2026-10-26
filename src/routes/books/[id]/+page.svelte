@@ -35,6 +35,7 @@
 		Loader2,
 		BookPlus,
 		AlertTriangle,
+		Unlink,
 		ExternalLink as LinkIcon
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
@@ -44,6 +45,7 @@
 	import AudioPlayer from '$lib/components/audiobook/AudioPlayer.svelte';
 	import InlineTagEditor from '$lib/components/tag/InlineTagEditor.svelte';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
+	import AbsLinkModal from '$lib/components/audiobook/AbsLinkModal.svelte';
 	import { RefreshCw } from 'lucide-svelte';
 
 	import { browser } from '$app/environment';
@@ -94,6 +96,30 @@
 	const hasEbook = $derived(!!data.book.ebookPath);
 	const hasAudiobook = $derived(data.linkedAudiobooks.length > 0);
 	const hasAnyMedia = $derived(hasEbook || hasAudiobook);
+
+	// Audiobookshelf manual linking (admins, integration enabled)
+	const canLinkAbs = $derived(!!data.absBaseUrl && data.isAdmin);
+	const isAudioFormat = $derived(['audio', 'audiobook'].includes(data.book.format?.name?.trim().toLowerCase() ?? ''));
+	let showAbsLinkModal = $state(false);
+	let unlinkingAbs = $state(false);
+
+	async function unlinkAbs() {
+		unlinkingAbs = true;
+		try {
+			const res = await fetch(`/api/books/${data.book.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ absItemId: '' })
+			});
+			if (!res.ok) throw new Error();
+			toasts.success('Unlinked from Audiobookshelf');
+			await invalidateAll();
+		} catch {
+			toasts.error('Failed to unlink from Audiobookshelf');
+		} finally {
+			unlinkingAbs = false;
+		}
+	}
 
 	// Helper for formatting audiobook duration
 	function formatDuration(seconds: number): string {
@@ -690,6 +716,43 @@
 						<span class="hidden xs:inline">Listen on Audiobookshelf</span>
 						<ExternalLink class="w-3 h-3" />
 					</a>
+					{#if canLinkAbs}
+						<button
+							type="button"
+							class="text-xs underline px-1"
+							style="color: var(--text-muted);"
+							onclick={() => showAbsLinkModal = true}
+							title="Link this book to a different Audiobookshelf item"
+						>
+							Change link
+						</button>
+						<button
+							type="button"
+							class="p-1.5 rounded-lg"
+							style="color: var(--text-muted);"
+							onclick={unlinkAbs}
+							disabled={unlinkingAbs}
+							title="Unlink from Audiobookshelf"
+							aria-label="Unlink from Audiobookshelf"
+						>
+							{#if unlinkingAbs}
+								<Loader2 class="w-4 h-4 animate-spin" />
+							{:else}
+								<Unlink class="w-4 h-4" />
+							{/if}
+						</button>
+					{/if}
+				{:else if canLinkAbs && isAudioFormat}
+					<button
+						type="button"
+						class="btn-ghost flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
+						style="background: var(--bg-tertiary);"
+						onclick={() => showAbsLinkModal = true}
+						title="Find this book on Audiobookshelf and link it"
+					>
+						<Search class="w-4 h-4" />
+						<span class="hidden xs:inline">Find on Audiobookshelf</span>
+					</button>
 				{/if}
 				{#if data.linkedAudiobooks.length > 0}
 					{@const anyAudioMissing = data.audiobookData.some(a => a.filesMissing)}
@@ -1998,6 +2061,19 @@
 	onClose={() => showMetadataModal = false}
 	onApply={applyMetadataResult}
 />
+
+{#if canLinkAbs}
+	<AbsLinkModal
+		open={showAbsLinkModal}
+		bookId={data.book.id}
+		initialQuery={data.book.title}
+		onClose={() => showAbsLinkModal = false}
+		onLinked={() => {
+			toasts.success('Linked to Audiobookshelf');
+			invalidateAll();
+		}}
+	/>
+{/if}
 
 <style>
 	/* Inline Edit Button */

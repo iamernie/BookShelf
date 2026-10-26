@@ -90,6 +90,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 		audiobookData,
 		autoPlayAudiobook,
 		canManagePublicLibrary: canManagePublicLibrary(locals.user),
+		isAdmin: locals.user?.role === 'admin',
 		allTags,
 		allStatuses,
 		allMediaSources,

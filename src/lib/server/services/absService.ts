@@ -5,6 +5,7 @@
  *   integration.abs_enabled   - master toggle
  *   integration.abs_base_url  - ABS server URL
  *   integration.abs_api_key   - ABS API key (sent as x-api-key)
+ *   integration.abs_sync_interval_hours - hours between automatic syncs (1-48)
  *
  * When the integration is disabled or not configured, every public function no-ops.
  *
@@ -16,8 +17,8 @@
  */
 
 import { db } from '$lib/server/db';
-import { books, authors, narrators, formats, statuses, users } from '$lib/server/db/schema';
-import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { books, authors, bookAuthors, narrators, formats, statuses, users } from '$lib/server/db/schema';
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { getSetting, getSettingAs, setSetting } from './settingsService';
 import { createBook } from './bookService';
 import { createLogger } from './loggerService';
@@ -27,7 +28,12 @@ const log = createLogger('abs');
 const REQUEST_TIMEOUT_MS = 15_000;
 const PAGE_SIZE = 100;
 const LINK_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
-const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const SYNC_INTERVAL_DEFAULT_HOURS = 6;
+const SYNC_INTERVAL_MIN_HOURS = 1;
+const SYNC_INTERVAL_MAX_HOURS = 48;
+const SEARCH_DEFAULT_LIMIT = 20;
+const SEARCH_MAX_LIMIT = 50;
+const UNLINKED_LIST_LIMIT = 500;
 const SCHEDULER_TICK_MS = 15 * 60 * 1000;
 const SCHEDULER_FIRST_TICK_MS = 60 * 1000;
 
@@ -68,6 +74,26 @@ export interface AbsTestResult {
 	error?: string;
 }
 
+export interface AbsSearchResult {
+	id: string;
+	title: string;
+	authorName: string | null;
+	narratorName: string | null;
+	asin: string | null;
+}
+
+export interface UnlinkedAudiobook {
+	id: number;
+	title: string;
+	author: string | null;
+}
+
+export interface AbsLinkStats {
+	linkedCount: number;
+	unlinkedCount: number;
+	unlinked: UnlinkedAudiobook[];
+}
+
 export interface AbsSyncResult {
 	ok: boolean;
 	skipped?: boolean;
@@ -106,6 +132,13 @@ export async function getAbsLinkBaseUrl(): Promise<string | null> {
 		getSetting('integration.abs_base_url')
 	]);
 	return enabled ? normalizeBaseUrl(baseUrl) || null : null;
+}
+
+/** Automatic sync interval in hours, clamped to 1-48 (default 6). */
+export async function getAbsSyncIntervalHours(): Promise<number> {
+	const hours = await getSettingAs<number>('integration.abs_sync_interval_hours', 'number');
+	if (!Number.isFinite(hours)) return SYNC_INTERVAL_DEFAULT_HOURS;
+	return Math.min(SYNC_INTERVAL_MAX_HOURS, Math.max(SYNC_INTERVAL_MIN_HOURS, hours));
 }
 
 // ============================================
@@ -231,6 +264,12 @@ async function ensureAudioFormat(): Promise<number> {
 	return created.id;
 }
 
+async function getAudioFormatIds(): Promise<number[]> {
+	const rows = await db.select({ id: formats.id }).from(formats)
+		.where(sql`LOWER(${formats.name}) IN ('audio', 'audiobook')`);
+	return rows.map((r) => r.id);
+}
+
 async function getUnreadStatusId(): Promise<number | null> {
 	const [byName] = await db.select({ id: statuses.id }).from(statuses)
 		.where(sql`LOWER(${statuses.name}) = 'unread'`).limit(1);
@@ -268,6 +307,66 @@ export async function testAbsConnection(overrides: { baseUrl?: string; apiKey?: 
 	} catch (err) {
 		return { ok: false, error: describeError(err) };
 	}
+}
+
+/** Search the ABS audiobook library for manual linking. Throws when the integration is unusable. */
+export async function searchAbsItems(query: string, limit = SEARCH_DEFAULT_LIMIT): Promise<AbsSearchResult[]> {
+	const config = await getAbsConfig();
+	if (!config.enabled) throw new Error('Audiobookshelf integration is disabled');
+	if (!isUsable(config)) throw new Error('Audiobookshelf URL or API key is not set');
+
+	try {
+		const library = pickAudiobookLibrary(await getLibraries(config));
+		if (!library) throw new Error('No libraries found on Audiobookshelf');
+
+		const max = Math.min(SEARCH_MAX_LIMIT, Math.max(1, Math.floor(limit) || SEARCH_DEFAULT_LIMIT));
+		const items = await searchLibrary(config, library.id, query);
+		return items.slice(0, max).map((item) => ({
+			id: item.id,
+			title: itemTitle(item),
+			authorName: itemAuthors(item).join(', ') || null,
+			narratorName: itemNarrators(item).join(', ') || null,
+			asin: item.media?.metadata?.asin?.trim() || null
+		}));
+	} catch (err) {
+		throw new Error(describeError(err));
+	}
+}
+
+/** Linked/unlinked counts for audio-format books, plus the unlinked list (title order, capped). */
+export async function getAbsLinkStats(): Promise<AbsLinkStats> {
+	const formatIds = await getAudioFormatIds();
+	if (formatIds.length === 0) return { linkedCount: 0, unlinkedCount: 0, unlinked: [] };
+
+	const isAudio = inArray(books.formatId, formatIds);
+	const [[linked], [unlinkedTotal], rows] = await Promise.all([
+		db.select({ n: count() }).from(books).where(and(isAudio, isNotNull(books.absItemId))),
+		db.select({ n: count() }).from(books).where(and(isAudio, isNull(books.absItemId))),
+		db.select({ id: books.id, title: books.title }).from(books)
+			.where(and(isAudio, isNull(books.absItemId)))
+			.orderBy(asc(sql`LOWER(${books.title})`))
+			.limit(UNLINKED_LIST_LIMIT)
+	]);
+
+	// Primary (lowest displayOrder) author per book
+	const authorByBook = new Map<number, string>();
+	if (rows.length > 0) {
+		const authorRows = await db
+			.select({ bookId: bookAuthors.bookId, name: authors.name })
+			.from(bookAuthors)
+			.innerJoin(authors, eq(bookAuthors.authorId, authors.id))
+			.where(inArray(bookAuthors.bookId, rows.map((r) => r.id)))
+			.orderBy(asc(bookAuthors.displayOrder), asc(bookAuthors.id));
+		for (const r of authorRows) {
+			if (!authorByBook.has(r.bookId)) authorByBook.set(r.bookId, r.name);
+		}
+	}
+
+	return {
+		linkedCount: linked?.n ?? 0,
+		unlinkedCount: unlinkedTotal?.n ?? 0,
+		unlinked: rows.map((r) => ({ id: r.id, title: r.title, author: authorByBook.get(r.id) ?? null }))
+	};
 }
 
 /**
@@ -476,9 +575,11 @@ async function schedulerTick(): Promise<void> {
 		const config = await getAbsConfig();
 		if (!isUsable(config)) return;
 
+		// Re-read each tick so interval changes apply without a restart
+		const intervalMs = (await getAbsSyncIntervalHours()) * 60 * 60 * 1000;
 		const lastSync = await getSetting('integration.abs_last_sync');
 		const lastTime = lastSync ? new Date(lastSync).getTime() : 0;
-		if (!Number.isNaN(lastTime) && Date.now() - lastTime < SYNC_INTERVAL_MS) return;
+		if (!Number.isNaN(lastTime) && Date.now() - lastTime < intervalMs) return;
 
 		await runAbsSync();
 	} catch (err) {
@@ -488,7 +589,7 @@ async function schedulerTick(): Promise<void> {
 
 /**
  * Start the background sync loop (idempotent). Checks every 15 minutes and
- * runs a sync when enabled and the last run is 6+ hours old.
+ * runs a sync when enabled and the last run is older than the configured interval.
  */
 export function startAbsScheduler(): void {
 	const g = globalThis as SchedulerGlobal;

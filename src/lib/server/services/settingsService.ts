@@ -359,6 +359,13 @@ export const DEFAULT_SETTINGS = {
 		label: 'Audiobookshelf API Key',
 		description: 'API key from Audiobookshelf (Settings → Users → your user → API Token, or Settings → API Keys)'
 	},
+	'integration.abs_sync_interval_hours': {
+		value: '6',
+		type: 'number',
+		category: 'integrations',
+		label: 'Audiobookshelf Sync Interval',
+		description: 'Hours between automatic Audiobookshelf syncs (1-48)'
+	},
 	'integration.abs_last_sync': {
 		value: '',
 		type: 'string',
