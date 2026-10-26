@@ -90,6 +90,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				isbn10: book.isbn10,
 				isbn13: book.isbn13,
 				asin: book.asin,
+				absItemId: book.absItemId,
 				goodreadsId: book.goodreadsId,
 				googleBooksId: book.googleBooksId,
 				providerRating: book.providerRating,
@@ -226,6 +227,7 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (body.isbn10 !== undefined) updateData.isbn10 = body.isbn10;
 		if (body.isbn13 !== undefined) updateData.isbn13 = body.isbn13;
 		if (body.asin !== undefined) updateData.asin = body.asin;
+		if (body.absItemId !== undefined) updateData.absItemId = typeof body.absItemId === 'string' ? body.absItemId.trim() || null : null;
 		if (body.goodreadsId !== undefined) updateData.goodreadsId = body.goodreadsId;
 		if (body.googleBooksId !== undefined) updateData.googleBooksId = body.googleBooksId;
 		if (body.publisher !== undefined) updateData.publisher = body.publisher;

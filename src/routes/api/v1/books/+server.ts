@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
 import { createBook, type CreateBookData } from '$lib/server/services/bookService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators, users } from '$lib/server/db';
-import { eq, sql, desc, and, inArray } from 'drizzle-orm';
+import { eq, sql, desc, and, inArray, isNull } from 'drizzle-orm';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
@@ -44,6 +44,8 @@ export const GET: RequestHandler = async ({ url }) => {
 	const genreFilter = url.searchParams.get('genre');
 	const authorFilter = url.searchParams.get('author');
 	const seriesFilter = url.searchParams.get('series');
+	// absLinked=false returns only books not yet linked to an Audiobookshelf item
+	const absLinked = url.searchParams.get('absLinked') === 'false' ? false : undefined;
 
 	try {
 		// Build conditions
@@ -52,6 +54,10 @@ export const GET: RequestHandler = async ({ url }) => {
 		// Search by title
 		if (search) {
 			conditions.push(sql`LOWER(${books.title}) LIKE LOWER(${'%' + search + '%'})`);
+		}
+
+		if (absLinked === false) {
+			conditions.push(isNull(books.absItemId));
 		}
 
 		if (statusFilter) {
@@ -154,6 +160,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				isbn10: book.isbn10,
 				isbn13: book.isbn13,
 				asin: book.asin,
+				absItemId: book.absItemId,
 				goodreadsId: book.goodreadsId,
 				googleBooksId: book.googleBooksId,
 				publisher: book.publisher,
@@ -296,6 +303,7 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			isbn10: body.isbn10,
 			isbn13: body.isbn13,
 			asin: body.asin,
+			absItemId: typeof body.absItemId === 'string' ? body.absItemId.trim() || null : null,
 			goodreadsId: body.goodreadsId,
 			googleBooksId: body.googleBooksId,
 			publisher: body.publisher,

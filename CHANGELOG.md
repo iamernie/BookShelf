@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-10-25
+
+### Fixed
+
+- **Audiobookshelf link on the v1 API** - 2.10.0 wired `absItemId` into the internal `/api/books` routes only, so the external `/api/v1` API silently dropped it.
+  - `GET /api/v1/books/{id}` and `GET /api/v1/books` now include `absItemId`
+  - `PUT /api/v1/books/{id}` accepts `absItemId` (trimmed; empty string clears the link)
+  - `POST /api/v1/books` accepts `absItemId` so books can be created already linked
+  - `GET /api/v1/books?absLinked=false` returns only books not yet linked to Audiobookshelf
+
 ## [2.10.0] - 2026-10-25
 
 ### Added
