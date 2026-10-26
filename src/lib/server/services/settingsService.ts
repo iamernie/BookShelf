@@ -372,6 +372,13 @@ export const DEFAULT_SETTINGS = {
 		category: 'integrations',
 		label: 'Audiobookshelf Last Sync',
 		description: 'Timestamp of the last Audiobookshelf sync run (managed automatically)'
+	},
+	'integration.abs_last_result': {
+		value: '',
+		type: 'string',
+		category: 'integrations',
+		label: 'Audiobookshelf Last Sync Result',
+		description: 'JSON summary of the last Audiobookshelf sync run (managed automatically)'
 	}
 } as const;
 
@@ -379,7 +386,7 @@ export const DEFAULT_SETTINGS = {
 export const SECRET_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_api_key'];
 
 // Settings written by the server only; excluded from the editable settings form
-export const SERVER_MANAGED_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_last_sync'];
+export const SERVER_MANAGED_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_last_sync', 'integration.abs_last_result'];
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;
 

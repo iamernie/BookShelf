@@ -97,7 +97,8 @@
 	let absApiKeyInput = $state('');
 	let showAbsApiKey = $state(false);
 	let absApiKeySet = $state(data.absStatus.apiKeySet);
-	let absLastSync = $state<string | null>(data.absStatus.lastSync);
+	let absSyncStatus = $state(data.absStatus.sync);
+	const lastResult = $derived(absSyncStatus.lastResult);
 	let testingAbs = $state(false);
 	let absTestResult = $state<{ success: boolean; message: string } | null>(null);
 	let syncingAbs = $state(false);
@@ -123,6 +124,23 @@
 
 	$effect(() => {
 		if (activeTab === 'integrations' && data.isAdmin && absLinkStats === null && !absLinkStatsError) loadAbsLinkStats();
+	});
+
+	function formatSyncDuration(ms: number): string {
+		if (ms < 1000) return `${ms} ms`;
+		const seconds = ms / 1000;
+		if (seconds < 60) return `${seconds.toFixed(1)} s`;
+		return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+	}
+
+	// Next scheduled run: lastSync + interval; overdue or never synced means the next scheduler check picks it up
+	const absNextRunLabel = $derived.by(() => {
+		if (editedSettings['integration.abs_enabled'] !== 'true') return 'Not scheduled (integration disabled)';
+		const checkNote = `within ${absSyncStatus.schedulerCheckMinutes} minutes (next scheduler check)`;
+		if (!absSyncStatus.nextRunAt) return `Due now - ${checkNote}`;
+		const next = new Date(absSyncStatus.nextRunAt);
+		if (next.getTime() <= Date.now()) return `Due now - ${checkNote}`;
+		return `~${next.toLocaleString()} (every ${absSyncStatus.intervalHours} h)`;
 	});
 
 	function clampAbsSyncHours(value: string): string {
@@ -466,7 +484,7 @@
 			} else {
 				absSyncResult = { success: false, message: result.error || result.message || 'Sync failed' };
 			}
-			if (result.lastSync) absLastSync = result.lastSync;
+			if (result.status) absSyncStatus = result.status;
 		} catch {
 			absSyncResult = { success: false, message: 'Failed to run sync' };
 		} finally {
@@ -1140,10 +1158,47 @@
 								Sync Now
 							{/if}
 						</button>
-						<span class="text-sm" style="color: var(--text-muted);">
-							Last sync: {absLastSync ? new Date(absLastSync).toLocaleString() : 'never'}
-						</span>
 					</div>
+
+					<!-- Sync status -->
+					<dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+						<dt style="color: var(--text-muted);">Last successful sync</dt>
+						<dd style="color: var(--text-primary);">
+							{absSyncStatus.lastSync ? new Date(absSyncStatus.lastSync).toLocaleString() : 'Never'}
+						</dd>
+
+						<dt style="color: var(--text-muted);">Last run</dt>
+						<dd>
+							{#if !lastResult}
+								<span style="color: var(--text-muted);">No run recorded yet</span>
+							{:else if !lastResult.ok}
+								<span class="flex items-start gap-1.5" style="color: #ef4444;">
+									<AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />
+									<span>Failed {new Date(lastResult.finishedAt).toLocaleString()}: {lastResult.error || 'Unknown error'}</span>
+								</span>
+							{:else if lastResult.errors > 0}
+								<span class="flex items-start gap-1.5" style="color: #f59e0b;">
+									<AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />
+									<span>Completed with {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} {new Date(lastResult.finishedAt).toLocaleString()} (see logs)</span>
+								</span>
+							{:else}
+								<span class="flex items-center gap-1.5" style="color: #22c55e;">
+									<Check class="w-4 h-4 shrink-0" />
+									Succeeded {new Date(lastResult.finishedAt).toLocaleString()}
+								</span>
+							{/if}
+						</dd>
+
+						{#if lastResult}
+							<dt style="color: var(--text-muted);">Last result</dt>
+							<dd style="color: var(--text-primary);">
+								{lastResult.linked} linked · {lastResult.created} created · {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} · {formatSyncDuration(lastResult.durationMs)}
+							</dd>
+						{/if}
+
+						<dt style="color: var(--text-muted);">Next scheduled run</dt>
+						<dd style="color: var(--text-primary);">{absNextRunLabel}</dd>
+					</dl>
 					{#if absTestResult}
 						<p class="mt-2 text-sm" style="color: {absTestResult.success ? '#22c55e' : '#ef4444'};">
 							{absTestResult.message}

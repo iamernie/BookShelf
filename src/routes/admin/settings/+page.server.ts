@@ -3,6 +3,7 @@ import { getAllSettings, getSetting, SECRET_SETTING_KEYS, SERVER_MANAGED_SETTING
 import { getAISettings } from '$lib/server/services/recommendationService';
 import { getEmailConfigStatus } from '$lib/server/services/emailService';
 import { getStatuses } from '$lib/server/services/statusService';
+import { getAbsSyncStatus } from '$lib/server/services/absService';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// Secrets and server-managed values never enter the editable form
@@ -30,7 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Audiobookshelf: only report whether a key is stored, never the key itself
 	const absStatus = {
 		apiKeySet: !!(await getSetting('integration.abs_api_key')).trim(),
-		lastSync: (await getSetting('integration.abs_last_sync')) || null
+		sync: await getAbsSyncStatus()
 	};
 
 	return {

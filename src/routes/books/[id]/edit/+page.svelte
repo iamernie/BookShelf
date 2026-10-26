@@ -23,11 +23,15 @@
 		ChevronRight,
 		Library,
 		Database,
-		Music
+		Music,
+		Headphones,
+		ExternalLink,
+		Unlink
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { toInputDate } from '$lib/utils/date';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
+	import AbsLinkModal from '$lib/components/audiobook/AbsLinkModal.svelte';
 	import LucideIcon from '$lib/components/ui/LucideIcon.svelte';
 
 	let { data } = $props();
@@ -478,6 +482,30 @@
 			}
 		} catch {
 			toasts.error('Failed to remove ebook');
+		}
+	}
+
+	// Audiobookshelf manual linking (admins, integration enabled); applies immediately, not on Save
+	const canLinkAbs = !!data.absBaseUrl && data.isAdmin;
+	let absItemId = $state<string | null>(book.absItemId ?? null);
+	let showAbsLinkModal = $state(false);
+	let unlinkingAbs = $state(false);
+
+	async function unlinkAbs() {
+		unlinkingAbs = true;
+		try {
+			const res = await fetch(`/api/books/${book.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ absItemId: '' })
+			});
+			if (!res.ok) throw new Error();
+			absItemId = null;
+			toasts.success('Unlinked from Audiobookshelf');
+		} catch {
+			toasts.error('Failed to unlink from Audiobookshelf');
+		} finally {
+			unlinkingAbs = false;
 		}
 	}
 
@@ -1382,6 +1410,72 @@
 									{/if}
 								</div>
 
+								<!-- Audiobookshelf Section -->
+								{#if canLinkAbs}
+									<div class="rounded-lg p-4" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+										<h3 class="text-xs font-medium mb-3 flex items-center gap-2" style="color: var(--text-muted);">
+											<Headphones class="w-3.5 h-3.5" />
+											Audiobookshelf
+										</h3>
+										<div class="flex items-center justify-between flex-wrap gap-3">
+											<div class="min-w-0">
+												{#if absItemId}
+													<p class="font-medium text-sm" style="color: var(--text-primary);">Linked</p>
+													<a
+														href="{data.absBaseUrl}/item/{absItemId}"
+														target="_blank"
+														rel="noopener noreferrer"
+														class="text-xs break-all inline-flex items-center gap-1 hover:underline"
+														style="color: var(--text-muted);"
+														title="Open in Audiobookshelf"
+													>
+														{absItemId}
+														<ExternalLink class="w-3 h-3 shrink-0" />
+													</a>
+												{:else}
+													<p class="font-medium text-sm" style="color: var(--text-primary);">Not linked</p>
+													<p class="text-xs" style="color: var(--text-muted);">Changes apply immediately</p>
+												{/if}
+											</div>
+											<div class="flex gap-2">
+												{#if absItemId}
+													<button
+														type="button"
+														class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+														style="background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+														onclick={() => showAbsLinkModal = true}
+													>
+														Change link
+													</button>
+													<button
+														type="button"
+														class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5"
+														style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
+														onclick={unlinkAbs}
+														disabled={unlinkingAbs}
+													>
+														{#if unlinkingAbs}
+															<Loader2 class="w-3.5 h-3.5 animate-spin" />
+														{:else}
+															<Unlink class="w-3.5 h-3.5" />
+														{/if}
+														Unlink
+													</button>
+												{:else}
+													<button
+														type="button"
+														class="btn-accent px-3 py-1.5 text-sm inline-flex items-center gap-1.5"
+														onclick={() => showAbsLinkModal = true}
+													>
+														<Search class="w-3.5 h-3.5" />
+														Find on Audiobookshelf
+													</button>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{/if}
+
 								<!-- Media Sources Section (where purchased) -->
 								<div class="rounded-lg p-4" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
 									<h3 class="text-xs font-medium mb-3 flex items-center gap-2" style="color: var(--text-muted);">
@@ -1460,6 +1554,19 @@
 	onClose={() => showMetadataModal = false}
 	onApply={applyMetadataResult}
 />
+
+{#if canLinkAbs}
+	<AbsLinkModal
+		open={showAbsLinkModal}
+		bookId={book.id}
+		initialQuery={title}
+		onClose={() => showAbsLinkModal = false}
+		onLinked={(_bookId, linkedItemId) => {
+			absItemId = linkedItemId;
+			toasts.success('Linked to Audiobookshelf');
+		}}
+	/>
+{/if}
 
 <!-- Add Custom Media Source Modal -->
 {#if showAddSourceModal}

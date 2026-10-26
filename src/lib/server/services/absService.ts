@@ -108,6 +108,22 @@ export interface AbsSyncResult {
 	durationMs: number;
 }
 
+/** Last sync run as persisted in integration.abs_last_result. */
+export interface AbsLastSyncResult extends AbsSyncResult {
+	finishedAt: string;
+}
+
+export interface AbsSyncStatus {
+	/** Last successful sync (drives the scheduler) */
+	lastSync: string | null;
+	/** Last attempted run, successful or not */
+	lastResult: AbsLastSyncResult | null;
+	intervalHours: number;
+	/** lastSync + interval; null when there has never been a successful sync */
+	nextRunAt: string | null;
+	schedulerCheckMinutes: number;
+}
+
 // ============================================
 // Config
 // ============================================
@@ -593,11 +609,56 @@ let activeSync: Promise<AbsSyncResult> | null = null;
 /** Run one full sync (link pass + reverse sync). Concurrent calls share the in-flight run. */
 export function runAbsSync(): Promise<AbsSyncResult> {
 	if (!activeSync) {
-		activeSync = doSync().finally(() => {
-			activeSync = null;
-		});
+		activeSync = doSync()
+			.then(async (result) => {
+				await persistLastResult(result);
+				return result;
+			})
+			.finally(() => {
+				activeSync = null;
+			});
 	}
 	return activeSync;
+}
+
+async function persistLastResult(result: AbsSyncResult): Promise<void> {
+	// Skipped runs (integration disabled / not configured) never reached ABS; keep the last real result
+	if (result.skipped) return;
+	try {
+		const stored: AbsLastSyncResult = { ...result, finishedAt: new Date().toISOString() };
+		await setSetting('integration.abs_last_result', JSON.stringify(stored));
+	} catch (err) {
+		log.warn('Failed to persist Audiobookshelf sync result', { error: err instanceof Error ? err.message : String(err) });
+	}
+}
+
+/** Sync status for the Integrations settings tab. */
+export async function getAbsSyncStatus(): Promise<AbsSyncStatus> {
+	const [lastSyncRaw, lastResultRaw, intervalHours] = await Promise.all([
+		getSetting('integration.abs_last_sync'),
+		getSetting('integration.abs_last_result'),
+		getAbsSyncIntervalHours()
+	]);
+
+	let lastResult: AbsLastSyncResult | null = null;
+	if (lastResultRaw) {
+		try {
+			lastResult = JSON.parse(lastResultRaw) as AbsLastSyncResult;
+		} catch {
+			lastResult = null;
+		}
+	}
+
+	const lastTime = lastSyncRaw ? new Date(lastSyncRaw).getTime() : NaN;
+	const nextRunAt = Number.isNaN(lastTime) ? null : new Date(lastTime + intervalHours * 60 * 60 * 1000).toISOString();
+
+	return {
+		lastSync: lastSyncRaw || null,
+		lastResult,
+		intervalHours,
+		nextRunAt,
+		schedulerCheckMinutes: SCHEDULER_TICK_MS / 60000
+	};
 }
 
 async function doSync(): Promise<AbsSyncResult> {

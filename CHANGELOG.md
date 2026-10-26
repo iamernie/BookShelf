@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.2] - 2026-10-26
+
+### Added
+
+- **Audiobookshelf link controls in the book edit Media tab** - Admins can see whether a book is linked (with the item ID, opening in Audiobookshelf) and use Find on Audiobookshelf / Change link / Unlink right from the Media tab.
+  - Uses the same search panel as the book page; changes apply immediately, independent of Save
+  - Shown whenever the integration is enabled and configured, regardless of the book's format
+- **Audiobookshelf sync status on the Integrations settings tab** - Last successful sync, last run outcome (including the error text when it failed, or an error count when it completed with errors), books linked / created / errors / duration, and the estimated next scheduled run.
+  - Every sync run (scheduled and manual) now saves its result to the server-managed `integration.abs_last_result` setting
+
+### Fixed
+
+- **Find on Audiobookshelf missing for some audiobooks** - The book page button only appeared for formats named exactly "Audio" or "Audiobook" (so "Audible Audio" never got it). It now shows for any unlinked book when the integration is configured and the user is an admin.
+
 ## [2.12.1] - 2026-10-26
 
 ### Added

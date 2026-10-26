@@ -126,7 +126,8 @@ Connect BookShelf to an [Audiobookshelf](https://www.audiobookshelf.org) server 
 - Books added in the last 14 days are linked to their Audiobookshelf item by ASIN, or by title when there is exactly one exact match
 - Audiobooks not yet in BookShelf are added (author, narrator, an audio format such as Audio or Audible Audio, Unread status) and linked
 - Linked books get a **Listen on Audiobookshelf** button on their book page
-- Admins can link, re-link, or unlink a book by hand from its book page (**Find on Audiobookshelf**, **Change link**, **Unlink**), and the Integrations tab lists every audiobook that isn't linked yet with a **Find match** button
+- Admins can link, re-link, or unlink a book by hand from its book page or the **Media** tab of its edit page (**Find on Audiobookshelf**, **Change link**, **Unlink**), and the Integrations tab lists every audiobook that isn't linked yet with a **Find match** button
+- The Integrations tab shows the sync status: last successful sync, the last run's outcome (linked, created, errors, duration, or the failure message), and when the next scheduled run is due
 
 ### Volumes
 

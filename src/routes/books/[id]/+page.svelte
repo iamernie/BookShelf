@@ -85,7 +85,6 @@
 
 	// Audiobookshelf manual linking (admins, integration enabled)
 	const canLinkAbs = $derived(!!data.absBaseUrl && data.isAdmin);
-	const isAudioFormat = $derived(['audio', 'audiobook'].includes(data.book.format?.name?.trim().toLowerCase() ?? ''));
 	let showAbsLinkModal = $state(false);
 	let unlinkingAbs = $state(false);
 
@@ -615,7 +614,7 @@
 							{/if}
 						</button>
 					{/if}
-				{:else if canLinkAbs && isAudioFormat}
+				{:else if canLinkAbs}
 					<button
 						type="button"
 						class="btn-ghost flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"

@@ -1,13 +1,12 @@
 /**
  * POST /api/v1/admin/abs/sync - Run one Audiobookshelf sync now (admin only)
  *
- * Returns { ok, linked, created, errors, durationMs, lastSync, error? }.
+ * Returns { ok, linked, created, errors, durationMs, lastSync, status, error? }.
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { runAbsSync } from '$lib/server/services/absService';
-import { getSetting } from '$lib/server/services/settingsService';
+import { getAbsSyncStatus, runAbsSync } from '$lib/server/services/absService';
 
 export const POST: RequestHandler = async ({ locals }) => {
 	if (!locals.user || locals.user.role !== 'admin') {
@@ -15,7 +14,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 	}
 
 	const result = await runAbsSync();
-	const lastSync = (await getSetting('integration.abs_last_sync')) || null;
+	const status = await getAbsSyncStatus();
 
-	return json({ ...result, lastSync });
+	return json({ ...result, lastSync: status.lastSync, status });
 };
