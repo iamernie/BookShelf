@@ -479,7 +479,7 @@
 			if (result.ok) {
 				absSyncResult = {
 					success: true,
-					message: `Sync complete: ${result.linked} linked, ${result.created} created${result.errors ? `, ${result.errors} errors (see logs)` : ''}`
+					message: `Sync complete: ${result.linked} linked, ${result.created} created${result.statusFlips ? `, ${result.statusFlips} status updates` : ''}${result.errors ? `, ${result.errors} errors (see logs)` : ''}`
 				};
 			} else {
 				absSyncResult = { success: false, message: result.error || result.message || 'Sync failed' };
@@ -1122,6 +1122,27 @@
 							/>
 						</div>
 					</div>
+
+					<!-- Status Sync Toggle -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label class="font-medium" style="color: var(--text-primary);">Sync listening status</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Books move Current while listening and Done when finished, based on Audiobookshelf progress</p>
+						</div>
+						<div class="w-72">
+							<button
+								type="button"
+								class="toggle-switch {editedSettings['integration.abs_sync_status'] === 'true' ? 'active' : ''}"
+								onclick={() => updateSetting('integration.abs_sync_status', editedSettings['integration.abs_sync_status'] === 'true' ? 'false' : 'true')}
+								disabled={!data.isAdmin}
+								role="switch"
+								aria-checked={editedSettings['integration.abs_sync_status'] === 'true'}
+								aria-label="Sync listening status"
+							>
+								<span class="toggle-knob"></span>
+							</button>
+						</div>
+					</div>
 				</div>
 
 				<!-- Connection & Sync -->
@@ -1192,7 +1213,7 @@
 						{#if lastResult}
 							<dt style="color: var(--text-muted);">Last result</dt>
 							<dd style="color: var(--text-primary);">
-								{lastResult.linked} linked · {lastResult.created} created · {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} · {formatSyncDuration(lastResult.durationMs)}
+								{lastResult.linked} linked · {lastResult.created} created{#if lastResult.statusFlips !== undefined} · {lastResult.statusFlips} {lastResult.statusFlips === 1 ? 'status update' : 'status updates'}{/if} · {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} · {formatSyncDuration(lastResult.durationMs)}
 							</dd>
 						{/if}
 

@@ -6,14 +6,17 @@
  *   integration.abs_base_url  - ABS server URL
  *   integration.abs_api_key   - ABS API key (sent as Authorization: Bearer)
  *   integration.abs_sync_interval_hours - hours between automatic syncs (1-48)
+ *   integration.abs_sync_status - advance book status from ABS listening progress
  *
  * When the integration is disabled or not configured, every public function no-ops.
  *
- * Sync runs two passes:
+ * Sync runs two passes, plus an optional third:
  *   1. Link pass   - recently added, unlinked books are matched to ABS items
  *                    (ASIN-exact first, then a single exact-title hit).
  *   2. Reverse sync - every ABS library item without a BookShelf book is created
  *                    born-linked; an unlinked exact-title book is linked instead.
+ *   3. Status sync - (toggle) linked books advance to Current / Done from the
+ *                    key user's ABS progress; never moved backwards.
  *
  * Linked books carry the "Audiobook Shelf" system tag. Links made here tag the book
  * immediately; every sync also self-heals drift (tag = absItemId IS NOT NULL).
@@ -40,6 +43,8 @@ const UNLINKED_LIST_LIMIT = 500;
 const SCHEDULER_TICK_MS = 15 * 60 * 1000;
 const SCHEDULER_FIRST_TICK_MS = 60 * 1000;
 const ABS_TAG_NAME = 'Audiobook Shelf';
+const STATUS_DONE_NAME = 'Done';
+const STATUS_CURRENT_NAME = 'Current';
 
 // ============================================
 // Types
@@ -124,6 +129,29 @@ export interface AbsItemDetails {
 	libraryId: string | null;
 }
 
+/** ABS media progress record (GET /api/me/progress/:id, or an entry of /api/me mediaProgress) */
+interface AbsMediaProgress {
+	libraryItemId: string;
+	episodeId?: string | null;
+	duration?: number;
+	progress?: number;
+	currentTime?: number;
+	isFinished?: boolean;
+	lastUpdate?: number;
+	startedAt?: number;
+	finishedAt?: number | null;
+}
+
+export interface AbsProgress {
+	currentTimeSec: number;
+	durationSec: number;
+	/** 0-1 */
+	progress: number;
+	isFinished: boolean;
+	/** ISO timestamp of the last ABS progress update */
+	lastUpdate: string | null;
+}
+
 export interface UnlinkedAudiobook {
 	id: number;
 	title: string;
@@ -143,6 +171,8 @@ export interface AbsSyncResult {
 	linked: number;
 	created: number;
 	errors: number;
+	/** Books advanced to Current / Done by the status sync (absent in results stored before 2.12.4) */
+	statusFlips?: number;
 	durationMs: number;
 }
 
@@ -203,6 +233,13 @@ export async function getAbsSyncIntervalHours(): Promise<number> {
 // REST client
 // ============================================
 
+/** Non-2xx response from ABS (network failures stay plain fetch errors) */
+class AbsHttpError extends Error {
+	constructor(message: string, readonly status: number) {
+		super(message);
+	}
+}
+
 async function absGet<T>(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: string): Promise<T> {
 	const res = await fetch(`${config.baseUrl}${path}`, {
 		// ABS only reads the key from "Authorization: Bearer <token>" (it ignores x-api-key)
@@ -211,7 +248,7 @@ async function absGet<T>(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: st
 	});
 	if (!res.ok) {
 		const reason = res.status === 401 || res.status === 403 ? 'API key rejected' : res.statusText;
-		throw new Error(`Audiobookshelf returned ${res.status}${reason ? ` (${reason})` : ''} for ${path.split('?')[0]}`);
+		throw new AbsHttpError(`Audiobookshelf returned ${res.status}${reason ? ` (${reason})` : ''} for ${path.split('?')[0]}`, res.status);
 	}
 	return (await res.json()) as T;
 }
@@ -513,6 +550,36 @@ export async function getAbsItem(itemId: string): Promise<AbsItemDetails> {
 	}
 }
 
+function toAbsProgress(p: AbsMediaProgress): AbsProgress {
+	const durationSec = p.duration ?? 0;
+	const currentTimeSec = p.currentTime ?? 0;
+	const progress = p.progress ?? (durationSec > 0 ? currentTimeSec / durationSec : 0);
+	return {
+		currentTimeSec,
+		durationSec,
+		progress: Math.min(1, Math.max(0, progress)),
+		isFinished: !!p.isFinished,
+		lastUpdate: p.lastUpdate ? new Date(p.lastUpdate).toISOString() : null
+	};
+}
+
+/**
+ * The API key user's listening progress for one ABS item; null when ABS has none
+ * (never listened). Throws when the integration is unusable or ABS fails.
+ */
+export async function getAbsProgress(itemId: string): Promise<AbsProgress | null> {
+	const config = await getAbsConfig();
+	if (!config.enabled) throw new Error('Audiobookshelf integration is disabled');
+	if (!isUsable(config)) throw new Error('Audiobookshelf URL or API key is not set');
+
+	try {
+		return toAbsProgress(await absGet<AbsMediaProgress>(config, `/api/me/progress/${encodeURIComponent(itemId)}`));
+	} catch (err) {
+		if (err instanceof AbsHttpError && err.status === 404) return null;
+		throw new Error(describeError(err));
+	}
+}
+
 /** Linked/unlinked counts for audio-format books, plus the unlinked list (title order, capped). */
 export async function getAbsLinkStats(): Promise<AbsLinkStats> {
 	const formatIds = await getAudioFormatIds();
@@ -688,6 +755,93 @@ async function runReverseSync(config: AbsConfig, libraryId: string, usedItemIds:
 	return { linked, created, errors };
 }
 
+async function getStatusIdByName(name: string): Promise<number | null> {
+	const [row] = await db.select({ id: statuses.id }).from(statuses)
+		.where(sql`LOWER(${statuses.name}) = LOWER(${name})`).limit(1);
+	return row?.id ?? null;
+}
+
+// ABS timestamps are epoch ms; book reading dates are YYYY-MM-DD
+function toDateOnly(epochMs: number | null | undefined): string {
+	return (epochMs ? new Date(epochMs) : new Date()).toISOString().split('T')[0];
+}
+
+/**
+ * Status sync: advance linked books from the API key user's ABS progress.
+ * Finished -> Done; started but unfinished -> Current. Advance-only: Done is never
+ * touched, Current is never re-set, and books without ABS progress are skipped.
+ */
+async function runStatusSync(config: AbsConfig): Promise<{ flips: number; errors: number }> {
+	const [doneId, currentId] = await Promise.all([
+		getStatusIdByName(STATUS_DONE_NAME),
+		getStatusIdByName(STATUS_CURRENT_NAME)
+	]);
+	if (doneId === null) log.warn(`No "${STATUS_DONE_NAME}" status found; finished audiobooks will not be marked`);
+	if (currentId === null) log.warn(`No "${STATUS_CURRENT_NAME}" status found; in-progress audiobooks will not be marked`);
+	if (doneId === null && currentId === null) return { flips: 0, errors: 0 };
+
+	// One request for every item's progress instead of one per linked book
+	const me = await absGet<{ mediaProgress?: AbsMediaProgress[] }>(config, '/api/me');
+	const progressByItem = new Map<string, AbsMediaProgress>();
+	for (const p of me.mediaProgress ?? []) {
+		if (p.libraryItemId && !p.episodeId) progressByItem.set(p.libraryItemId, p);
+	}
+	if (progressByItem.size === 0) return { flips: 0, errors: 0 };
+
+	const linked = await db
+		.select({
+			id: books.id,
+			absItemId: books.absItemId,
+			statusId: books.statusId,
+			startReadingDate: books.startReadingDate,
+			completedDate: books.completedDate
+		})
+		.from(books)
+		.where(isNotNull(books.absItemId));
+
+	let flips = 0;
+	let errors = 0;
+
+	for (const book of linked) {
+		const raw = progressByItem.get(book.absItemId as string);
+		if (!raw) continue;
+		// Done stays Done, whatever ABS says now
+		if (doneId !== null && book.statusId === doneId) continue;
+
+		const progress = toAbsProgress(raw);
+		const now = new Date().toISOString();
+		let update: Partial<typeof books.$inferInsert> | null = null;
+
+		if (progress.isFinished) {
+			if (doneId === null) continue;
+			update = { statusId: doneId };
+			if (!book.startReadingDate && raw.startedAt) update.startReadingDate = toDateOnly(raw.startedAt);
+			if (!book.completedDate) update.completedDate = toDateOnly(raw.finishedAt);
+		} else if (progress.progress > 0) {
+			if (currentId === null || book.statusId === currentId) continue;
+			update = { statusId: currentId };
+			if (!book.startReadingDate) update.startReadingDate = toDateOnly(raw.startedAt);
+		}
+		if (!update) continue;
+
+		try {
+			await db.update(books).set({ ...update, updatedAt: now }).where(eq(books.id, book.id));
+			flips++;
+			log.info('Updated book status from Audiobookshelf progress', {
+				bookId: book.id,
+				absItemId: book.absItemId,
+				status: update.statusId === doneId ? STATUS_DONE_NAME : STATUS_CURRENT_NAME,
+				progress: progress.progress
+			});
+		} catch (err) {
+			errors++;
+			log.warn('Audiobookshelf status update failed', { bookId: book.id, error: err instanceof Error ? err.message : String(err) });
+		}
+	}
+
+	return { flips, errors };
+}
+
 let activeSync: Promise<AbsSyncResult> | null = null;
 
 /** Run one full sync (link pass + reverse sync). Concurrent calls share the in-flight run. */
@@ -747,7 +901,7 @@ export async function getAbsSyncStatus(): Promise<AbsSyncStatus> {
 
 async function doSync(): Promise<AbsSyncResult> {
 	const started = Date.now();
-	const empty = { linked: 0, created: 0, errors: 0 };
+	const empty = { linked: 0, created: 0, errors: 0, statusFlips: 0 };
 	const config = await getAbsConfig();
 
 	if (!isUsable(config)) {
@@ -778,13 +932,25 @@ async function doSync(): Promise<AbsSyncResult> {
 		const linkPass = await runLinkPass(config, library.id, usedItemIds, tagId);
 		const reverse = await runReverseSync(config, library.id, usedItemIds, tagId);
 
+		const statusSync = { flips: 0, errors: 0 };
+		if (await getSettingAs<boolean>('integration.abs_sync_status', 'boolean')) {
+			try {
+				Object.assign(statusSync, await runStatusSync(config));
+			} catch (err) {
+				// Progress lookup failed; links and created books from this run still count
+				statusSync.errors++;
+				log.warn('Audiobookshelf status sync failed', { error: describeError(err) });
+			}
+		}
+
 		await setSetting('integration.abs_last_sync', new Date().toISOString());
 
 		const result: AbsSyncResult = {
 			ok: true,
 			linked: linkPass.linked + reverse.linked,
 			created: reverse.created,
-			errors: linkPass.errors + reverse.errors,
+			errors: linkPass.errors + reverse.errors + statusSync.errors,
+			statusFlips: statusSync.flips,
 			durationMs: Date.now() - started
 		};
 		log.info('Audiobookshelf sync complete', { library: library.name, ...result });

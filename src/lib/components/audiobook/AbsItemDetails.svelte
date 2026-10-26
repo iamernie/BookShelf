@@ -19,6 +19,14 @@
 		libraryId: string | null;
 	}
 
+	interface AbsProgress {
+		currentTimeSec: number;
+		durationSec: number;
+		progress: number;
+		isFinished: boolean;
+		lastUpdate: string | null;
+	}
+
 	interface Props {
 		absItemId: string;
 		absBaseUrl: string;
@@ -54,6 +62,26 @@
 			cancelled = true;
 		};
 	});
+
+	// Listening progress; the row stays hidden when there is none (404) or the lookup fails
+	let progress = $state<AbsProgress | null>(null);
+
+	$effect(() => {
+		const id = absItemId;
+		let cancelled = false;
+		progress = null;
+		fetch(`/api/v1/admin/abs/progress/${encodeURIComponent(id)}`)
+			.then(async (res) => {
+				const body = await res.json().catch(() => ({}));
+				if (!cancelled && res.ok && body.ok) progress = body.progress as AbsProgress;
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const progressPercent = $derived(progress ? Math.round((progress.isFinished ? 1 : progress.progress) * 100) : 0);
 
 	function formatDuration(seconds: number): string {
 		const totalMinutes = Math.round(seconds / 60);
@@ -92,6 +120,34 @@
 			{errorMessage}
 		</p>
 	{:else if item}
+		{#if progress}
+			<div class="mb-3">
+				<div class="flex items-center justify-between gap-2 text-xs mb-1">
+					<span class="flex items-center gap-2" style="color: var(--text-primary);">
+						{progressPercent}% listened
+						{#if progress.isFinished}
+							<span class="px-1.5 py-0.5 rounded font-medium" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">Finished</span>
+						{/if}
+					</span>
+					{#if progress.durationSec > 0}
+						<span style="color: var(--text-muted);">
+							{formatDuration(progress.currentTimeSec)} of {formatDuration(progress.durationSec)}
+						</span>
+					{/if}
+				</div>
+				<div
+					class="h-1.5 rounded-full overflow-hidden"
+					style="background: var(--bg-tertiary);"
+					role="progressbar"
+					aria-valuenow={progressPercent}
+					aria-valuemin={0}
+					aria-valuemax={100}
+					aria-label="Audiobookshelf listening progress"
+				>
+					<div class="h-full rounded-full" style="width: {progressPercent}%; background: {progress.isFinished ? '#22c55e' : 'var(--accent)'};"></div>
+				</div>
+			</div>
+		{/if}
 		<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
 			{#if item.narratorName}
 				<dt style="color: var(--text-muted);">Narrator</dt>

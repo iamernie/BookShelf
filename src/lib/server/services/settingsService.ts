@@ -366,6 +366,13 @@ export const DEFAULT_SETTINGS = {
 		label: 'Audiobookshelf Sync Interval',
 		description: 'Hours between automatic Audiobookshelf syncs (1-48)'
 	},
+	'integration.abs_sync_status': {
+		value: 'false',
+		type: 'boolean',
+		category: 'integrations',
+		label: 'Sync listening status',
+		description: 'Books move Current while listening and Done when finished, based on Audiobookshelf progress'
+	},
 	'integration.abs_last_sync': {
 		value: '',
 		type: 'string',

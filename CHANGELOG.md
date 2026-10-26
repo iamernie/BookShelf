@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.4] - 2026-10-26
+
+### Added
+
+- **Audiobookshelf listening progress in the Media panel** - Linked books show the API key user's progress from Audiobookshelf: a progress bar with "% listened", the position ("9h 42m of 11h 5m"), and a **Finished** badge. Hidden when the book has never been played. Shown on the book page, the book modal, and the edit page Media tab.
+  - New admin endpoint `GET /api/v1/admin/abs/progress/{itemId}` proxies Audiobookshelf's `/api/me/progress/{itemId}` (404 with `hasProgress: false` when there is no progress, 502 when Audiobookshelf fails)
+- **Sync listening status** (Integrations tab, off by default) - When on, each sync moves linked books to **Current** while they're in progress on Audiobookshelf and to **Done** when finished, filling in start / completed dates that aren't set yet.
+  - Advance-only: Done books are never changed and Current books are never re-set, even if Audiobookshelf progress goes back (e.g. a re-listen); books with no Audiobookshelf progress are never touched
+  - Statuses are found by name ("Done", "Current", case-insensitive); if one doesn't exist, that step is skipped and a warning is logged
+  - Progress for all items is read in a single Audiobookshelf request per sync
+  - Status updates are counted in the sync result and shown in the Integrations tab's last result line
+
 ## [2.12.3] - 2026-10-26
 
 ### Added
