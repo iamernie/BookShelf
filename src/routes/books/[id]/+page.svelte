@@ -40,6 +40,7 @@
 	import InlineTagEditor from '$lib/components/tag/InlineTagEditor.svelte';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import AbsLinkModal from '$lib/components/audiobook/AbsLinkModal.svelte';
+	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
 	import { RefreshCw } from 'lucide-svelte';
 
 	import { browser } from '$app/environment';
@@ -1371,6 +1372,25 @@
 							</div>
 						{/if}
 					</div>
+
+					<!-- Audiobookshelf Section -->
+					{#if canLinkAbs}
+						<div>
+							<h3 class="text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-2" style="color: var(--text-primary);">
+								<Headphones class="w-4 h-4" />
+								Audiobookshelf
+							</h3>
+							<div class="card p-3 sm:p-4">
+								<AbsLinkSection
+									bookId={data.book.id}
+									absItemId={data.book.absItemId ?? null}
+									absBaseUrl={data.absBaseUrl ?? ''}
+									initialQuery={data.book.title}
+									onChange={() => invalidateAll()}
+								/>
+							</div>
+						</div>
+					{/if}
 				</div>
 				{:else if activeTab === 'similar'}
 				<!-- Similar Books Tab -->

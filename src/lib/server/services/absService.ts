@@ -86,6 +86,44 @@ export interface AbsSearchResult {
 	asin: string | null;
 }
 
+/** Expanded ABS library item (GET /api/items/:id?expanded=1), only the fields we read */
+interface AbsExpandedItem {
+	id: string;
+	libraryId?: string;
+	size?: number;
+	media?: {
+		metadata?: AbsBookMetadata & {
+			seriesName?: string | null;
+			series?: { name: string; sequence?: string | null }[];
+			publishedYear?: string | null;
+			publisher?: string | null;
+			description?: string | null;
+		};
+		duration?: number;
+		size?: number;
+		chapters?: unknown[];
+		audioFiles?: { format?: string; codec?: string; metadata?: { ext?: string; size?: number } }[];
+	};
+}
+
+export interface AbsItemDetails {
+	id: string;
+	title: string;
+	authorName: string | null;
+	narratorName: string | null;
+	seriesName: string | null;
+	publishedYear: string | null;
+	publisher: string | null;
+	description: string | null;
+	asin: string | null;
+	durationSec: number | null;
+	numChapters: number;
+	numAudioFiles: number;
+	sizeBytes: number | null;
+	audioFormat: string | null;
+	libraryId: string | null;
+}
+
 export interface UnlinkedAudiobook {
 	id: number;
 	title: string;
@@ -424,6 +462,52 @@ export async function searchAbsItems(query: string, limit = SEARCH_DEFAULT_LIMIT
 			narratorName: itemNarrators(item).join(', ') || null,
 			asin: item.media?.metadata?.asin?.trim() || null
 		}));
+	} catch (err) {
+		throw new Error(describeError(err));
+	}
+}
+
+/** Fetch one ABS item's details for the book page's Media panel. Throws when the integration is unusable. */
+export async function getAbsItem(itemId: string): Promise<AbsItemDetails> {
+	const config = await getAbsConfig();
+	if (!config.enabled) throw new Error('Audiobookshelf integration is disabled');
+	if (!isUsable(config)) throw new Error('Audiobookshelf URL or API key is not set');
+
+	try {
+		const item = await absGet<AbsExpandedItem>(config, `/api/items/${encodeURIComponent(itemId)}?expanded=1`);
+		const media = item.media;
+		const meta = media?.metadata;
+		const audioFiles = media?.audioFiles ?? [];
+		// ext is ".m4b"; fall back to the container format ABS probed
+		const formats = [...new Set(audioFiles
+			.map((f) => (f.metadata?.ext?.replace(/^\./, '') || f.format || '').toUpperCase())
+			.filter(Boolean))];
+		const fileBytes = audioFiles.reduce((sum, f) => sum + (f.metadata?.size ?? 0), 0);
+		const seriesName = meta?.seriesName?.trim()
+			|| (meta?.series ?? []).map((s) => (s.sequence ? `${s.name} #${s.sequence}` : s.name)).join(', ');
+
+		return {
+			id: item.id,
+			title: itemTitle(item),
+			authorName: itemAuthors(item).join(', ') || null,
+			narratorName: itemNarrators(item).join(', ') || null,
+			seriesName: seriesName || null,
+			publishedYear: meta?.publishedYear?.trim() || null,
+			publisher: meta?.publisher?.trim() || null,
+			// ABS descriptions are often HTML; the panel shows plain text
+			description: meta?.description
+				?.replace(/<[^>]*>/g, ' ')
+				.replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
+				.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+				.replace(/\s+/g, ' ').trim() || null,
+			asin: meta?.asin?.trim() || null,
+			durationSec: media?.duration ?? null,
+			numChapters: media?.chapters?.length ?? 0,
+			numAudioFiles: audioFiles.length,
+			sizeBytes: media?.size ?? item.size ?? (fileBytes || null),
+			audioFormat: formats.join(', ') || null,
+			libraryId: item.libraryId ?? null
+		};
 	} catch (err) {
 		throw new Error(describeError(err));
 	}

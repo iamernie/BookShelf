@@ -662,6 +662,8 @@
 		book={null}
 		options={data.options}
 		mode="add"
+		absBaseUrl={data.absBaseUrl}
+		isAdmin={data.isAdmin}
 		onClose={() => showAddModal = false}
 		onSave={handleAddBook}
 	/>

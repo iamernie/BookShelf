@@ -3,11 +3,12 @@
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import {
 		BookOpen, Star, Calendar, Edit2, Trash2, BookMarked, User, Library, Tag, X,
-		Info, AlignLeft, Fingerprint, Image, CalendarDays, Tablet, Download, Search, Loader2, Database, Plus
+		Info, AlignLeft, Fingerprint, Image, CalendarDays, Tablet, Download, Search, Loader2, Database, Plus, Headphones
 	} from 'lucide-svelte';
 	import type { BookWithRelations } from '$lib/server/services/bookService';
 	import { toasts } from '$lib/stores/toast';
 	import { toInputDate } from '$lib/utils/date';
+	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
 
 	interface FormOptions {
 		statuses: { id: number; name: string; color: string | null }[];
@@ -25,7 +26,9 @@
 		mode = 'view',
 		onClose,
 		onSave,
-		onDelete
+		onDelete,
+		absBaseUrl = null,
+		isAdmin = false
 	}: {
 		book: BookWithRelations | null;
 		options: FormOptions;
@@ -33,12 +36,15 @@
 		onClose: () => void;
 		onSave: (data: any) => Promise<void>;
 		onDelete?: () => Promise<void>;
+		/** Audiobookshelf base URL; null when the integration is off */
+		absBaseUrl?: string | null;
+		isAdmin?: boolean;
 	} = $props();
 
 	let currentMode = $state(mode);
 	let saving = $state(false);
 	let deleting = $state(false);
-	let activeTab = $state<'basic' | 'summary' | 'identifiers' | 'cover' | 'dates' | 'ebook'>('basic');
+	let activeTab = $state<'basic' | 'summary' | 'identifiers' | 'cover' | 'dates' | 'media'>('basic');
 
 	// Form fields
 	let title = $state(book?.title || '');
@@ -65,6 +71,10 @@
 	let language = $state(book?.language || 'English');
 	let purchasePrice = $state(book?.purchasePrice?.toString() || '');
 	let ebookPath = $state(book?.ebookPath || '');
+
+	// Audiobookshelf manual linking (admins, integration enabled); applies immediately, not on Save
+	const canLinkAbs = $derived(!!absBaseUrl && isAdmin && !!book?.id && currentMode !== 'add');
+	let absItemId = $state<string | null>(book?.absItemId ?? null);
 
 	// Cover download state
 	let downloadingCover = $state(false);
@@ -187,7 +197,7 @@
 		{ id: 'identifiers', label: 'Identifiers', icon: Fingerprint },
 		{ id: 'cover', label: 'Cover Image', icon: Image },
 		{ id: 'dates', label: 'Dates & Status', icon: CalendarDays },
-		{ id: 'ebook', label: 'Ebook', icon: Tablet }
+		{ id: 'media', label: 'Media', icon: Tablet }
 	] as const;
 
 	function addAuthor(author: { id: number; name: string }) {
@@ -916,7 +926,7 @@
 										<Image class="w-4 h-4" />
 									{:else if tab.id === 'dates'}
 										<CalendarDays class="w-4 h-4" />
-									{:else if tab.id === 'ebook'}
+									{:else if tab.id === 'media'}
 										<Tablet class="w-4 h-4" />
 									{/if}
 									<span class="hidden sm:inline">{tab.label}</span>
@@ -1497,8 +1507,8 @@
 							</div>
 						{/if}
 
-						<!-- Ebook Tab -->
-						{#if activeTab === 'ebook'}
+						<!-- Media Tab -->
+						{#if activeTab === 'media'}
 							<div class="space-y-6">
 								{#if ebookPath}
 									<div class="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -1593,6 +1603,23 @@
 										Upload an ebook to read it directly in BookShelf. Your reading progress will be saved automatically.
 									</p>
 								</div>
+
+								<!-- Audiobookshelf Section -->
+								{#if canLinkAbs && book}
+									<div class="p-4 rounded-lg" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+										<h3 class="text-xs font-medium mb-3 flex items-center gap-2" style="color: var(--text-muted);">
+											<Headphones class="w-3.5 h-3.5" />
+											Audiobookshelf
+										</h3>
+										<AbsLinkSection
+											bookId={book.id}
+											{absItemId}
+											absBaseUrl={absBaseUrl ?? ''}
+											initialQuery={title}
+											onChange={(id) => absItemId = id}
+										/>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>

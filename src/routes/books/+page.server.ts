@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getBooks, getStatuses, getGenres, getFormats, getNarrators, getTags, getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
+import { getAbsLinkBaseUrl } from '$lib/server/services/absService';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
@@ -20,7 +21,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	// Pass userId to include books from public library that user has added to their library
 	const userId = locals.user?.id;
 
-	const [booksResult, statuses, genres, formats, narrators, tags, authors, series] = await Promise.all([
+	const [booksResult, statuses, genres, formats, narrators, tags, authors, series, absBaseUrl] = await Promise.all([
 		getBooks({ page, limit, search, statusId, genreId, formatId, tagId, authorId, seriesId, sort, order, userId, filterMode }),
 		getStatuses(),
 		getGenres(),
@@ -28,7 +29,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		getNarrators(),
 		getTags(),
 		getAllAuthors(),
-		getAllSeries()
+		getAllSeries(),
+		getAbsLinkBaseUrl()
 	]);
 
 	return {
@@ -43,6 +45,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		tagId,
 		authorId,
 		seriesId,
+		absBaseUrl,
+		isAdmin: locals.user?.role === 'admin',
 		options: {
 			statuses,
 			genres,

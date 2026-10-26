@@ -88,21 +88,22 @@
 
 <Modal {open} title="Find on Audiobookshelf" size="lg" {onClose}>
 	<div class="p-6 space-y-4">
-		<form
-			class="flex gap-2"
-			onsubmit={(e) => {
-				e.preventDefault();
-				search();
-			}}
-		>
+		<!-- Not a <form>: this modal can render inside the book edit form, and forms can't nest -->
+		<div class="flex gap-2">
 			<input
 				type="text"
 				bind:value={query}
+				onkeydown={(e) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						search();
+					}
+				}}
 				placeholder="Search by title, author, or ASIN"
 				class="flex-1 px-3 py-2 rounded-lg text-sm"
 				style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
 			/>
-			<button type="submit" class="btn-accent flex items-center gap-2 px-4 py-2 text-sm" disabled={searching}>
+			<button type="button" class="btn-accent flex items-center gap-2 px-4 py-2 text-sm" onclick={search} disabled={searching}>
 				{#if searching}
 					<Loader2 class="w-4 h-4 animate-spin" />
 				{:else}
@@ -110,7 +111,7 @@
 				{/if}
 				Search
 			</button>
-		</form>
+		</div>
 
 		{#if errorMessage}
 			<p class="text-sm" style="color: #ef4444;">{errorMessage}</p>

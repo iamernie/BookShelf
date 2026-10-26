@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.3] - 2026-10-26
+
+### Added
+
+- **Audiobookshelf section in the book page Media tab** - Admins see whether the book is linked (with a short item ID) and can use Find on Audiobookshelf / Change link / Unlink directly under the ebook block. Also added to the Media tab of the book modal (formerly the Ebook tab). Hidden when the integration is off or not configured.
+- **Audiobookshelf item details** - When a book is linked, the Media section shows what Audiobookshelf knows about the audiobook: narrator(s), series, duration, chapter count, audio files (count, format, total size), published year and publisher, a short description, and an **Open in Audiobookshelf** link. Shown on the book page, the book modal, and the edit page Media tab.
+  - New admin endpoint `GET /api/v1/admin/abs/item/{itemId}` proxies Audiobookshelf's item lookup (502 with an error message when Audiobookshelf fails)
+  - Details are fetched in the browser when the section opens or the link changes, so page loads never wait on Audiobookshelf
+
 ## [2.12.2] - 2026-10-26
 
 ### Added
