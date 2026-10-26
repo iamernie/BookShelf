@@ -96,3 +96,8 @@ export async function getStatusByKey(key: string): Promise<StatusType | null> {
 		.limit(1);
 	return status || null;
 }
+
+// Today's date as YYYY-MM-DD (UTC), matching the existing completion-date stampers
+export function todayDateOnly(): string {
+	return new Date().toISOString().split('T')[0];
+}

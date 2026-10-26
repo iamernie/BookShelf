@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.9] - 2026-10-26
+
+### Changed
+
+- **Stats fix: completion dates now stamp automatically** - any code path that moves a book into the Done status (including the v1 API) now stamps completedDate when it was previously unset; existing dates are never overwritten.
+
 ## [2.12.8] - 2026-10-26
 
 ### Changed
