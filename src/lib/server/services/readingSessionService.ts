@@ -8,6 +8,7 @@
 import { db } from '$lib/server/db';
 import { readingSessions, books } from '$lib/server/db/schema';
 import { eq, and, gte, lte, desc, sql, isNull } from 'drizzle-orm';
+import { getAbsListeningByDay } from './absService';
 
 export interface ReadingSessionData {
 	id: number;
@@ -26,7 +27,11 @@ export interface DayActivity {
 	totalMinutes: number;
 	sessionCount: number;
 	booksRead: number[];
+	readingMinutes?: number;
+	listeningMinutes?: number;
 }
+
+export type HeatmapSource = 'all' | 'books' | 'listening';
 
 export interface HeatmapData {
 	days: DayActivity[];
@@ -34,6 +39,11 @@ export interface HeatmapData {
 	totalSessions: number;
 	longestStreak: number;
 	currentStreak: number;
+	source?: HeatmapSource;
+	listeningAvailable?: boolean;
+	listeningError?: string;
+	readingMinutes?: number;
+	listeningMinutes?: number;
 }
 
 /**
@@ -170,10 +180,12 @@ export async function getHeatmapData(year: number, userId?: number): Promise<Hea
 			date,
 			totalMinutes: 0,
 			sessionCount: 0,
-			booksRead: []
+			booksRead: [],
+			readingMinutes: 0
 		};
 
 		existing.totalMinutes += session.durationMinutes || 0;
+		existing.readingMinutes = existing.totalMinutes;
 		existing.sessionCount++;
 		if (!existing.booksRead.includes(session.bookId)) {
 			existing.booksRead.push(session.bookId);
@@ -196,6 +208,63 @@ export async function getHeatmapData(year: number, userId?: number): Promise<Hea
 		totalSessions,
 		longestStreak,
 		currentStreak
+	};
+}
+
+/**
+ * Get heatmap data for a year from BookShelf reading sessions, ABS listening, or both.
+ * 'auto' resolves to 'all' when ABS listening is available, else 'books'. Never throws on ABS failure.
+ */
+export async function getHeatmapDataForSource(
+	year: number,
+	requested: HeatmapSource | 'auto',
+	userId?: number
+): Promise<HeatmapData & { source: HeatmapSource; listeningAvailable: boolean }> {
+	const [listening, reading] = await Promise.all([
+		getAbsListeningByDay(year),
+		requested === 'listening' ? Promise.resolve(null) : getHeatmapData(year, userId)
+	]);
+
+	const source: HeatmapSource =
+		requested === 'auto' ? (listening.available ? 'all' : 'books') : requested;
+
+	const dayMap = new Map<string, DayActivity>();
+	if (source !== 'listening' && reading) {
+		for (const day of reading.days) dayMap.set(day.date, { ...day, booksRead: [...day.booksRead] });
+	}
+
+	if (source !== 'books' && listening.available) {
+		for (const l of listening.days) {
+			// Round once per day after summing raw seconds, so many short sessions don't vanish
+			const listeningMinutes = Math.round(l.seconds / 60);
+			const day = dayMap.get(l.date) ?? {
+				date: l.date,
+				totalMinutes: 0,
+				sessionCount: 0,
+				booksRead: [],
+				readingMinutes: 0
+			};
+			day.listeningMinutes = listeningMinutes;
+			day.totalMinutes = (day.readingMinutes ?? 0) + listeningMinutes;
+			day.sessionCount += l.sessionCount;
+			dayMap.set(l.date, day);
+		}
+	}
+
+	const days = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+	const { longestStreak, currentStreak } = calculateStreaks(days);
+
+	return {
+		days,
+		totalMinutes: days.reduce((sum, d) => sum + d.totalMinutes, 0),
+		totalSessions: days.reduce((sum, d) => sum + d.sessionCount, 0),
+		longestStreak,
+		currentStreak,
+		source,
+		listeningAvailable: listening.available,
+		...(listening.error ? { listeningError: listening.error } : {}),
+		readingMinutes: days.reduce((sum, d) => sum + (d.readingMinutes ?? 0), 0),
+		listeningMinutes: days.reduce((sum, d) => sum + (d.listeningMinutes ?? 0), 0)
 	};
 }
 

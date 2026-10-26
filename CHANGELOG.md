@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-26
+
+### Added
+
+- **Stats heatmap: ABS listening time** - the reading activity heatmap now includes Audiobookshelf listening time with an All / Books / Listening toggle; cells merge reading + listening minutes; graceful fallback when ABS is unconfigured or unreachable
+
+### Changed
+
+- **Heatmap fetching** - the heatmap now makes one request per year or source change (previously two per load)
+
 ## [2.13.0] - 2026-10-26
 
 ### Changed

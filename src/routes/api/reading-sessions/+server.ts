@@ -7,19 +7,26 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import type { HeatmapSource } from '$lib/server/services/readingSessionService';
 import {
 	startSession,
-	getHeatmapData,
+	getHeatmapDataForSource,
 	getRecentSessions,
 	getReadingStats
 } from '$lib/server/services/readingSessionService';
+
+const HEATMAP_SOURCES: Array<HeatmapSource | 'auto'> = ['all', 'books', 'listening', 'auto'];
 
 export const GET: RequestHandler = async ({ url }) => {
 	const year = parseInt(url.searchParams.get('year') || new Date().getFullYear().toString());
 	const type = url.searchParams.get('type') || 'heatmap';
 
 	if (type === 'heatmap') {
-		const data = await getHeatmapData(year);
+		const source = url.searchParams.get('source') || 'auto';
+		if (!HEATMAP_SOURCES.includes(source as HeatmapSource | 'auto')) {
+			throw error(400, 'Invalid source parameter');
+		}
+		const data = await getHeatmapDataForSource(year, source as HeatmapSource | 'auto');
 		return json(data);
 	}
 

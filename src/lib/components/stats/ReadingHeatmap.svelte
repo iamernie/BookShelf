@@ -7,7 +7,11 @@
 		totalMinutes: number;
 		sessionCount: number;
 		booksRead: number[];
+		readingMinutes?: number;
+		listeningMinutes?: number;
 	}
+
+	type HeatmapSource = 'all' | 'books' | 'listening';
 
 	interface HeatmapData {
 		days: DayActivity[];
@@ -15,7 +19,18 @@
 		totalSessions: number;
 		longestStreak: number;
 		currentStreak: number;
+		source?: HeatmapSource;
+		listeningAvailable?: boolean;
+		listeningError?: string;
 	}
+
+	const SOURCE_STORAGE_KEY = 'heatmapSource';
+	const sourceOptions: Array<{ value: HeatmapSource; label: string }> = [
+		{ value: 'all', label: 'All' },
+		{ value: 'books', label: 'Books' },
+		{ value: 'listening', label: 'Listening' }
+	];
+	const sourceVerb: Record<HeatmapSource, string> = { all: 'total', books: 'read', listening: 'listened' };
 
 	interface Props {
 		initialYear?: number;
@@ -28,6 +43,26 @@
 	let heatmapData = $state<HeatmapData | null>(null);
 	let hoveredDay = $state<DayActivity | null>(null);
 	let tooltipPosition = $state({ x: 0, y: 0 });
+	// null until the server resolves the default (All when ABS is configured, Books otherwise)
+	let source = $state<HeatmapSource | null>(null);
+	let ready = $state(false);
+
+	// Plain (non-reactive) bookkeeping for the fetch effect
+	let requestSeq = 0;
+	let lastFetchKey = '';
+
+	// Hide the toggle entirely when ABS isn't configured; keep it (with a note) when ABS is unreachable
+	let showSourceToggle = $derived(
+		!!heatmapData && (heatmapData.listeningAvailable === true || !!heatmapData.listeningError)
+	);
+	let listeningNote = $derived(
+		heatmapData?.listeningError
+			? heatmapData.listeningError === 'truncated'
+				? 'Listening data truncated'
+				: 'Listening data unavailable'
+			: null
+	);
+	let activeSource = $derived<HeatmapSource>(source ?? heatmapData?.source ?? 'books');
 
 	// Generate calendar grid
 	let calendarWeeks = $derived(generateCalendarWeeks(year, heatmapData?.days || []));
@@ -48,16 +83,40 @@
 	];
 	const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-	// Fetch heatmap data
-	async function fetchData() {
+	// Fetch heatmap data; a newer request always wins over an older one
+	async function fetchData(fetchYear: number, fetchSource: HeatmapSource | null) {
+		const seq = ++requestSeq;
 		loading = true;
 		try {
-			const res = await fetch(`/api/reading-sessions?type=heatmap&year=${year}`);
-			heatmapData = await res.json();
+			const res = await fetch(
+				`/api/reading-sessions?type=heatmap&year=${fetchYear}&source=${fetchSource ?? 'auto'}`
+			);
+			const data: HeatmapData = await res.json();
+			if (seq !== requestSeq) return;
+
+			// Stored preference no longer possible (ABS turned off): fall back to Books
+			if (fetchSource && fetchSource !== 'books' && !data.listeningAvailable && !data.listeningError) {
+				localStorage.removeItem(SOURCE_STORAGE_KEY);
+				source = 'books';
+				return;
+			}
+
+			heatmapData = data;
+			if (!fetchSource && data.source) {
+				// Adopt the server-resolved default without triggering a second fetch
+				lastFetchKey = `${fetchYear}|${data.source}`;
+				source = data.source;
+			}
 		} catch (err) {
+			if (seq !== requestSeq) return;
 			console.error('Failed to fetch heatmap data:', err);
 		}
 		loading = false;
+	}
+
+	function selectSource(value: HeatmapSource) {
+		localStorage.setItem(SOURCE_STORAGE_KEY, value);
+		source = value;
 	}
 
 	// Generate week-based calendar grid for the year
@@ -120,6 +179,16 @@
 		return 'level-4';
 	}
 
+	// Tooltip suffix: breakdown when a day has both kinds of activity
+	function describeDay(day: DayActivity): string {
+		const reading = day.readingMinutes ?? 0;
+		const listening = day.listeningMinutes ?? 0;
+		if (reading > 0 && listening > 0) {
+			return `(${formatMinutes(reading)} reading · ${formatMinutes(listening)} listening)`;
+		}
+		return listening > 0 ? 'listening' : 'reading';
+	}
+
 	// Format minutes for display
 	function formatMinutes(minutes: number): string {
 		if (minutes < 60) return `${minutes} min`;
@@ -145,12 +214,10 @@
 	// Navigate years
 	function prevYear() {
 		year--;
-		fetchData();
 	}
 
 	function nextYear() {
 		year++;
-		fetchData();
 	}
 
 	// Get month label positions for the header
@@ -176,14 +243,20 @@
 	let monthLabels = $derived(getMonthLabels());
 
 	onMount(() => {
-		fetchData();
+		const stored = localStorage.getItem(SOURCE_STORAGE_KEY);
+		if (stored === 'all' || stored === 'books' || stored === 'listening') {
+			source = stored;
+		}
+		ready = true;
 	});
 
+	// Single fetch trigger: initial load, year navigation and source changes
 	$effect(() => {
-		// Refetch when year changes (for direct navigation)
-		if (year) {
-			fetchData();
-		}
+		if (!ready) return;
+		const key = `${year}|${source ?? 'auto'}`;
+		if (key === lastFetchKey) return;
+		lastFetchKey = key;
+		fetchData(year, source);
 	});
 </script>
 
@@ -203,13 +276,30 @@
 			>
 				<ChevronRight class="w-5 h-5" />
 			</button>
+			{#if showSourceToggle}
+				<div class="source-toggle" role="group" aria-label="Activity source">
+					{#each sourceOptions as option}
+						<button
+							class="source-btn"
+							class:active={activeSource === option.value}
+							aria-pressed={activeSource === option.value}
+							onclick={() => selectSource(option.value)}
+						>
+							{option.label}
+						</button>
+					{/each}
+				</div>
+				{#if listeningNote}
+					<span class="source-note" title={heatmapData?.listeningError}>{listeningNote}</span>
+				{/if}
+			{/if}
 		</div>
 
 		{#if heatmapData}
 			<div class="stats-row">
 				<div class="stat">
 					<Clock class="w-4 h-4" />
-					<span>{formatMinutes(heatmapData.totalMinutes)} read</span>
+					<span>{formatMinutes(heatmapData.totalMinutes)} {sourceVerb[activeSource]}</span>
 				</div>
 				<div class="stat">
 					<BookOpen class="w-4 h-4" />
@@ -229,7 +319,7 @@
 	<!-- Heatmap grid -->
 	<div class="heatmap-scroll">
 		{#if loading}
-			<div class="loading-state">Loading reading activity...</div>
+			<div class="loading-state">Loading activity…</div>
 		{:else}
 			<div class="heatmap-grid">
 				<!-- Month labels -->
@@ -302,7 +392,7 @@
 				})}
 			</div>
 			<div class="tooltip-stats">
-				{formatMinutes(hoveredDay.totalMinutes)} reading
+				{formatMinutes(hoveredDay.totalMinutes)} {describeDay(hoveredDay)}
 				{#if hoveredDay.sessionCount > 1}
 					<span class="text-xs opacity-70">({hoveredDay.sessionCount} sessions)</span>
 				{/if}
@@ -351,6 +441,47 @@
 	.nav-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.source-toggle {
+		display: flex;
+		margin-left: 0.75rem;
+	}
+
+	.source-btn {
+		padding: 0.25rem 0.625rem;
+		border: 1px solid var(--border-color, #dee2e6);
+		background: var(--bg-primary, white);
+		color: var(--text-primary, #1a1a1a);
+		font-size: 0.8rem;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.source-btn + .source-btn {
+		border-left: none;
+	}
+
+	.source-btn:first-child {
+		border-radius: 0.25rem 0 0 0.25rem;
+	}
+
+	.source-btn:last-child {
+		border-radius: 0 0.25rem 0.25rem 0;
+	}
+
+	.source-btn:hover:not(.active) {
+		background: var(--bg-tertiary, #e9ecef);
+	}
+
+	.source-btn.active {
+		background: var(--bg-tertiary, #e9ecef);
+		font-weight: 600;
+	}
+
+	.source-note {
+		font-size: 0.75rem;
+		color: var(--text-muted, #adb5bd);
 	}
 
 	.year-label {

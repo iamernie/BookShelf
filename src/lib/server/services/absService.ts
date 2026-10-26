@@ -963,6 +963,108 @@ async function doSync(): Promise<AbsSyncResult> {
 }
 
 // ============================================
+// Listening history (read-only, for the stats heatmap)
+// ============================================
+
+const LISTENING_CACHE_TTL_MS = 60_000;
+const MAX_LISTENING_PAGES = 30;
+
+/** ABS playback session (GET /api/me/listening-sessions), only the fields we read */
+interface AbsListeningSession {
+	libraryItemId?: string;
+	mediaType?: string;
+	timeListening?: number;
+	startedAt?: number;
+	updatedAt?: number;
+}
+
+interface AbsListeningSessionsPage {
+	total?: number;
+	numPages?: number;
+	page?: number;
+	itemsPerPage?: number;
+	sessions?: AbsListeningSession[];
+}
+
+export interface AbsListeningDay {
+	date: string; // YYYY-MM-DD (UTC, same rule as reading sessions)
+	seconds: number;
+	sessionCount: number;
+	itemIds: string[];
+}
+
+export interface AbsListeningResult {
+	available: boolean;
+	days: AbsListeningDay[];
+	error?: string;
+}
+
+// Promise is cached (not the result) so concurrent loads share one fetch; failures are cached too
+const listeningCache = new Map<string, { at: number; promise: Promise<AbsListeningResult> }>();
+
+async function fetchListeningByDay(config: AbsConfig, year: number): Promise<AbsListeningResult> {
+	const yearStart = Date.UTC(year, 0, 1);
+	const yearEnd = Date.UTC(year + 1, 0, 1);
+	const dayMap = new Map<string, AbsListeningDay>();
+
+	try {
+		let truncated = false;
+		for (let page = 0; ; page++) {
+			if (page >= MAX_LISTENING_PAGES) {
+				truncated = true;
+				log.warn('ABS listening history hit the page cap', { year, pages: MAX_LISTENING_PAGES });
+				break;
+			}
+
+			const data = await absGet<AbsListeningSessionsPage>(
+				config,
+				`/api/me/listening-sessions?itemsPerPage=${PAGE_SIZE}&page=${page}`
+			);
+			const sessions = data.sessions ?? [];
+
+			for (const s of sessions) {
+				if (s.mediaType !== 'book' || typeof s.startedAt !== 'number') continue;
+				if (s.startedAt < yearStart || s.startedAt >= yearEnd) continue;
+				const date = new Date(s.startedAt).toISOString().slice(0, 10);
+				const day = dayMap.get(date) ?? { date, seconds: 0, sessionCount: 0, itemIds: [] };
+				// Raw float seconds; rounding happens once per day when merging
+				day.seconds += Number.isFinite(s.timeListening) ? (s.timeListening as number) : 0;
+				day.sessionCount++;
+				if (s.libraryItemId && !day.itemIds.includes(s.libraryItemId)) day.itemIds.push(s.libraryItemId);
+				dayMap.set(date, day);
+			}
+
+			// Sessions come newest first by updatedAt (>= startedAt): once a whole page predates the year, stop
+			const pageBeforeYear =
+				sessions.length > 0 && sessions.every((s) => typeof s.updatedAt === 'number' && s.updatedAt < yearStart);
+			if (sessions.length === 0 || pageBeforeYear || page >= (data.numPages ?? 0) - 1) break;
+		}
+
+		const days = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+		return truncated ? { available: true, days, error: 'truncated' } : { available: true, days };
+	} catch (err) {
+		const message = describeError(err);
+		log.warn('ABS listening history unavailable', { year, error: message });
+		return { available: false, days: [], error: message };
+	}
+}
+
+/** Per-day ABS listening for a UTC calendar year. Never throws; cached for 60s per server + year. */
+export async function getAbsListeningByDay(year: number): Promise<AbsListeningResult> {
+	const config = await getAbsConfig();
+	if (!isUsable(config)) return { available: false, days: [] };
+
+	const key = `${config.baseUrl}|${year}`;
+	const now = Date.now();
+	const cached = listeningCache.get(key);
+	if (cached && now - cached.at < LISTENING_CACHE_TTL_MS) return cached.promise;
+
+	const promise = fetchListeningByDay(config, year);
+	listeningCache.set(key, { at: now, promise });
+	return promise;
+}
+
+// ============================================
 // Scheduler
 // ============================================
 
