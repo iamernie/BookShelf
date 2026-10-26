@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.8] - 2026-10-26
+
+### Changed
+
+- **Security: dependency bumps** - nodemailer 10.0.13 → 10.2.1 (addresses the addressparser recipient-parsing advisories flagged by Dependabot), @sveltejs/kit 2.70.1 → 2.70.3, vite 6.4.3 → 6.4.5 (dev-server advisories).
 ## [2.12.7] - 2026-10-26
 
 ### Changed
