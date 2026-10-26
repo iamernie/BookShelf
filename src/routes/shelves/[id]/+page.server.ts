@@ -1,8 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getShelfById, getShelfBooks } from '$lib/server/services/magicShelfService';
-import { db, statuses, genres, formats, authors, series, tags, narrators, audiobooks } from '$lib/server/db';
-import { asc, inArray, eq } from 'drizzle-orm';
+import { db, statuses, genres, formats, authors, series, tags, narrators } from '$lib/server/db';
+import { asc } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const id = parseInt(params.id);
@@ -35,35 +35,12 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		db.select({ id: narrators.id, name: narrators.name }).from(narrators).orderBy(asc(narrators.name))
 	]);
 
-	// Fetch audiobook IDs for books in this shelf (batch query for efficiency)
-	const bookIds = result?.books.map(b => b.id) || [];
-	let audiobookMap = new Map<number, number>();
-
-	if (bookIds.length > 0) {
-		const audiobookLinks = await db
-			.select({ bookId: audiobooks.bookId, audiobookId: audiobooks.id })
-			.from(audiobooks)
-			.where(inArray(audiobooks.bookId, bookIds));
-
-		for (const link of audiobookLinks) {
-			if (link.bookId) {
-				audiobookMap.set(link.bookId, link.audiobookId);
-			}
-		}
-	}
-
-	// Enrich books with audiobook IDs
-	const enrichedBooks = (result?.books || []).map(book => ({
-		...book,
-		audiobookId: audiobookMap.get(book.id) || null
-	}));
-
 	return {
 		shelf: {
 			...shelf,
 			filterJson: JSON.parse(shelf.filterJson)
 		},
-		books: enrichedBooks,
+		books: result?.books || [],
 		pagination: {
 			page: result?.page || 1,
 			limit: result?.limit || 24,

@@ -6,7 +6,6 @@
 		ArrowLeft,
 		Loader2,
 		Mic,
-		Headphones,
 		Globe,
 		Calendar,
 		MapPin,
@@ -382,9 +381,9 @@
 						<h3 class="text-xs font-medium mb-3" style="color: var(--text-muted);">Stats</h3>
 						<div class="space-y-2">
 							<div class="flex items-center justify-between">
-								<span class="text-xs" style="color: var(--text-muted);">Audiobooks</span>
+								<span class="text-xs" style="color: var(--text-muted);">Books</span>
 								<span class="text-sm font-medium" style="color: var(--text-primary);">
-									{narrator.audiobookCount}
+									{narrator.bookCount}
 								</span>
 							</div>
 							<div class="flex items-center justify-between">
@@ -867,49 +866,6 @@
 								{/if}
 							</div>
 						</div>
-
-						<!-- Audiobooks by Narrator (Read-only reference) -->
-						{#if data.audiobooks.length > 0}
-							<div
-								class="rounded-lg p-4"
-								style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);"
-							>
-								<h3 class="text-xs font-medium mb-3 flex items-center gap-2" style="color: var(--text-muted);">
-									<Headphones class="w-3.5 h-3.5" />
-									Audiobooks ({data.audiobooks.length})
-								</h3>
-								<div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-									{#each data.audiobooks as audiobook}
-										<button
-											type="button"
-											class="flex items-center gap-2 px-2 py-1 rounded text-sm transition-colors hover:opacity-80"
-											style="background-color: var(--bg-tertiary); color: var(--text-secondary);"
-											onclick={() => {
-												if (audiobook.bookId) {
-													goto(`/books/${audiobook.bookId}`);
-												} else {
-													goto(`/audiobooks/${audiobook.id}`);
-												}
-											}}
-										>
-											{#if audiobook.coverPath}
-												<img
-													src={audiobook.coverPath}
-													alt=""
-													class="w-6 h-6 object-cover rounded"
-													onerror={(e) => {
-														(e.currentTarget as HTMLImageElement).src = '/placeholder.png';
-													}}
-												/>
-											{:else}
-												<Headphones class="w-4 h-4" />
-											{/if}
-											{audiobook.title}
-										</button>
-									{/each}
-								</div>
-							</div>
-						{/if}
 					</div>
 				</form>
 			</div>

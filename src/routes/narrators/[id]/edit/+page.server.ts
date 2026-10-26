@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { getNarratorById, getAudiobooksByNarrator, getNarratorTags } from '$lib/server/services/narratorService';
+import { getNarratorById, getNarratorTags } from '$lib/server/services/narratorService';
 import { getAllTags } from '$lib/server/services/tagService';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -9,9 +9,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Narrator not found');
 	}
 
-	const [narrator, audiobooks, narratorTags, allTags] = await Promise.all([
+	const [narrator, narratorTags, allTags] = await Promise.all([
 		getNarratorById(id, locals.user?.id),
-		getAudiobooksByNarrator(id),
 		getNarratorTags(id),
 		getAllTags()
 	]);
@@ -22,7 +21,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	return {
 		narrator,
-		audiobooks,
 		narratorTags,
 		allTags
 	};

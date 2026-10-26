@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-10-26
+
+### Removed
+
+- **Built-in audiobook upload and player** - Audiobooks are now handled entirely through the Audiobookshelf integration.
+  - Removed the `/audiobooks` pages, the audio player, the audiobook section of the book edit page's Media tab, and the `/api/audiobooks` endpoints
+  - The `audiobooks`, `audiobook_files`, `audiobook_chapters`, `audiobook_progress`, `audiobook_bookmarks`, and `user_audiobooks` tables are dropped on startup (a database backup is taken first; drizzle migration `0003_drop_legacy_audiobooks`)
+  - The "listening hours" stat is gone; narrator counts now come from books only
+
+### Changed
+
+- The **Has Audiobook** magic shelf filter now matches books linked to an Audiobookshelf item
+- Any format whose name contains "audio" (for example "Audible Audio") counts as an audiobook format for the unlinked list and the **Find on Audiobookshelf** button, and sync reuses that format instead of creating a new "Audio" one
+
+### Fixed
+
+- **Audiobookshelf rejected valid API keys** - BookShelf sent the key in an `x-api-key` header, which Audiobookshelf ignores, so **Test Connection** and sync returned 401 Unauthorized. The key is now sent as `Authorization: Bearer <key>`.
+
 ## [2.11.1] - 2026-10-26
 
 ### Added

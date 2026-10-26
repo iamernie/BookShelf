@@ -118,7 +118,7 @@ Open **http://localhost:3000** and the setup wizard will guide you through creat
 Connect BookShelf to an [Audiobookshelf](https://www.audiobookshelf.org) server from **Admin → Settings → Integrations**: turn on **Enable Audiobookshelf**, enter the server URL and an API key, click **Test Connection**, then **Save Changes**. While it's enabled, BookShelf syncs every 6 hours by default (adjustable from 1 to 48 hours with **Sync every N hours**), or on demand with **Sync Now**:
 
 - Books added in the last 14 days are linked to their Audiobookshelf item by ASIN, or by title when there is exactly one exact match
-- Audiobooks not yet in BookShelf are added (author, narrator, Audio format, Unread status) and linked
+- Audiobooks not yet in BookShelf are added (author, narrator, an audio format such as Audio or Audible Audio, Unread status) and linked
 - Linked books get a **Listen on Audiobookshelf** button on their book page
 - Admins can link, re-link, or unlink a book by hand from its book page (**Find on Audiobookshelf**, **Change link**, **Unlink**), and the Integrations tab lists every audiobook that isn't linked yet with a **Find match** button
 

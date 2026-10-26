@@ -13,7 +13,6 @@
 		id: number;
 		name: string;
 		photoUrl?: string | null;
-		audiobookCount: number;
 		bookCount: number;
 		avgRating: number | null;
 		coverBook?: { id: number; title: string; coverImageUrl: string | null } | null;
@@ -51,8 +50,8 @@
 		!imageError && (narrator.photoUrl || narrator.coverBook?.coverImageUrl)
 	);
 
-	// Total count of audiobooks/books
-	let totalCount = $derived(narrator.audiobookCount + narrator.bookCount);
+	// Total count of narrated books
+	let totalCount = $derived(narrator.bookCount);
 </script>
 
 <button
@@ -82,7 +81,7 @@
 
 			<!-- Stats row -->
 			<div class="stats-row">
-				<span class="stat" title="Total audiobooks">
+				<span class="stat" title="Total books">
 					<Headphones class="w-3.5 h-3.5" />
 					{totalCount}
 				</span>

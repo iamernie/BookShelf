@@ -29,7 +29,6 @@
 			seriesName: book.series[0]?.title || null,
 			bookNum: book.series[0]?.bookNum || null,
 			ebookPath: book.ebookPath,
-			audiobookId: book.audiobookId,
 			status: book.status,
 			genre: book.genre,
 			format: book.format,

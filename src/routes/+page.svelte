@@ -23,7 +23,6 @@
 		CheckCircle2,
 		Hash,
 		Sparkles,
-		Headphones,
 		BookX,
 		FileText,
 		Mic2
@@ -213,14 +212,6 @@
 			<span class="stat-value-sm">{data.stats.totalNarrators}</span>
 			<span class="stat-label-sm">Narrators</span>
 		</div>
-
-		{#if data.stats.totalListeningHours > 0}
-		<div class="stat-card-sm">
-			<Headphones class="w-4 h-4" style="color: #f59e0b;" />
-			<span class="stat-value-sm">{data.stats.totalListeningHours}h</span>
-			<span class="stat-label-sm">Listened</span>
-		</div>
-		{/if}
 
 		{#if data.stats.dnfCount > 0}
 		<div class="stat-card-sm">

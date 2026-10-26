@@ -19,7 +19,6 @@
 		name: string;
 		bio: string | null;
 		photoUrl: string | null;
-		audiobookCount: number;
 		bookCount: number;
 		avgRating: number | null;
 		coverBook?: { id: number; title: string; coverImageUrl: string | null } | null;

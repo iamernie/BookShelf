@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { getNarratorById, getAudiobooksByNarrator, getBooksByNarrator, getNarratorTags } from '$lib/server/services/narratorService';
+import { getNarratorById, getBooksByNarrator, getNarratorTags } from '$lib/server/services/narratorService';
 import { getAllTags } from '$lib/server/services/tagService';
 import { error } from '@sveltejs/kit';
 
@@ -11,9 +11,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const userId = locals.user?.id;
 
-	const [narrator, audiobooks, books, narratorTags, tags] = await Promise.all([
+	const [narrator, books, narratorTags, tags] = await Promise.all([
 		getNarratorById(id, userId),
-		getAudiobooksByNarrator(id),
 		getBooksByNarrator(id, userId),
 		getNarratorTags(id),
 		getAllTags()
@@ -25,7 +24,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	return {
 		narrator,
-		audiobooks,
 		books,
 		narratorTags,
 		options: {

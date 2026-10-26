@@ -23,9 +23,6 @@
 		ChevronRight,
 		Library,
 		Database,
-		Headphones,
-		Play,
-		Trash2,
 		Music
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
@@ -44,9 +41,6 @@
 	const validTabs = ['basic', 'summary', 'identifiers', 'cover', 'dates', 'media'] as const;
 	const initialTab = urlTab && validTabs.includes(urlTab as any) ? urlTab as typeof validTabs[number] : 'basic';
 	let activeTab = $state<typeof validTabs[number]>(initialTab);
-
-	// Audiobooks linked to this book
-	let linkedAudiobooks = $state(data.linkedAudiobooks || []);
 
 	// Form fields
 	let title = $state(book.title || '');
@@ -91,12 +85,6 @@
 	let uploadingEbook = $state(false);
 	let ebookDragOver = $state(false);
 	let ebookInputRef = $state<HTMLInputElement | null>(null);
-
-	// Audiobook upload state
-	let uploadingAudiobook = $state(false);
-	let audiobookDragOver = $state(false);
-	let audiobookInputRef = $state<HTMLInputElement | null>(null);
-	let creatingAudiobook = $state(false);
 
 	// Relations
 	let selectedAuthors = $state<{ id: number; name: string; role: string }[]>(
@@ -491,142 +479,6 @@
 		} catch {
 			toasts.error('Failed to remove ebook');
 		}
-	}
-
-	// Audiobook functions
-	async function createAudiobookForBook() {
-		creatingAudiobook = true;
-		try {
-			// Create an audiobook linked to this book - inheriting metadata
-			const res = await fetch('/api/audiobooks', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: book.title,
-					author: selectedAuthors[0]?.name || null,
-					narratorId: narratorId ? parseInt(narratorId) : null,
-					description: summary || null,
-					bookId: book.id
-				})
-			});
-			if (res.ok) {
-				const audiobook = await res.json();
-				linkedAudiobooks = [...linkedAudiobooks, { ...audiobook, files: [] }];
-				toasts.success('Audiobook created. Now add audio files.');
-				return audiobook;
-			} else {
-				const err = await res.json();
-				toasts.error(err.message || 'Failed to create audiobook');
-				return null;
-			}
-		} catch {
-			toasts.error('Failed to create audiobook');
-			return null;
-		} finally {
-			creatingAudiobook = false;
-		}
-	}
-
-	async function handleAudiobookFilesUpload(files: File[], audiobookId: number) {
-		uploadingAudiobook = true;
-		try {
-			const formData = new FormData();
-			for (const file of files) {
-				formData.append('files', file);
-			}
-			const res = await fetch(`/api/audiobooks/${audiobookId}/files`, {
-				method: 'POST',
-				body: formData
-			});
-			if (res.ok) {
-				const data = await res.json();
-				// Update linked audiobooks with new files
-				linkedAudiobooks = linkedAudiobooks.map(ab => {
-					if (ab.id === audiobookId) {
-						return { ...ab, files: [...(ab.files || []), ...data.files] };
-					}
-					return ab;
-				});
-				toasts.success(`Uploaded ${data.files.length} audio file(s)`);
-			} else {
-				const err = await res.json();
-				toasts.error(err.message || 'Failed to upload audio files');
-			}
-		} catch {
-			toasts.error('Failed to upload audio files');
-		} finally {
-			uploadingAudiobook = false;
-		}
-	}
-
-	async function handleAudiobookUpload(files: File[]) {
-		// Filter to only audio files
-		const audioFiles = files.filter(f => {
-			const ext = f.name.toLowerCase().split('.').pop();
-			return ['mp3', 'm4a', 'm4b', 'aac', 'ogg', 'opus', 'flac', 'wav'].includes(ext || '');
-		});
-
-		if (audioFiles.length === 0) {
-			toasts.error('No supported audio files found. Supported: MP3, M4A, M4B, AAC, OGG, OPUS, FLAC, WAV');
-			return;
-		}
-
-		// If no audiobook exists yet, create one first
-		if (linkedAudiobooks.length === 0) {
-			const newAudiobook = await createAudiobookForBook();
-			if (!newAudiobook) return;
-			await handleAudiobookFilesUpload(audioFiles, newAudiobook.id);
-		} else {
-			// Add to existing audiobook
-			await handleAudiobookFilesUpload(audioFiles, linkedAudiobooks[0].id);
-		}
-	}
-
-	function handleAudiobookDrop(e: DragEvent) {
-		e.preventDefault();
-		audiobookDragOver = false;
-		const files = e.dataTransfer?.files;
-		if (files && files.length > 0) {
-			handleAudiobookUpload(Array.from(files));
-		}
-	}
-
-	function handleAudiobookSelect(e: Event) {
-		const input = e.target as HTMLInputElement;
-		const files = input.files;
-		if (files && files.length > 0) {
-			handleAudiobookUpload(Array.from(files));
-		}
-	}
-
-	async function deleteAudiobook(audiobookId: number) {
-		if (!confirm('Delete this audiobook and all its files?')) return;
-		try {
-			const res = await fetch(`/api/audiobooks/${audiobookId}`, { method: 'DELETE' });
-			if (res.ok) {
-				linkedAudiobooks = linkedAudiobooks.filter(ab => ab.id !== audiobookId);
-				toasts.success('Audiobook deleted');
-			} else {
-				toasts.error('Failed to delete audiobook');
-			}
-		} catch {
-			toasts.error('Failed to delete audiobook');
-		}
-	}
-
-	function formatDuration(seconds: number | null): string {
-		if (!seconds) return '0:00';
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		const s = Math.floor(seconds % 60);
-		if (h > 0) {
-			return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-		}
-		return `${m}:${String(s).padStart(2, '0')}`;
-	}
-
-	function getTotalDuration(files: any[]): number {
-		return files?.reduce((sum, f) => sum + (f.duration || 0), 0) || 0;
 	}
 
 	async function handleSave() {
@@ -1466,7 +1318,7 @@
 							</div>
 						{/if}
 
-						<!-- Media Tab (Ebook + Audiobook) -->
+						<!-- Media Tab -->
 						{#if activeTab === 'media'}
 							<div class="space-y-4">
 								<!-- Ebook Section -->
@@ -1525,119 +1377,6 @@
 												<Tablet class="w-8 h-8 mx-auto mb-2" style="color: var(--text-muted);" />
 												<p class="font-medium text-sm mb-1" style="color: var(--text-primary);">No ebook attached</p>
 												<p class="text-xs" style="color: var(--text-muted);">EPUB, PDF, CBZ (max 100MB)</p>
-											{/if}
-										</button>
-									{/if}
-								</div>
-
-								<!-- Audiobook Section -->
-								<div class="rounded-lg p-4" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
-									<h3 class="text-xs font-medium mb-3 flex items-center gap-2" style="color: var(--text-muted);">
-										<Headphones class="w-3.5 h-3.5" />
-										Audiobook
-									</h3>
-
-									{#if linkedAudiobooks.length > 0}
-										{@const audiobook = linkedAudiobooks[0]}
-										<div class="p-4 rounded-lg mb-3" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%); border: 1px solid rgba(139, 92, 246, 0.3);">
-											<div class="flex items-center justify-between flex-wrap gap-3 mb-3">
-												<div class="flex items-center gap-3">
-													<div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background-color: rgba(139, 92, 246, 0.2);">
-														<Headphones class="w-5 h-5" style="color: #8b5cf6;" />
-													</div>
-													<div>
-														<p class="font-medium text-sm" style="color: var(--text-primary);">Audiobook Attached</p>
-														<p class="text-xs" style="color: var(--text-muted);">
-															{audiobook.files?.length || 0} file(s) · {formatDuration(getTotalDuration(audiobook.files || []))}
-														</p>
-													</div>
-												</div>
-												<div class="flex gap-2">
-													<a href="/audiobooks/{audiobook.id}" class="btn-accent px-3 py-1.5 text-sm flex items-center gap-1">
-														<Play class="w-3.5 h-3.5" />
-														Listen
-													</a>
-													<button
-														type="button"
-														class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-														style="background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"
-														onclick={() => deleteAudiobook(audiobook.id)}
-													>
-														<Trash2 class="w-3.5 h-3.5" />
-													</button>
-												</div>
-											</div>
-
-											<!-- Files list -->
-											{#if audiobook.files && audiobook.files.length > 0}
-												<div class="space-y-1 max-h-40 overflow-y-auto">
-													{#each audiobook.files as file, idx}
-														<div class="flex items-center gap-2 p-2 rounded text-sm" style="background-color: var(--bg-tertiary);">
-															<span class="text-xs font-mono" style="color: var(--text-muted);">{String(idx + 1).padStart(2, '0')}</span>
-															<span class="flex-1 truncate" style="color: var(--text-primary);">{file.title || file.filename}</span>
-															<span class="text-xs" style="color: var(--text-muted);">{formatDuration(file.duration)}</span>
-														</div>
-													{/each}
-												</div>
-											{/if}
-										</div>
-
-										<!-- Add more files -->
-										<input
-											type="file"
-											accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.flac,.wav"
-											class="hidden"
-											multiple
-											bind:this={audiobookInputRef}
-											onchange={handleAudiobookSelect}
-										/>
-										<button
-											type="button"
-											class="w-full border-2 border-dashed rounded-lg p-4 text-center transition-all cursor-pointer"
-											style="border-color: {audiobookDragOver ? 'var(--accent)' : 'var(--border-color)'}; background-color: {audiobookDragOver ? 'var(--bg-hover)' : 'var(--bg-tertiary)'};"
-											ondragover={(e) => { e.preventDefault(); audiobookDragOver = true; }}
-											ondragleave={() => audiobookDragOver = false}
-											ondrop={handleAudiobookDrop}
-											onclick={() => audiobookInputRef?.click()}
-											disabled={uploadingAudiobook}
-										>
-											{#if uploadingAudiobook}
-												<Loader2 class="w-6 h-6 mx-auto mb-1 animate-spin" style="color: var(--accent);" />
-												<p class="text-sm font-medium" style="color: var(--accent);">Uploading...</p>
-											{:else}
-												<Plus class="w-6 h-6 mx-auto mb-1" style="color: var(--text-muted);" />
-												<p class="text-sm" style="color: var(--text-muted);">Add more audio files</p>
-											{/if}
-										</button>
-									{:else}
-										<!-- No audiobook yet - show upload area -->
-										<input
-											type="file"
-											accept=".mp3,.m4a,.m4b,.aac,.ogg,.opus,.flac,.wav"
-											class="hidden"
-											multiple
-											bind:this={audiobookInputRef}
-											onchange={handleAudiobookSelect}
-										/>
-										<button
-											type="button"
-											class="w-full border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer"
-											style="border-color: {audiobookDragOver ? 'var(--accent)' : 'var(--border-color)'}; background-color: {audiobookDragOver ? 'var(--bg-hover)' : 'var(--bg-tertiary)'};"
-											ondragover={(e) => { e.preventDefault(); audiobookDragOver = true; }}
-											ondragleave={() => audiobookDragOver = false}
-											ondrop={handleAudiobookDrop}
-											onclick={() => audiobookInputRef?.click()}
-											disabled={uploadingAudiobook || creatingAudiobook}
-										>
-											{#if uploadingAudiobook || creatingAudiobook}
-												<Loader2 class="w-8 h-8 mx-auto mb-2 animate-spin" style="color: var(--accent);" />
-												<p class="text-sm font-medium" style="color: var(--accent);">
-													{creatingAudiobook ? 'Creating audiobook...' : 'Uploading...'}
-												</p>
-											{:else}
-												<Headphones class="w-8 h-8 mx-auto mb-2" style="color: var(--text-muted);" />
-												<p class="font-medium text-sm mb-1" style="color: var(--text-primary);">No audiobook attached</p>
-												<p class="text-xs" style="color: var(--text-muted);">MP3, M4A, M4B, AAC, OGG, FLAC, WAV</p>
 											{/if}
 										</button>
 									{/if}

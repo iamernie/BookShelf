@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import {
-		Upload, FileAudio, FileText, BookOpen, ChevronLeft, X, Loader2,
+		Upload, FileText, BookOpen, ChevronLeft, X, Loader2,
 		Library, User, Search, Info, AlignLeft, Image, Fingerprint,
-		Headphones, Music, Check, AlertCircle, Star, Tag, Database,
+		Music, Check, AlertCircle, Star, Tag, Database,
 		Calendar, Globe, AlertTriangle, Link, Plus
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
@@ -13,9 +13,8 @@
 
 	// File type detection
 	const EBOOK_EXTENSIONS = ['.epub', '.pdf', '.cbz'];
-	const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.m4b', '.aac', '.ogg', '.opus', '.flac', '.wav'];
 
-	type MediaType = 'ebook' | 'audiobook' | null;
+	type MediaType = 'ebook' | null;
 
 	// State
 	let step = $state<'upload' | 'form'>('upload');
@@ -25,7 +24,7 @@
 	let isExtracting = $state(false);
 	let isDragging = $state(false);
 	let isSubmitting = $state(false);
-	let submitStatus = $state<'idle' | 'creating_book' | 'creating_audiobook' | 'uploading_file' | 'done'>('idle');
+	let submitStatus = $state<'idle' | 'creating_book' | 'uploading_file' | 'done'>('idle');
 
 	// Upload progress tracking
 	let isUploading = $state(false);
@@ -62,10 +61,6 @@
 	let formatId = $state('');
 	let statusId = $state('');
 	let selectedTagIds = $state<number[]>([]);
-
-	// Audiobook specific
-	let narratorId = $state('');
-	let narratorName = $state('');
 
 	// Identifiers
 	let isbn13 = $state('');
@@ -191,7 +186,6 @@
 	function detectMediaType(file: File): MediaType {
 		const ext = getFileExtension(file.name);
 		if (EBOOK_EXTENSIONS.includes(ext)) return 'ebook';
-		if (AUDIO_EXTENSIONS.includes(ext)) return 'audiobook';
 		return null;
 	}
 
@@ -212,13 +206,13 @@
 		const type = detectMediaType(file);
 
 		if (!type) {
-			toasts.error('Unsupported file type. Please upload an ebook (EPUB, PDF, CBZ) or audiobook (MP3, M4A, M4B, etc.)');
+			toasts.error('Unsupported file type. Please upload an ebook (EPUB, PDF, or CBZ)');
 			return;
 		}
 
-		const maxSize = type === 'ebook' ? 100 * 1024 * 1024 : 500 * 1024 * 1024;
+		const maxSize = 100 * 1024 * 1024;
 		if (file.size > maxSize) {
-			toasts.error(`File too large. Maximum size is ${type === 'ebook' ? '100MB' : '500MB'}`);
+			toasts.error('File too large. Maximum size is 100MB');
 			return;
 		}
 
@@ -299,7 +293,6 @@
 				authorSearch = metadata.author;
 			}
 		}
-		if (metadata.narrator) narratorName = metadata.narrator;
 		if (metadata.description) summary = metadata.description;
 		if (metadata.coverUrl) coverUrl = metadata.coverUrl;
 		if (metadata.isbn13) isbn13 = metadata.isbn13;
@@ -378,8 +371,6 @@
 		formatId = '';
 		statusId = '';
 		selectedTagIds = [];
-		narratorId = '';
-		narratorName = '';
 		isbn13 = '';
 		isbn10 = '';
 		asin = '';
@@ -492,7 +483,7 @@
 		// If linking to existing book, we just need the book ID
 		if (selectedExistingBook && uploadedFile) {
 			isSubmitting = true;
-			submitStatus = mediaType === 'audiobook' ? 'creating_audiobook' : 'uploading_file';
+			submitStatus = 'uploading_file';
 
 			try {
 				const bookId = selectedExistingBook.id;
@@ -510,42 +501,6 @@
 						throw new Error('File upload failed');
 					}
 					toasts.success('Ebook added to existing book!');
-				} else if (mediaType === 'audiobook') {
-					// Create audiobook entry linked to existing book
-					submitStatus = 'creating_audiobook';
-					const audiobookPayload = {
-						title: selectedExistingBook.title,
-						bookId,
-						author: selectedExistingBook.author || null,
-						narratorName: narratorName.trim() || null,
-						narratorId: narratorId ? parseInt(narratorId) : null,
-						libraryType: data.isPublic ? 'public' : 'personal'
-					};
-
-					const audiobookRes = await fetch('/api/audiobooks', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(audiobookPayload)
-					});
-
-					if (audiobookRes.ok) {
-						const audiobook = await audiobookRes.json();
-						submitStatus = 'uploading_file';
-						const formData = new FormData();
-						formData.append('files', uploadedFile);
-						const audioUploadRes = await fetch(`/api/audiobooks/${audiobook.id}/files`, {
-							method: 'POST',
-							body: formData
-						});
-
-						if (!audioUploadRes.ok) {
-							toasts.warning('Audiobook created but file upload failed.');
-						} else {
-							toasts.success('Audiobook added to existing book!');
-						}
-					} else {
-						throw new Error('Failed to create audiobook');
-					}
 				}
 
 				goto(`/books/${bookId}`);
@@ -578,7 +533,6 @@
 				genreId: genreId ? parseInt(genreId) : null,
 				formatId: formatId ? parseInt(formatId) : null,
 				statusId: statusId ? parseInt(statusId) : null,
-				narratorId: narratorId ? parseInt(narratorId) : null,
 				isbn13: isbn13.trim() || null,
 				isbn10: isbn10.trim() || null,
 				asin: asin.trim() || null,
@@ -634,54 +588,6 @@
 
 					if (!uploadRes.ok) {
 						toasts.warning('Book created but file upload failed. You can upload the file later.');
-					}
-				} else if (mediaType === 'audiobook') {
-					// Create audiobook entry linked to book
-					submitStatus = 'creating_audiobook';
-					console.log('[library/add] Creating audiobook...');
-					const audiobookPayload = {
-						title: title.trim(),
-						bookId: newBook.id,
-						author: selectedAuthors[0]?.name || null,
-						narratorName: narratorName.trim() || null,
-						narratorId: narratorId ? parseInt(narratorId) : null,
-						libraryType: data.isPublic ? 'public' : 'personal'
-					};
-					console.log('[library/add] Audiobook payload:', audiobookPayload);
-
-					const audiobookRes = await fetch('/api/audiobooks', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(audiobookPayload)
-					});
-
-					console.log('[library/add] Audiobook creation response status:', audiobookRes.status);
-
-					if (audiobookRes.ok) {
-						const audiobook = await audiobookRes.json();
-						console.log('[library/add] Audiobook created:', audiobook.id);
-						console.log('[library/add] Uploading audio file:', uploadedFile.name, uploadedFile.size);
-
-						submitStatus = 'uploading_file';
-						formData.append('files', uploadedFile);
-						const audioUploadRes = await fetch(`/api/audiobooks/${audiobook.id}/files`, {
-							method: 'POST',
-							body: formData
-						});
-
-						console.log('[library/add] Audio file upload response status:', audioUploadRes.status);
-
-						if (!audioUploadRes.ok) {
-							const errData = await audioUploadRes.json().catch(() => ({}));
-							console.error('[library/add] Audio file upload failed:', errData);
-							toasts.warning('Book created but audio file upload failed. You can upload the file later.');
-						} else {
-							console.log('[library/add] Audio file uploaded successfully');
-						}
-					} else {
-						const errData = await audiobookRes.json().catch(() => ({}));
-						console.error('[library/add] Audiobook creation failed:', errData);
-						toasts.warning('Book created but audiobook creation failed.');
 					}
 				}
 			}
@@ -759,15 +665,11 @@
 				<!-- File Selected & Processing with Progress -->
 				<div
 					class="relative border-2 rounded-xl p-8 text-center"
-					style="border-color: {mediaType === 'ebook' ? '#3b82f6' : '#8b5cf6'}; background: {mediaType === 'ebook' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(139, 92, 246, 0.05)'};"
+					style="border-color: #3b82f6; background: rgba(59, 130, 246, 0.05);"
 				>
 					<div class="flex justify-center mb-4">
-						<div class="w-16 h-16 rounded-xl flex items-center justify-center relative" style="background: {mediaType === 'ebook' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(139, 92, 246, 0.1)'};">
-							{#if mediaType === 'ebook'}
-								<FileText class="w-8 h-8" style="color: #3b82f6;" />
-							{:else}
-								<FileAudio class="w-8 h-8" style="color: #8b5cf6;" />
-							{/if}
+						<div class="w-16 h-16 rounded-xl flex items-center justify-center relative" style="background: rgba(59, 130, 246, 0.1);">
+							<FileText class="w-8 h-8" style="color: #3b82f6;" />
 						</div>
 					</div>
 
@@ -775,7 +677,7 @@
 						{uploadedFile.name}
 					</p>
 					<p class="text-sm mb-4" style="color: var(--text-muted);">
-						{(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB • {mediaType === 'ebook' ? 'Ebook' : 'Audiobook'}
+						{(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB • Ebook
 					</p>
 
 					<!-- Progress Steps -->
@@ -785,7 +687,7 @@
 							<div class="flex items-center gap-2">
 								<div
 									class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-colors"
-									style="background: {uploadPhase === 'uploading' ? (mediaType === 'ebook' ? '#3b82f6' : '#8b5cf6') : uploadProgress >= 100 ? '#10b981' : 'var(--bg-tertiary)'}; color: {uploadPhase === 'uploading' || uploadProgress >= 100 ? 'white' : 'var(--text-muted)'};"
+									style="background: {uploadPhase === 'uploading' ? '#3b82f6' : uploadProgress >= 100 ? '#10b981' : 'var(--bg-tertiary)'}; color: {uploadPhase === 'uploading' || uploadProgress >= 100 ? 'white' : 'var(--text-muted)'};"
 								>
 									{#if uploadProgress >= 100}
 										<Check class="w-3.5 h-3.5" />
@@ -803,7 +705,7 @@
 							<div class="flex items-center gap-2">
 								<div
 									class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-colors"
-									style="background: {uploadPhase === 'extracting' ? (mediaType === 'ebook' ? '#3b82f6' : '#8b5cf6') : uploadPhase === 'done' ? '#10b981' : 'var(--bg-tertiary)'}; color: {uploadPhase === 'extracting' || uploadPhase === 'done' ? 'white' : 'var(--text-muted)'};"
+									style="background: {uploadPhase === 'extracting' ? '#3b82f6' : uploadPhase === 'done' ? '#10b981' : 'var(--bg-tertiary)'}; color: {uploadPhase === 'extracting' || uploadPhase === 'done' ? 'white' : 'var(--text-muted)'};"
 								>
 									{#if uploadPhase === 'done'}
 										<Check class="w-3.5 h-3.5" />
@@ -820,13 +722,13 @@
 							{#if uploadPhase === 'uploading'}
 								<div
 									class="h-full rounded-full transition-all duration-300"
-									style="width: {uploadProgress}%; background: {mediaType === 'ebook' ? '#3b82f6' : '#8b5cf6'};"
+									style="width: {uploadProgress}%; background: #3b82f6;"
 								></div>
 							{:else if uploadPhase === 'extracting'}
 								<!-- Indeterminate progress for extraction -->
 								<div
 									class="h-full rounded-full animate-pulse"
-									style="width: 100%; background: {mediaType === 'ebook' ? '#3b82f6' : '#8b5cf6'};"
+									style="width: 100%; background: #3b82f6;"
 								></div>
 							{:else}
 								<div class="h-full rounded-full" style="width: 100%; background: #10b981;"></div>
@@ -835,7 +737,7 @@
 					</div>
 
 					<!-- Status Text -->
-					<div class="flex items-center justify-center gap-2" style="color: {mediaType === 'ebook' ? '#3b82f6' : '#8b5cf6'};">
+					<div class="flex items-center justify-center gap-2" style="color: #3b82f6;">
 						{#if uploadPhase === 'uploading'}
 							<Loader2 class="w-4 h-4 animate-spin" />
 							<span class="font-medium">Uploading... {uploadProgress}%</span>
@@ -865,16 +767,13 @@
 						id="file-input"
 						type="file"
 						class="hidden"
-						accept=".epub,.pdf,.cbz,.mp3,.m4a,.m4b,.aac,.ogg,.opus,.flac,.wav"
+						accept=".epub,.pdf,.cbz"
 						onchange={handleFileSelect}
 					/>
 
 					<div class="flex justify-center gap-4 mb-4">
 						<div class="w-16 h-16 rounded-xl flex items-center justify-center" style="background: rgba(59, 130, 246, 0.1);">
 							<FileText class="w-8 h-8" style="color: #3b82f6;" />
-						</div>
-						<div class="w-16 h-16 rounded-xl flex items-center justify-center" style="background: rgba(139, 92, 246, 0.1);">
-							<FileAudio class="w-8 h-8" style="color: #8b5cf6;" />
 						</div>
 					</div>
 
@@ -889,10 +788,6 @@
 						<span class="px-2 py-1 rounded" style="background: var(--bg-tertiary);">EPUB</span>
 						<span class="px-2 py-1 rounded" style="background: var(--bg-tertiary);">PDF</span>
 						<span class="px-2 py-1 rounded" style="background: var(--bg-tertiary);">CBZ</span>
-						<span class="px-2 py-1 rounded" style="background: var(--bg-tertiary);">MP3</span>
-						<span class="px-2 py-1 rounded" style="background: var(--bg-tertiary);">M4A</span>
-						<span class="px-2 py-1 rounded" style="background: var(--bg-tertiary);">M4B</span>
-						<span class="px-2 py-1 rounded" style="background: var(--bg-tertiary);">FLAC</span>
 					</div>
 				</div>
 			{/if}
@@ -910,7 +805,7 @@
 					<div class="text-center px-6 py-3 rounded-lg" style="background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3);">
 						<p class="text-sm" style="color: #ca8a04;">
 							<AlertCircle class="w-4 h-4 inline mr-1" />
-							Public library entries require an ebook or audiobook file
+							Public library entries require an ebook file
 						</p>
 					</div>
 				{:else}
@@ -944,16 +839,12 @@
 		<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-6">
 			<!-- File info banner -->
 			{#if uploadedFile}
-				<div class="p-4 rounded-lg flex items-center gap-4" style="background: {mediaType === 'ebook' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(139, 92, 246, 0.1)'}; border: 1px solid {mediaType === 'ebook' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(139, 92, 246, 0.3)'};">
-					{#if mediaType === 'ebook'}
-						<FileText class="w-8 h-8 flex-shrink-0" style="color: #3b82f6;" />
-					{:else}
-						<FileAudio class="w-8 h-8 flex-shrink-0" style="color: #8b5cf6;" />
-					{/if}
+				<div class="p-4 rounded-lg flex items-center gap-4" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+					<FileText class="w-8 h-8 flex-shrink-0" style="color: #3b82f6;" />
 					<div class="flex-1 min-w-0">
 						<p class="font-medium truncate" style="color: var(--text-primary);">{uploadedFile.name}</p>
 						<p class="text-sm" style="color: var(--text-muted);">
-							{mediaType === 'ebook' ? 'Ebook' : 'Audiobook'} • {(uploadedFile.size / 1024 / 1024).toFixed(1)} MB
+							Ebook • {(uploadedFile.size / 1024 / 1024).toFixed(1)} MB
 							{#if isExtracting}
 								<span class="ml-2 inline-flex items-center gap-1">
 									<Loader2 class="w-3 h-3 animate-spin" />
@@ -983,7 +874,7 @@
 					<AlertCircle class="w-8 h-8 flex-shrink-0" style="color: #ef4444;" />
 					<div class="flex-1">
 						<p class="font-medium" style="color: #ef4444;">File required for public library</p>
-						<p class="text-sm" style="color: var(--text-muted);">Public library entries must have an ebook or audiobook file attached</p>
+						<p class="text-sm" style="color: var(--text-muted);">Public library entries must have an ebook file attached</p>
 					</div>
 					<button
 						type="button"
@@ -1000,7 +891,7 @@
 					<BookOpen class="w-8 h-8 flex-shrink-0" style="color: var(--text-muted);" />
 					<div class="flex-1">
 						<p class="font-medium" style="color: var(--text-primary);">Tracking entry (no file)</p>
-						<p class="text-sm" style="color: var(--text-muted);">You can upload ebook or audiobook files later</p>
+						<p class="text-sm" style="color: var(--text-muted);">You can upload an ebook file later</p>
 					</div>
 					<button
 						type="button"
@@ -1040,7 +931,7 @@
 								<p class="text-sm" style="color: var(--text-muted);">by {selectedExistingBook.author}</p>
 							{/if}
 							<p class="text-sm mt-2" style="color: var(--text-muted);">
-								Your {mediaType === 'ebook' ? 'ebook' : 'audiobook'} file will be added to this existing book.
+								Your ebook file will be added to this existing book.
 							</p>
 						</div>
 						<button
@@ -1333,35 +1224,6 @@
 						</div>
 					</div>
 
-					<!-- Narrator (for audiobooks) -->
-					{#if mediaType === 'audiobook'}
-						<div>
-							<label class="block text-sm font-medium mb-1" style="color: var(--text-primary);">
-								<Headphones class="w-4 h-4 inline mr-1" />
-								Narrator
-							</label>
-							<div class="grid grid-cols-2 gap-2">
-								<select
-									bind:value={narratorId}
-									class="px-4 py-2.5 rounded-lg border"
-									style="background: var(--bg-primary); border-color: var(--border-color); color: var(--text-primary);"
-								>
-									<option value="">Select existing...</option>
-									{#each data.options.narrators as narrator}
-										<option value={narrator.id.toString()}>{narrator.name}</option>
-									{/each}
-								</select>
-								<input
-									type="text"
-									bind:value={narratorName}
-									placeholder="Or enter new name..."
-									class="px-4 py-2.5 rounded-lg border"
-									style="background: var(--bg-primary); border-color: var(--border-color); color: var(--text-primary);"
-								/>
-							</div>
-						</div>
-					{/if}
-
 					<!-- Summary -->
 					<div>
 						<label for="summary" class="block text-sm font-medium mb-1" style="color: var(--text-primary);">Summary</label>
@@ -1606,8 +1468,6 @@
 						<Loader2 class="w-5 h-5 animate-spin" />
 						{#if submitStatus === 'creating_book'}
 							Creating book...
-						{:else if submitStatus === 'creating_audiobook'}
-							Setting up audiobook...
 						{:else if submitStatus === 'uploading_file'}
 							Uploading file...
 						{:else if submitStatus === 'done'}
@@ -1617,7 +1477,7 @@
 						{/if}
 					{:else if selectedExistingBook}
 						<Link class="w-5 h-5" />
-						Add {mediaType === 'ebook' ? 'Ebook' : 'Audiobook'} to Existing Book
+						Add Ebook to Existing Book
 					{:else if data.isPublic && !uploadedFile}
 						<AlertCircle class="w-5 h-5" />
 						File Required

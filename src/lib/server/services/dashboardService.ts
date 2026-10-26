@@ -94,7 +94,6 @@ export interface StatsOverview {
 	dnfCount: number;
 	dnfRate: number; // Percentage
 	totalNarrators: number;
-	totalListeningHours: number;
 }
 
 export async function getStatsOverview(userId?: number): Promise<StatsOverview> {
@@ -110,8 +109,8 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		getStatusId(STATUS_KEYS.DNF)
 	]);
 
-	// Import narrators and audiobookProgress tables
-	const { narrators, audiobookProgress } = await import('$lib/server/db');
+	// Import narrators table
+	const { narrators } = await import('$lib/server/db');
 
 	const [
 		totalBooksRes,
@@ -126,7 +125,6 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		// New stats
 		dnfCountRes,
 		totalNarratorsRes,
-		totalListeningHoursRes,
 		readBooksCountRes
 	] = await Promise.all([
 		db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).where(libCond),
@@ -158,11 +156,6 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 			: Promise.resolve([{ count: 0 }]),
 		// Total narrators (system-wide)
 		db.select({ count: sql<number>`count(*)` }).from(narrators),
-		// Total listening hours (user's audiobooks)
-		userId ? db.select({ total: sql<number>`coalesce(sum(${audiobookProgress.duration} * ${audiobookProgress.progress} / 100), 0)` })
-			.from(audiobookProgress)
-			.where(eq(audiobookProgress.userId, userId))
-			: Promise.resolve([{ total: 0 }]),
 		// Count of completed books (for DNF rate calculation)
 		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 			.where(and(eq(books.statusId, readStatusId), libCond))
@@ -174,7 +167,6 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 	const readBooksCount = readBooksCountRes[0]?.count ?? 0;
 	const completedAndDnf = readBooksCount + dnfCount;
 	const totalPages = totalPagesRes[0]?.total ?? 0;
-	const listeningSeconds = totalListeningHoursRes[0]?.total ?? 0;
 
 	return {
 		totalBooks,
@@ -190,8 +182,7 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		avgPagesPerBook: readBooksCount > 0 ? Math.round(totalPages / readBooksCount) : 0,
 		dnfCount,
 		dnfRate: completedAndDnf > 0 ? Math.round((dnfCount / completedAndDnf) * 100) : 0,
-		totalNarrators: totalNarratorsRes[0]?.count ?? 0,
-		totalListeningHours: Math.round(listeningSeconds / 3600)
+		totalNarrators: totalNarratorsRes[0]?.count ?? 0
 	};
 }
 

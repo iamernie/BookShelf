@@ -4,7 +4,7 @@
  * Configured entirely from Admin → Settings → Integrations:
  *   integration.abs_enabled   - master toggle
  *   integration.abs_base_url  - ABS server URL
- *   integration.abs_api_key   - ABS API key (sent as x-api-key)
+ *   integration.abs_api_key   - ABS API key (sent as Authorization: Bearer)
  *   integration.abs_sync_interval_hours - hours between automatic syncs (1-48)
  *
  * When the integration is disabled or not configured, every public function no-ops.
@@ -147,7 +147,8 @@ export async function getAbsSyncIntervalHours(): Promise<number> {
 
 async function absGet<T>(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: string): Promise<T> {
 	const res = await fetch(`${config.baseUrl}${path}`, {
-		headers: { 'x-api-key': config.apiKey, Accept: 'application/json' },
+		// ABS only reads the key from "Authorization: Bearer <token>" (it ignores x-api-key)
+		headers: { Authorization: `Bearer ${config.apiKey}`, Accept: 'application/json' },
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 	});
 	if (!res.ok) {
@@ -257,6 +258,9 @@ async function ensureAudioFormat(): Promise<number> {
 			.where(sql`LOWER(${formats.name}) = ${name}`).limit(1);
 		if (existing) return existing.id;
 	}
+	// Fall back to any audio-like format (e.g. "Audible Audio")
+	const [audioLike] = await getAudioFormatIds();
+	if (audioLike !== undefined) return audioLike;
 	const now = new Date().toISOString();
 	const [created] = await db.insert(formats)
 		.values({ name: 'Audio', icon: 'headphones', color: '#6c757d', createdAt: now, updatedAt: now })
@@ -264,9 +268,11 @@ async function ensureAudioFormat(): Promise<number> {
 	return created.id;
 }
 
+// Any format whose name contains "audio" (Audio, Audiobook, Audible Audio, ...)
 async function getAudioFormatIds(): Promise<number[]> {
 	const rows = await db.select({ id: formats.id }).from(formats)
-		.where(sql`LOWER(${formats.name}) IN ('audio', 'audiobook')`);
+		.where(sql`LOWER(${formats.name}) LIKE '%audio%'`)
+		.orderBy(asc(formats.id));
 	return rows.map((r) => r.id);
 }
 

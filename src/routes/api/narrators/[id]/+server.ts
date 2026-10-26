@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getNarratorById, updateNarrator, deleteNarrator, getAudiobooksByNarrator, getNarratorTags } from '$lib/server/services/narratorService';
+import { getNarratorById, updateNarrator, deleteNarrator, getNarratorTags } from '$lib/server/services/narratorService';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const id = parseInt(params.id);
@@ -13,12 +13,9 @@ export const GET: RequestHandler = async ({ params }) => {
 		throw error(404, { message: 'Narrator not found' });
 	}
 
-	const [audiobooks, tags] = await Promise.all([
-		getAudiobooksByNarrator(id),
-		getNarratorTags(id)
-	]);
+	const tags = await getNarratorTags(id);
 
-	return json({ narrator, audiobooks, tags });
+	return json({ narrator, tags });
 };
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {

@@ -1,4 +1,4 @@
-import { db, narrators, books, narratorTags, tags, audiobooks } from '$lib/server/db';
+import { db, narrators, books, narratorTags, tags } from '$lib/server/db';
 import { eq, like, asc, desc, sql, and, or, inArray } from 'drizzle-orm';
 import { stripHtmlTags } from './metadataProviders/types';
 
@@ -14,7 +14,6 @@ export interface TagInfo {
 
 export interface NarratorWithStats extends NarratorType {
 	bookCount: number;
-	audiobookCount: number;
 	avgRating: number | null;
 	coverBook?: {
 		id: number;
@@ -87,7 +86,7 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 	// Get stats for each narrator
 	const items = await Promise.all(
 		narratorsList.map(async (narrator) => {
-			// Book stats (legacy narratorId on books)
+			// Book stats (narratorId on books)
 			const bookStatsResult = await db
 				.select({
 					count: sql<number>`count(*)`,
@@ -96,18 +95,9 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 				.from(books)
 				.where(and(eq(books.narratorId, narrator.id), userLibraryCondition));
 
-			// Audiobook stats (direct narratorId on audiobooks table)
-			const audiobookStatsResult = await db
-				.select({
-					count: sql<number>`count(*)`
-				})
-				.from(audiobooks)
-				.where(eq(audiobooks.narratorId, narrator.id));
-
 			return {
 				...narrator,
 				bookCount: bookStatsResult[0]?.count ?? 0,
-				audiobookCount: audiobookStatsResult[0]?.count ?? 0,
 				avgRating: bookStatsResult[0]?.avgRating ? parseFloat(bookStatsResult[0].avgRating.toFixed(1)) : null
 			};
 		})
@@ -116,7 +106,7 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 	// If sorting by bookCount or rating, sort after fetching
 	if (sort === 'bookCount') {
 		items.sort((a, b) => {
-			const diff = (a.bookCount + a.audiobookCount) - (b.bookCount + b.audiobookCount);
+			const diff = a.bookCount - b.bookCount;
 			return order === 'asc' ? diff : -diff;
 		});
 	} else if (sort === 'rating') {
@@ -218,14 +208,6 @@ export async function getNarratorById(id: number, userId?: number): Promise<Narr
 		.from(books)
 		.where(and(eq(books.narratorId, id), userLibraryCondition));
 
-	// Audiobook stats
-	const audiobookStatsResult = await db
-		.select({
-			count: sql<number>`count(*)`
-		})
-		.from(audiobooks)
-		.where(eq(audiobooks.narratorId, id));
-
 	// Get tags
 	const narratorTagsData = await db
 		.select({
@@ -248,7 +230,6 @@ export async function getNarratorById(id: number, userId?: number): Promise<Narr
 	return {
 		...narrator[0],
 		bookCount: bookStatsResult[0]?.count ?? 0,
-		audiobookCount: audiobookStatsResult[0]?.count ?? 0,
 		avgRating: bookStatsResult[0]?.avgRating ? parseFloat(bookStatsResult[0].avgRating.toFixed(1)) : null,
 		tags: narratorTags2
 	};
@@ -324,15 +305,9 @@ export async function deleteNarrator(id: number): Promise<boolean> {
 		.from(books)
 		.where(eq(books.narratorId, id));
 
-	// Check if any audiobooks are using this narrator
-	const audiobookCount = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(audiobooks)
-		.where(eq(audiobooks.narratorId, id));
-
-	const totalUsage = (bookCount[0]?.count ?? 0) + (audiobookCount[0]?.count ?? 0);
+	const totalUsage = bookCount[0]?.count ?? 0;
 	if (totalUsage > 0) {
-		throw new Error(`Cannot delete narrator: ${totalUsage} audiobook(s) assigned. Please reassign or delete audiobooks first.`);
+		throw new Error(`Cannot delete narrator: ${totalUsage} book(s) assigned. Please reassign or delete those books first.`);
 	}
 
 	// Delete tags first
@@ -362,25 +337,6 @@ export async function getBooksByNarrator(narratorId: number, userId?: number): P
 		.from(books)
 		.where(and(eq(books.narratorId, narratorId), userLibraryCondition))
 		.orderBy(asc(books.title));
-}
-
-// Get audiobooks by a narrator
-export async function getAudiobooksByNarrator(narratorId: number): Promise<{
-	id: number;
-	title: string;
-	coverPath: string | null;
-	bookId: number | null;
-}[]> {
-	return db
-		.select({
-			id: audiobooks.id,
-			title: audiobooks.title,
-			coverPath: audiobooks.coverPath,
-			bookId: audiobooks.bookId
-		})
-		.from(audiobooks)
-		.where(eq(audiobooks.narratorId, narratorId))
-		.orderBy(asc(audiobooks.title));
 }
 
 // Get all narrators for dropdowns

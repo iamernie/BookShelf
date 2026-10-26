@@ -213,14 +213,14 @@ function buildCondition(rule: FilterRule): SQL<unknown> | null {
 		return null;
 	}
 
-	// Handle hasAudiobook virtual field - checks if book has linked audiobook
+	// Handle hasAudiobook virtual field - checks if book is linked to an Audiobookshelf item
 	if (field === 'hasAudiobook') {
 		if (operator === 'is_not_null') {
 			// Books that HAVE an audiobook
-			return sql`${books.id} IN (SELECT bookId FROM audiobooks WHERE bookId IS NOT NULL)`;
+			return isNotNull(books.absItemId);
 		} else if (operator === 'is_null') {
 			// Books that DON'T have an audiobook
-			return sql`${books.id} NOT IN (SELECT bookId FROM audiobooks WHERE bookId IS NOT NULL)`;
+			return isNull(books.absItemId);
 		}
 		return null;
 	}

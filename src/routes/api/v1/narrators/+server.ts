@@ -7,7 +7,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
 import { getNarrators, createNarrator } from '$lib/server/services/narratorService';
-import { db, narrators, books, audiobooks } from '$lib/server/db';
+import { db, narrators, books } from '$lib/server/db';
 import { sql, desc } from 'drizzle-orm';
 
 // Helper to validate token and check API enabled
@@ -43,7 +43,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			? await db.select({ count: sql<number>`count(*)` }).from(narrators).where(whereCondition)
 			: await db.select({ count: sql<number>`count(*)` }).from(narrators);
 
-		// Get narrators with book/audiobook counts
+		// Get narrators with book counts
 		const query = db.select({
 			id: narrators.id,
 			name: narrators.name,
@@ -57,18 +57,15 @@ export const GET: RequestHandler = async ({ url }) => {
 			comments: narrators.comments,
 			createdAt: narrators.createdAt,
 			updatedAt: narrators.updatedAt,
-			bookCount: sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.narratorId} = ${narrators.id})`,
-			audiobookCount: sql<number>`(SELECT COUNT(*) FROM ${audiobooks} WHERE ${audiobooks.narratorId} = ${narrators.id})`
+			bookCount: sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.narratorId} = ${narrators.id})`
 		}).from(narrators);
 
-		// Define the count expressions for reuse in orderBy
+		// Define the count expression for reuse in orderBy
 		const bookCountExpr = sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.narratorId} = ${narrators.id})`;
-		const audiobookCountExpr = sql<number>`(SELECT COUNT(*) FROM ${audiobooks} WHERE ${audiobooks.narratorId} = ${narrators.id})`;
-		const totalCountExpr = sql<number>`${bookCountExpr} + ${audiobookCountExpr}`;
 
 		const narratorsList = whereCondition
-			? await query.where(whereCondition).orderBy(desc(totalCountExpr)).limit(limit).offset(offset)
-			: await query.orderBy(desc(totalCountExpr)).limit(limit).offset(offset);
+			? await query.where(whereCondition).orderBy(desc(bookCountExpr)).limit(limit).offset(offset)
+			: await query.orderBy(desc(bookCountExpr)).limit(limit).offset(offset);
 
 		return json({
 			narrators: narratorsList,

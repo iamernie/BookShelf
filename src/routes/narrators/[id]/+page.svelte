@@ -12,8 +12,6 @@
 		ExternalLink,
 		Check,
 		Pencil,
-		Grid,
-		List,
 		Headphones,
 		BookOpen,
 		X
@@ -25,9 +23,6 @@
 	let { data } = $props();
 
 	let deleting = $state(false);
-
-	// View mode
-	let viewMode = $state<'grid' | 'list'>('grid');
 
 	// Inline editing state
 	let editingBio = $state(false);
@@ -135,7 +130,7 @@
 	}
 
 	async function handleDelete() {
-		if (!confirm('Are you sure you want to delete this narrator? This will not delete their audiobooks.')) {
+		if (!confirm('Are you sure you want to delete this narrator?')) {
 			return;
 		}
 		deleting = true;
@@ -152,14 +147,6 @@
 			}
 		} finally {
 			deleting = false;
-		}
-	}
-
-	function openAudiobook(audiobook: { id: number; bookId: number | null }) {
-		if (audiobook.bookId) {
-			goto(`/books/${audiobook.bookId}`);
-		} else {
-			goto(`/audiobooks/${audiobook.id}`);
 		}
 	}
 </script>
@@ -245,7 +232,7 @@
 			<div class="progress-stats">
 				<span class="stat-inline">
 					<Headphones class="w-3.5 h-3.5" />
-					<strong>{data.narrator.audiobookCount}</strong> audiobook{data.narrator.audiobookCount !== 1 ? 's' : ''}
+					<strong>{data.narrator.bookCount}</strong> book{data.narrator.bookCount !== 1 ? 's' : ''}
 				</span>
 				{#if data.narrator.avgRating}
 					<span class="stat-inline rating">
@@ -401,15 +388,15 @@
 	</div>
 
 	<!-- Books Section -->
-	{#if data.books && data.books.length > 0}
-		<div class="audiobooks-section">
-			<div class="audiobooks-header">
-				<h2 class="section-title">
-					<BookOpen class="w-5 h-5" />
-					Books ({data.books.length})
-				</h2>
-			</div>
+	<div class="audiobooks-section">
+		<div class="audiobooks-header">
+			<h2 class="section-title">
+				<BookOpen class="w-5 h-5" />
+				Books ({data.books.length})
+			</h2>
+		</div>
 
+		{#if data.books.length > 0}
 			<div class="audiobooks-grid">
 				{#each data.books as book (book.id)}
 					<a href="/books/{book.id}" class="audiobook-card">
@@ -434,95 +421,10 @@
 					</a>
 				{/each}
 			</div>
-		</div>
-	{/if}
-
-	<!-- Audiobooks Section -->
-	<div class="audiobooks-section">
-		<div class="audiobooks-header">
-			<h2 class="section-title">
-				<Headphones class="w-5 h-5" />
-				Audiobooks ({data.audiobooks.length})
-			</h2>
-			<div class="header-controls">
-				{#if data.audiobooks.length > 0}
-					<!-- View Mode Toggle -->
-					<div class="view-toggle">
-						<button
-							type="button"
-							class="toggle-btn"
-							class:active={viewMode === 'grid'}
-							onclick={() => viewMode = 'grid'}
-							title="Grid view"
-						>
-							<Grid class="w-4 h-4" />
-						</button>
-						<button
-							type="button"
-							class="toggle-btn"
-							class:active={viewMode === 'list'}
-							onclick={() => viewMode = 'list'}
-							title="List view"
-						>
-							<List class="w-4 h-4" />
-						</button>
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		{#if data.audiobooks.length > 0}
-			{#if viewMode === 'grid'}
-				<div class="audiobooks-grid">
-					{#each data.audiobooks as audiobook (audiobook.id)}
-						<button
-							type="button"
-							class="audiobook-card"
-							onclick={() => openAudiobook(audiobook)}
-						>
-							{#if audiobook.coverPath}
-								<img
-									src={audiobook.coverPath}
-									alt={audiobook.title}
-									class="audiobook-cover"
-								/>
-							{:else}
-								<div class="audiobook-cover-placeholder">
-									<Headphones class="w-8 h-8" />
-								</div>
-							{/if}
-							<div class="audiobook-title">{audiobook.title}</div>
-						</button>
-					{/each}
-				</div>
-			{:else}
-				<div class="audiobooks-list">
-					{#each data.audiobooks as audiobook (audiobook.id)}
-						<button
-							type="button"
-							class="audiobook-row"
-							onclick={() => openAudiobook(audiobook)}
-						>
-							{#if audiobook.coverPath}
-								<img
-									src={audiobook.coverPath}
-									alt={audiobook.title}
-									class="audiobook-row-cover"
-								/>
-							{:else}
-								<div class="audiobook-row-cover-placeholder">
-									<Headphones class="w-4 h-4" />
-								</div>
-							{/if}
-							<span class="audiobook-row-title">{audiobook.title}</span>
-						</button>
-					{/each}
-				</div>
-			{/if}
 		{:else}
 			<div class="empty-state">
-				<Headphones class="w-12 h-12" />
-				<p>No audiobooks by this narrator yet</p>
+				<BookOpen class="w-12 h-12" />
+				<p>No books by this narrator yet</p>
 			</div>
 		{/if}
 	</div>
@@ -923,41 +825,6 @@
 		gap: 0.375rem;
 	}
 
-	.header-controls {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.view-toggle {
-		display: flex;
-		border-radius: 0.5rem;
-		overflow: hidden;
-		border: 1px solid var(--border-color);
-	}
-
-	.toggle-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.375rem 0.5rem;
-		border: none;
-		background-color: transparent;
-		color: var(--text-muted);
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.toggle-btn:hover {
-		background-color: var(--bg-secondary);
-		color: var(--text-primary);
-	}
-
-	.toggle-btn.active {
-		background-color: var(--bg-secondary);
-		color: var(--text-primary);
-	}
-
 	.audiobooks-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -1021,61 +888,6 @@
 		font-size: 0.75rem;
 		color: var(--text-muted);
 		margin-top: 0.25rem;
-	}
-
-	.audiobooks-list {
-		background-color: var(--bg-secondary);
-		border: 1px solid var(--border-color);
-		border-radius: 0.5rem;
-		overflow: hidden;
-	}
-
-	.audiobook-row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		background: none;
-		border: none;
-		border-bottom: 1px solid var(--border-color);
-		width: 100%;
-		cursor: pointer;
-		text-align: left;
-		transition: background-color 0.2s;
-	}
-
-	.audiobook-row:last-child {
-		border-bottom: none;
-	}
-
-	.audiobook-row:hover {
-		background-color: var(--bg-hover);
-	}
-
-	.audiobook-row-cover {
-		width: 2.5rem;
-		height: 2.5rem;
-		object-fit: cover;
-		border-radius: 0.25rem;
-		flex-shrink: 0;
-	}
-
-	.audiobook-row-cover-placeholder {
-		width: 2.5rem;
-		height: 2.5rem;
-		border-radius: 0.25rem;
-		background-color: var(--bg-tertiary);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--text-muted);
-		flex-shrink: 0;
-	}
-
-	.audiobook-row-title {
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--text-primary);
 	}
 
 	/* Empty State */

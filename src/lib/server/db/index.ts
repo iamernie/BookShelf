@@ -179,6 +179,32 @@ function safeCreateTable(tableName: string, createSQL: string): boolean {
 	return false;
 }
 
+function safeDropTable(tableName: string): boolean {
+	if (tableExists(tableName)) {
+		ensureBackup(); // Create backup before first change
+		try {
+			sqlite.exec(`DROP TABLE IF EXISTS ${tableName}`);
+			console.log(`[db] Dropped table ${tableName}`);
+			migrationsMade = true;
+			return true;
+		} catch (e) {
+			console.error(`[db] Failed to drop table ${tableName}:`, e);
+			return false;
+		}
+	}
+	return false;
+}
+
+// Legacy native audiobook tables, children before parents (drizzle/0003 mirrors this)
+const LEGACY_AUDIOBOOK_TABLES = [
+	'audiobook_bookmarks',
+	'audiobook_chapters',
+	'audiobook_progress',
+	'user_audiobooks',
+	'audiobook_files',
+	'audiobooks'
+];
+
 // Migrate old settings table schema (id-based) to new schema (key-based)
 function migrateSettingsTableSchema(): boolean {
 	if (!tableExists('settings')) {
@@ -280,7 +306,7 @@ function runMigrations() {
 		'Creating V2 tables',
 		'Creating indexes',
 		'Setting up per-user libraries',
-		'Creating audiobook tables',
+		'Removing legacy audiobook tables',
 		'Creating media sources tables',
 		'Creating API tokens table',
 		'Finalizing'
@@ -1254,137 +1280,15 @@ function runMigrations() {
 		// Indexes may already exist
 	}
 
-	// ========== Audiobook Tables ==========
-	updateStatus('Creating audiobook tables...');
-
-	// Audiobooks main table
-	safeCreateTable('audiobooks', `
-		CREATE TABLE audiobooks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			title TEXT NOT NULL,
-			bookId INTEGER REFERENCES books(id) ON DELETE SET NULL,
-			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			author TEXT,
-			narratorId INTEGER REFERENCES narrators(id),
-			narratorName TEXT,
-			description TEXT,
-			coverPath TEXT,
-			duration REAL DEFAULT 0,
-			seriesName TEXT,
-			seriesNumber REAL,
-			asin TEXT,
-			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
-		)
-	`);
-
-	// Audiobook files table (supports multi-file audiobooks)
-	safeCreateTable('audiobook_files', `
-		CREATE TABLE audiobook_files (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			audiobookId INTEGER NOT NULL REFERENCES audiobooks(id) ON DELETE CASCADE,
-			filename TEXT NOT NULL,
-			filePath TEXT NOT NULL,
-			fileSize INTEGER,
-			mimeType TEXT DEFAULT 'audio/mpeg',
-			trackNumber INTEGER NOT NULL DEFAULT 1,
-			title TEXT,
-			duration REAL NOT NULL DEFAULT 0,
-			startOffset REAL DEFAULT 0,
-			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
-		)
-	`);
-
-	// Audiobook progress table (per-user listening progress)
-	safeCreateTable('audiobook_progress', `
-		CREATE TABLE audiobook_progress (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			audiobookId INTEGER NOT NULL REFERENCES audiobooks(id) ON DELETE CASCADE,
-			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			currentTime REAL DEFAULT 0,
-			currentFileId INTEGER REFERENCES audiobook_files(id),
-			duration REAL DEFAULT 0,
-			progress REAL DEFAULT 0,
-			playbackRate REAL DEFAULT 1,
-			isFinished INTEGER DEFAULT 0,
-			finishedAt TEXT,
-			lastPlayedAt TEXT,
-			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			UNIQUE(audiobookId, userId)
-		)
-	`);
-
-	// Audiobook chapters table
-	safeCreateTable('audiobook_chapters', `
-		CREATE TABLE audiobook_chapters (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			audiobookId INTEGER NOT NULL REFERENCES audiobooks(id) ON DELETE CASCADE,
-			title TEXT NOT NULL,
-			startTime REAL NOT NULL DEFAULT 0,
-			endTime REAL,
-			chapterNumber INTEGER NOT NULL DEFAULT 1,
-			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
-		)
-	`);
-
-	// Audiobook bookmarks table
-	safeCreateTable('audiobook_bookmarks', `
-		CREATE TABLE audiobook_bookmarks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			audiobookId INTEGER NOT NULL REFERENCES audiobooks(id) ON DELETE CASCADE,
-			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			time REAL NOT NULL,
-			title TEXT,
-			note TEXT,
-			createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-		)
-	`);
-
-	// Add libraryType column to audiobooks (for public library feature)
-	if (tableExists('audiobooks')) {
-		safeAddColumn('audiobooks', 'libraryType', "TEXT DEFAULT 'personal'");
+	// ========== Remove legacy native audiobook tables (2.12.0) ==========
+	// The native audiobook subsystem was replaced by the Audiobookshelf integration
+	// (books.absItemId). Children are dropped before parents so foreign keys never
+	// block the drop. Narrators, books.narratorId and audio format rows are kept.
+	updateStatus('Removing legacy audiobook tables...');
+	for (const table of LEGACY_AUDIOBOOK_TABLES) {
+		safeDropTable(table);
 	}
-
-	// User audiobooks junction table (for "add to library" functionality)
-	safeCreateTable('user_audiobooks', `
-		CREATE TABLE user_audiobooks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			audiobookId INTEGER NOT NULL REFERENCES audiobooks(id) ON DELETE CASCADE,
-			statusId INTEGER REFERENCES statuses(id),
-			rating REAL,
-			comments TEXT,
-			addedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-			UNIQUE(userId, audiobookId)
-		)
-	`);
-
-	// Create indexes for audiobook tables
-	try {
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobooks_user ON audiobooks(userId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobooks_book ON audiobooks(bookId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobooks_libraryType ON audiobooks(libraryType)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobook_files_audiobook ON audiobook_files(audiobookId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobook_progress_user ON audiobook_progress(userId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobook_progress_audiobook ON audiobook_progress(audiobookId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobook_chapters_audiobook ON audiobook_chapters(audiobookId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audiobook_bookmarks_user_audiobook ON audiobook_bookmarks(userId, audiobookId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_user_audiobooks_user ON user_audiobooks(userId)');
-		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_user_audiobooks_audiobook ON user_audiobooks(audiobookId)');
-	} catch {
-		// Indexes may already exist
-	}
-
-	// Ensure audiobook_progress has duration column (may be missing from older databases)
-	safeAddColumn('audiobook_progress', 'duration', 'REAL DEFAULT 0');
-	safeAddColumn('audiobook_progress', 'progress', 'REAL DEFAULT 0');
-
-	completeStep('Creating audiobook tables');
+	completeStep('Removing legacy audiobook tables');
 
 	// ========== Media Sources Tables ==========
 	updateStatus('Creating media sources tables...');
