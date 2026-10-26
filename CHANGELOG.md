@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.7] - 2026-10-26
+
+### Changed
+
+- **Shorter Listen button** - The book page top bar button now reads **Listen** (headphones icon, tooltip still says "Listen on Audiobookshelf"). The Integrations tab description was updated to match.
+
 ## [2.12.6] - 2026-10-26
 
 ### Changed

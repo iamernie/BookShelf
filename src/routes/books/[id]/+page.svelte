@@ -564,7 +564,7 @@
 						title="Listen on Audiobookshelf"
 					>
 						<Headphones class="w-4 h-4" />
-						<span class="hidden xs:inline">Listen on Audiobookshelf</span>
+						<span class="hidden xs:inline">Listen</span>
 						<ExternalLink class="w-3 h-3" />
 					</a>
 				{/if}

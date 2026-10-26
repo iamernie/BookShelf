@@ -1013,7 +1013,7 @@
 					<div class="p-4 flex items-start gap-4">
 						<div class="flex-1">
 							<label class="font-medium" style="color: var(--text-primary);">Enable Audiobookshelf</label>
-							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Sync every {absSyncHours} hours and show the Listen on Audiobookshelf button on linked books</p>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Sync every {absSyncHours} hours and show the Listen button on linked books</p>
 						</div>
 						<div class="w-72">
 							<button
