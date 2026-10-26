@@ -9,6 +9,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import { createLogger } from './loggerService';
 import { getEmailSettings } from './settingsService';
 import { stripHtmlTags } from './metadataProviders/types';
@@ -26,7 +27,7 @@ interface EmailConfig {
 }
 
 let cachedConfig: EmailConfig | null = null;
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
 // Clear cached config (useful when settings change)
 export function clearEmailCache(): void {
@@ -49,7 +50,7 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
 	return cachedConfig;
 }
 
-async function getTransporter(): Promise<nodemailer.Transporter | null> {
+async function getTransporter(): Promise<Transporter | null> {
 	if (transporter) {
 		return transporter;
 	}

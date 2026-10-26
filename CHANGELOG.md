@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-10-26
+
+### Changed
+
+- **Nav reorganization** - Series, Authors, and Narrators moved from Manage into the main navigation next to My Books (browse surfaces; Manage keeps Catalog Manager, Genres, Formats, Statuses)
+- **Dependency types** - emailService now imports the `Transporter` type directly from nodemailer, which ships its own types since 10.x, resolving the type-check errors left after the nodemailer 10.2.1 bump
+
 ## [2.12.9] - 2026-10-26
 
 ### Changed

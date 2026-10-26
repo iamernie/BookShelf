@@ -132,6 +132,21 @@
 				{/if}
 			</a>
 
+			<a href="/series" class="sidebar-item" class:active={isActive('/series')} class:collapsed title={collapsed ? 'Series' : undefined}>
+				<Library class="w-5 h-5 flex-shrink-0" />
+				{#if !collapsed}<span>Series</span>{/if}
+			</a>
+
+			<a href="/authors" class="sidebar-item" class:active={isActive('/authors')} class:collapsed title={collapsed ? 'Authors' : undefined}>
+				<Users class="w-5 h-5 flex-shrink-0" />
+				{#if !collapsed}<span>Authors</span>{/if}
+			</a>
+
+			<a href="/narrators" class="sidebar-item" class:active={isActive('/narrators')} class:collapsed title={collapsed ? 'Narrators' : undefined}>
+				<Mic class="w-5 h-5 flex-shrink-0" />
+				{#if !collapsed}<span>Narrators</span>{/if}
+			</a>
+
 			{#if data.publicLibraryEnabled !== false}
 				<a href="/library" class="sidebar-item" class:active={currentPath === '/library'} class:collapsed title={collapsed ? 'Public Library' : undefined}>
 					<Library class="w-5 h-5 flex-shrink-0" />
@@ -257,21 +272,9 @@
 					<Database class="w-4 h-4" />
 					<span>Catalog Manager</span>
 				</a>
-				<a href="/authors" class="sidebar-item text-sm" class:active={isActive('/authors')}>
-					<Users class="w-4 h-4" />
-					<span>Authors</span>
-				</a>
-				<a href="/series" class="sidebar-item text-sm" class:active={isActive('/series')}>
-					<Library class="w-4 h-4" />
-					<span>Series</span>
-				</a>
 				<a href="/tags" class="sidebar-item text-sm" class:active={isActive('/tags')}>
 					<Tag class="w-4 h-4" />
 					<span>Tags</span>
-				</a>
-				<a href="/narrators" class="sidebar-item text-sm" class:active={isActive('/narrators')}>
-					<Mic class="w-4 h-4" />
-					<span>Narrators</span>
 				</a>
 				<a href="/genres" class="sidebar-item text-sm" class:active={isActive('/genres')}>
 					<FolderOpen class="w-4 h-4" />
