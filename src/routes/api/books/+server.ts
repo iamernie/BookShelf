@@ -14,10 +14,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const seriesId = url.searchParams.get('series') ? parseInt(url.searchParams.get('series')!) : undefined;
 	const sort = (url.searchParams.get('sort') as 'title' | 'createdAt' | 'rating' | 'completedDate') || 'createdAt';
 	const order = (url.searchParams.get('order') as 'asc' | 'desc') || 'desc';
+	// absLinked=false returns only books not yet linked to an Audiobookshelf item
+	const absLinked = url.searchParams.get('absLinked') === 'false' ? false : undefined;
 
 	// Pass userId for per-user library filtering
 	const userId = locals.user?.id;
-	const result = await getBooks({ page, limit, search, statusId, genreId, authorId, seriesId, sort, order, userId });
+	const result = await getBooks({ page, limit, search, statusId, genreId, authorId, seriesId, sort, order, userId, absLinked });
 	return json(result);
 };
 
@@ -61,6 +63,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		isbn10: data.isbn10?.trim() || null,
 		isbn13: data.isbn13?.trim() || null,
 		asin: data.asin?.trim() || null,
+		absItemId: data.absItemId?.trim() || null,
 		goodreadsId: data.goodreadsId?.trim() || null,
 		googleBooksId: data.googleBooksId?.trim() || null,
 		pageCount: data.pageCount || null,

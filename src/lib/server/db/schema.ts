@@ -22,6 +22,7 @@ export const books = sqliteTable('books', {
 	isbn10: text('isbn10'),
 	isbn13: text('isbn13'),
 	asin: text('asin'),
+	absItemId: text('absItemId'), // Audiobookshelf item UUID; null = not linked
 	goodreadsId: text('goodreadsId'),
 	googleBooksId: text('googleBooksId'),
 	// Provider ratings (separate from user rating)

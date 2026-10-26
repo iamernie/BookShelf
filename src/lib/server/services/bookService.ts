@@ -1,5 +1,5 @@
 import { db, books, bookAuthors, bookSeries, bookTags, authors, series, statuses, genres, formats, narrators, tags, userBooks, userBookTags, metadataSuggestions, readingSessions, bookdropQueue, audiobooks } from '$lib/server/db';
-import { eq, like, sql, desc, asc, and, or, inArray } from 'drizzle-orm';
+import { eq, like, sql, desc, asc, and, or, inArray, isNull } from 'drizzle-orm';
 import type { Book, NewBook } from '$lib/server/db/schema';
 
 export interface BookWithRelations extends Book {
@@ -28,6 +28,7 @@ export interface GetBooksOptions {
 	libraryType?: 'personal' | 'public' | 'all';
 	userId?: number; // Required for per-user library filtering - shows books owned by user and shared with user
 	filterMode?: 'and' | 'or'; // How to combine filter conditions (default: 'and')
+	absLinked?: boolean; // false = only books not yet linked to an Audiobookshelf item
 }
 
 export async function getBooks(options: GetBooksOptions = {}): Promise<{
@@ -36,7 +37,7 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 	page: number;
 	limit: number;
 }> {
-	const { page = 1, limit = 24, search, statusId, genreId, formatId, tagId, authorId, seriesId, sort = 'createdAt', order = 'desc', libraryType = 'personal', userId, filterMode = 'and' } = options;
+	const { page = 1, limit = 24, search, statusId, genreId, formatId, tagId, authorId, seriesId, sort = 'createdAt', order = 'desc', libraryType = 'personal', userId, filterMode = 'and', absLinked } = options;
 	const offset = (page - 1) * limit;
 
 	// Build where conditions
@@ -65,6 +66,11 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 	// Search always uses AND with other filters
 	if (search) {
 		baseConditions.push(like(books.title, `%${search}%`));
+	}
+
+	// Audiobookshelf link filter always uses AND (used by the ABS sync pipeline)
+	if (absLinked === false) {
+		baseConditions.push(isNull(books.absItemId));
 	}
 
 	// These are the filterable conditions that can be combined with AND or OR
@@ -292,6 +298,7 @@ export interface CreateBookData extends Omit<NewBook, 'createdAt' | 'updatedAt'>
 	series?: { id: number; bookNum?: number; bookNumEnd?: number }[];
 	tagIds?: number[];
 	ownerId?: number; // Required for per-user libraries
+	absItemId?: string | null; // Audiobookshelf item UUID (born-linked books from the ABS pipeline)
 }
 
 export async function createBook(data: CreateBookData): Promise<Book> {

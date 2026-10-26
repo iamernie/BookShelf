@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-25
+
+### Added
+
+- **Audiobookshelf link** - Books can now be linked to an Audiobookshelf item via a new `absItemId` field (Drizzle migration plus startup column guard for existing databases).
+  - Book page shows a "Listen on Audiobookshelf" button that opens `{ABS URL}/item/{absItemId}` in a new tab, only when the book is linked and an ABS URL is configured
+  - ABS base URL resolves from the new `integration.abs_base_url` setting, then the `ABS_URL` environment variable
+  - `PUT /api/books/{id}` accepts `absItemId` (empty clears the link); `POST /api/books` accepts `absItemId` so books can be created already linked
+  - `GET /api/books?absLinked=false` returns only books not yet linked to Audiobookshelf
+  - The existing native audiobook player is unchanged
+
+
 ## [2.9.25] - 2026-10-19
 
 ### Security

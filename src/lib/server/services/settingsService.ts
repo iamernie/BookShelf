@@ -336,6 +336,14 @@ export const DEFAULT_SETTINGS = {
 		category: 'notifications',
 		label: 'Admin Topic',
 		description: 'Topic for system notifications (backups, updates). Leave empty to disable admin notifications.'
+	},
+	// Integration settings
+	'integration.abs_base_url': {
+		value: '',
+		type: 'string',
+		category: 'integrations',
+		label: 'Audiobookshelf URL',
+		description: 'Base URL of your Audiobookshelf instance (e.g., http://10.10.20.110:13378). Falls back to the ABS_URL environment variable when empty.'
 	}
 } as const;
 

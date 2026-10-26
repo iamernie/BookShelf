@@ -678,6 +678,19 @@
 						</a>
 					{/if}
 				{/if}
+				{#if data.book.absItemId && data.absBaseUrl}
+					<a
+						href="{data.absBaseUrl}/item/{data.book.absItemId}"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn-accent flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
+						title="Listen on Audiobookshelf"
+					>
+						<Headphones class="w-4 h-4" />
+						<span class="hidden xs:inline">Listen on Audiobookshelf</span>
+						<ExternalLink class="w-3 h-3" />
+					</a>
+				{/if}
 				{#if data.linkedAudiobooks.length > 0}
 					{@const anyAudioMissing = data.audiobookData.some(a => a.filesMissing)}
 					{#if anyAudioMissing}

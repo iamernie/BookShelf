@@ -108,6 +108,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.isbn10 !== undefined) updateData.isbn10 = data.isbn10?.trim() || null;
 	if (data.isbn13 !== undefined) updateData.isbn13 = data.isbn13?.trim() || null;
 	if (data.asin !== undefined) updateData.asin = data.asin?.trim() || null;
+	if (data.absItemId !== undefined) updateData.absItemId = data.absItemId?.trim() || null;
 	if (data.goodreadsId !== undefined) updateData.goodreadsId = data.goodreadsId?.trim() || null;
 	if (data.googleBooksId !== undefined) updateData.googleBooksId = data.googleBooksId?.trim() || null;
 	if (data.publisher !== undefined) updateData.publisher = data.publisher?.trim() || null;

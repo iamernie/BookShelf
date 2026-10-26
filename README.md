@@ -110,6 +110,7 @@ Open **http://localhost:3000** and the setup wizard will guide you through creat
 | `DATABASE_PATH` | No | `/data/bookshelf.sqlite` | SQLite database location |
 | `PUID` / `PGID` | No | `1000` | User/group ID for file permissions |
 | `OPENAI_API_KEY` | No | - | For AI recommendations feature |
+| `ABS_URL` | No | - | Audiobookshelf base URL for "Listen on Audiobookshelf" links (the `integration.abs_base_url` setting takes precedence) |
 
 **Tip:** Run `id` to find your UID/GID for proper file permissions.
 
