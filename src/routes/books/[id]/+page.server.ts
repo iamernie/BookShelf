@@ -9,7 +9,7 @@ import { getAllTags } from '$lib/server/services/tagService';
 import { getAllStatuses } from '$lib/server/services/statusService';
 import { getAllMediaSources, getBookMediaSources } from '$lib/server/services/mediaSourceService';
 import { ebookExists } from '$lib/server/services/ebookService';
-import { getSetting } from '$lib/server/services/settingsService';
+import { getAbsLinkBaseUrl } from '$lib/server/services/absService';
 
 export const load: PageServerLoad = async ({ params, locals, url }) => {
 	const id = parseInt(params.id);
@@ -80,8 +80,8 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 	// Check if we should auto-open the listen tab
 	const autoPlayAudiobook = url.searchParams.get('listen') === 'true';
 
-	// Audiobookshelf deep link base URL: settings table -> ABS_URL env -> null
-	const absBaseUrl = ((await getSetting('integration.abs_base_url')).trim() || process.env.ABS_URL?.trim() || '').replace(/\/+$/, '') || null;
+	// Audiobookshelf deep link base URL; null unless the integration is enabled in Admin → Settings → Integrations
+	const absBaseUrl = await getAbsLinkBaseUrl();
 
 	return {
 		book,

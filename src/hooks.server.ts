@@ -1,4 +1,4 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 import { redirect, error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { getSession, validateCredentials } from '$lib/server/services/authService';
@@ -6,8 +6,18 @@ import { validateToken as validateApiToken } from '$lib/server/services/apiToken
 import { createLogger, logRequest, logError } from '$lib/server/services/loggerService';
 import { checkSetupNeeded } from '$lib/server/services/setupService';
 import { migrationStatus } from '$lib/server/db';
+import { startAbsScheduler } from '$lib/server/services/absService';
 
 const log = createLogger('hooks');
+
+// Server startup: background jobs
+export const init: ServerInit = () => {
+	try {
+		startAbsScheduler();
+	} catch (e) {
+		log.error('Failed to start Audiobookshelf scheduler', { error: e instanceof Error ? e.message : String(e) });
+	}
+};
 
 // Optional analytics snippet (operator-set env var, full script tag).
 // Injected before </body> on rendered pages; unset = zero markup emitted.

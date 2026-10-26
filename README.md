@@ -110,9 +110,16 @@ Open **http://localhost:3000** and the setup wizard will guide you through creat
 | `DATABASE_PATH` | No | `/data/bookshelf.sqlite` | SQLite database location |
 | `PUID` / `PGID` | No | `1000` | User/group ID for file permissions |
 | `OPENAI_API_KEY` | No | - | For AI recommendations feature |
-| `ABS_URL` | No | - | Audiobookshelf base URL for "Listen on Audiobookshelf" links (the `integration.abs_base_url` setting takes precedence) |
 
 **Tip:** Run `id` to find your UID/GID for proper file permissions.
+
+### Audiobookshelf Integration
+
+Connect BookShelf to an [Audiobookshelf](https://www.audiobookshelf.org) server from **Admin → Settings → Integrations**: turn on **Enable Audiobookshelf**, enter the server URL and an API key, click **Test Connection**, then **Save Changes**. While it's enabled, BookShelf syncs every 6 hours (or on demand with **Sync Now**):
+
+- Books added in the last 14 days are linked to their Audiobookshelf item by ASIN, or by title when there is exactly one exact match
+- Audiobooks not yet in BookShelf are added (author, narrator, Audio format, Unread status) and linked
+- Linked books get a **Listen on Audiobookshelf** button on their book page
 
 ### Volumes
 

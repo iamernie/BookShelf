@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-10-26
+
+### Added
+
+- **Audiobookshelf integration settings** - New **Integrations** tab in Admin → Settings, so the integration is configured entirely in the app (no environment variables).
+  - **Enable Audiobookshelf** toggle (`integration.abs_enabled`, off by default), server URL (`integration.abs_base_url`), and API key (`integration.abs_api_key`)
+  - The stored API key is never sent back to the browser; the field shows "Saved (hidden)", entering a new value replaces it, and "Remove saved key" clears it
+  - **Test Connection** reports the library count and which library will be synced, or the failure reason
+  - **Sync Now** runs a sync on demand and shows linked/created counts and the last sync time
+- **Audiobookshelf sync** - When enabled, a background sync runs every 6 hours (last run stored in `integration.abs_last_sync`). Failures are logged and never affect the app.
+  - Link pass: unlinked books added in the last 14 days are matched by ASIN, then by a single exact-title hit
+  - Reverse sync: Audiobookshelf items with no matching title in BookShelf are created already linked, with author and narrator rows created as needed, the Audio format, and Unread status; an unlinked book with the same title is linked instead of duplicated
+  - Uses the library whose name contains "audiobook", otherwise the first library
+- **Admin endpoints** - `POST /api/v1/admin/abs/test` and `POST /api/v1/admin/abs/sync` (admin session or admin API token)
+
+### Changed
+
+- The **Listen on Audiobookshelf** button now appears only when the integration is enabled
+- The `ABS_URL` environment variable is no longer used; set the URL in Admin → Settings → Integrations
+- `GET /api/settings` no longer returns the stored Audiobookshelf API key
+
 ## [2.10.1] - 2026-10-25
 
 ### Fixed

@@ -338,14 +338,41 @@ export const DEFAULT_SETTINGS = {
 		description: 'Topic for system notifications (backups, updates). Leave empty to disable admin notifications.'
 	},
 	// Integration settings
+	'integration.abs_enabled': {
+		value: 'false',
+		type: 'boolean',
+		category: 'integrations',
+		label: 'Enable Audiobookshelf',
+		description: 'Link books to Audiobookshelf items, sync new audiobooks into the library, and show the Listen on Audiobookshelf button'
+	},
 	'integration.abs_base_url': {
 		value: '',
 		type: 'string',
 		category: 'integrations',
 		label: 'Audiobookshelf URL',
-		description: 'Base URL of your Audiobookshelf instance (e.g., http://10.10.20.110:13378). Falls back to the ABS_URL environment variable when empty.'
+		description: 'Base URL of your Audiobookshelf instance (e.g., http://192.168.1.10:13378)'
+	},
+	'integration.abs_api_key': {
+		value: '',
+		type: 'string',
+		category: 'integrations',
+		label: 'Audiobookshelf API Key',
+		description: 'API key from Audiobookshelf (Settings → Users → your user → API Token, or Settings → API Keys)'
+	},
+	'integration.abs_last_sync': {
+		value: '',
+		type: 'string',
+		category: 'integrations',
+		label: 'Audiobookshelf Last Sync',
+		description: 'Timestamp of the last Audiobookshelf sync run (managed automatically)'
 	}
 } as const;
+
+// Settings whose stored values must never be sent back to the browser
+export const SECRET_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_api_key'];
+
+// Settings written by the server only; excluded from the editable settings form
+export const SERVER_MANAGED_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_last_sync'];
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;
 

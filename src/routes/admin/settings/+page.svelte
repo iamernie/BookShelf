@@ -2,7 +2,7 @@
 	import {
 		Settings, FolderOpen, BookOpen, Monitor, Rss, Upload, Save, Check,
 		AlertCircle, Loader2, Database, Sparkles, Eye, EyeOff, FileText,
-		HelpCircle, UserPlus, KeyRound, Users, Shield, Mail, Send, Bell, Hash
+		HelpCircle, UserPlus, KeyRound, Users, Shield, Mail, Send, Bell, Hash, Plug, Headphones, RefreshCw
 	} from 'lucide-svelte';
 
 	interface Placeholder {
@@ -29,7 +29,7 @@
 	let { data } = $props();
 
 	// Tab state
-	type TabId = 'general' | 'storage' | 'metadata' | 'opds' | 'import' | 'registration' | 'email' | 'oidc' | 'ai' | 'ui' | 'notifications';
+	type TabId = 'general' | 'storage' | 'metadata' | 'opds' | 'import' | 'registration' | 'email' | 'oidc' | 'ai' | 'ui' | 'notifications' | 'integrations';
 	let activeTab = $state<TabId>('general');
 
 	// Tab definitions
@@ -44,6 +44,7 @@
 		{ id: 'oidc', label: 'SSO', icon: KeyRound, description: 'OIDC/SSO providers' },
 		{ id: 'ai', label: 'AI', icon: Sparkles, description: 'AI recommendations' },
 		{ id: 'notifications', label: 'Notifications', icon: Bell, description: 'ntfy push notifications' },
+		{ id: 'integrations', label: 'Integrations', icon: Plug, description: 'Audiobookshelf and other services' },
 		{ id: 'ui', label: 'UI', icon: Monitor, description: 'User interface settings' }
 	];
 
@@ -87,8 +88,19 @@
 		registration: 'registration',
 		email: 'email',
 		notifications: 'notifications',
+		integrations: 'integrations',
 		ui: 'ui'
 	};
+
+	// Audiobookshelf state (the stored API key is never sent to the page)
+	let absApiKeyInput = $state('');
+	let showAbsApiKey = $state(false);
+	let absApiKeySet = $state(data.absStatus.apiKeySet);
+	let absLastSync = $state<string | null>(data.absStatus.lastSync);
+	let testingAbs = $state(false);
+	let absTestResult = $state<{ success: boolean; message: string } | null>(null);
+	let syncingAbs = $state(false);
+	let absSyncResult = $state<{ success: boolean; message: string } | null>(null);
 
 	// ntfy test state
 	let testingNtfy = $state(false);
@@ -221,10 +233,15 @@
 		saveError = '';
 
 		try {
+			// Only send the Audiobookshelf key when a new one was entered
+			const newAbsApiKey = absApiKeyInput.trim();
+			const payload: Record<string, string> = { ...editedSettings };
+			if (newAbsApiKey) payload['integration.abs_api_key'] = newAbsApiKey;
+
 			const response = await fetch('/api/settings', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(editedSettings)
+				body: JSON.stringify(payload)
 			});
 
 			if (!response.ok) {
@@ -232,6 +249,10 @@
 				throw new Error(err.message || 'Failed to save settings');
 			}
 
+			if (newAbsApiKey) {
+				absApiKeySet = true;
+				absApiKeyInput = '';
+			}
 			saveSuccess = true;
 			setTimeout(() => saveSuccess = false, 3000);
 		} catch (e) {
@@ -368,6 +389,75 @@
 			ntfyTestResult = { success: false, message: 'Failed to send test notification' };
 		} finally {
 			testingNtfy = false;
+		}
+	}
+
+	async function testAbsConnection() {
+		testingAbs = true;
+		absTestResult = null;
+
+		try {
+			const res = await fetch('/api/v1/admin/abs/test', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					baseUrl: editedSettings['integration.abs_base_url'] ?? '',
+					apiKey: absApiKeyInput.trim() || undefined
+				})
+			});
+
+			const result = await res.json();
+			if (result.ok) {
+				const count = `${result.libraries} librar${result.libraries === 1 ? 'y' : 'ies'}`;
+				absTestResult = {
+					success: true,
+					message: result.libraryName ? `Connected: ${count}, syncing "${result.libraryName}"` : `Connected: ${count}`
+				};
+			} else {
+				absTestResult = { success: false, message: result.error || result.message || 'Connection failed' };
+			}
+		} catch {
+			absTestResult = { success: false, message: 'Failed to test connection' };
+		} finally {
+			testingAbs = false;
+		}
+	}
+
+	async function runAbsSyncNow() {
+		syncingAbs = true;
+		absSyncResult = null;
+
+		try {
+			const res = await fetch('/api/v1/admin/abs/sync', { method: 'POST' });
+			const result = await res.json();
+			if (result.ok) {
+				absSyncResult = {
+					success: true,
+					message: `Sync complete: ${result.linked} linked, ${result.created} created${result.errors ? `, ${result.errors} errors (see logs)` : ''}`
+				};
+			} else {
+				absSyncResult = { success: false, message: result.error || result.message || 'Sync failed' };
+			}
+			if (result.lastSync) absLastSync = result.lastSync;
+		} catch {
+			absSyncResult = { success: false, message: 'Failed to run sync' };
+		} finally {
+			syncingAbs = false;
+		}
+	}
+
+	async function clearAbsApiKey() {
+		try {
+			const res = await fetch('/api/settings', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ 'integration.abs_api_key': '' })
+			});
+			if (!res.ok) throw new Error('Failed to clear API key');
+			absApiKeySet = false;
+			absApiKeyInput = '';
+		} catch (e) {
+			saveError = e instanceof Error ? e.message : 'Failed to clear API key';
 		}
 	}
 
@@ -844,6 +934,184 @@
 					is a simple HTTP-based pub-sub notification service. Users can configure their own topic in their account settings
 					to receive notifications for events like book completions, reading goal milestones, and series completions.
 					The admin topic above is for system-wide notifications only.
+				</p>
+			</div>
+
+		{:else if activeTab === 'integrations'}
+			<!-- Integrations Tab -->
+			<div class="rounded-xl overflow-hidden" style="background: var(--bg-secondary);">
+				<div class="p-4 border-b flex items-center justify-between" style="border-color: var(--border-color);">
+					<div class="flex items-center gap-3">
+						<div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--bg-tertiary);">
+							<Headphones class="w-5 h-5" style="color: var(--accent);" />
+						</div>
+						<div>
+							<h2 class="text-lg font-semibold" style="color: var(--text-primary);">Audiobookshelf</h2>
+							<p class="text-sm" style="color: var(--text-muted);">Link and sync books with your Audiobookshelf server</p>
+						</div>
+					</div>
+					{#if editedSettings['integration.abs_enabled'] === 'true'}
+						<span class="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">
+							<Check class="w-4 h-4" />
+							Enabled
+						</span>
+					{:else}
+						<span class="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium" style="background: var(--bg-tertiary); color: var(--text-muted);">
+							Disabled
+						</span>
+					{/if}
+				</div>
+
+				<div class="divide-y" style="border-color: var(--border-color);">
+					<!-- Enable Toggle -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label class="font-medium" style="color: var(--text-primary);">Enable Audiobookshelf</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Sync every 6 hours and show the Listen on Audiobookshelf button on linked books</p>
+						</div>
+						<div class="w-72">
+							<button
+								type="button"
+								class="toggle-switch {editedSettings['integration.abs_enabled'] === 'true' ? 'active' : ''}"
+								onclick={() => updateSetting('integration.abs_enabled', editedSettings['integration.abs_enabled'] === 'true' ? 'false' : 'true')}
+								disabled={!data.isAdmin}
+								role="switch"
+								aria-checked={editedSettings['integration.abs_enabled'] === 'true'}
+							>
+								<span class="toggle-knob"></span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Server URL -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label for="integration.abs_base_url" class="font-medium" style="color: var(--text-primary);">Audiobookshelf URL</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Base URL of your Audiobookshelf server, as your browser reaches it</p>
+						</div>
+						<div class="w-72">
+							<input
+								type="url"
+								id="integration.abs_base_url"
+								value={editedSettings['integration.abs_base_url'] ?? ''}
+								oninput={(e) => updateSetting('integration.abs_base_url', (e.target as HTMLInputElement).value)}
+								disabled={!data.isAdmin}
+								placeholder="http://192.168.1.10:13378"
+								class="w-full px-3 py-2 rounded-lg text-sm"
+								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							/>
+						</div>
+					</div>
+
+					<!-- API Key -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label for="integration.abs_api_key" class="font-medium" style="color: var(--text-primary);">API Key</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">
+								From Audiobookshelf: Settings → API Keys (or your user's API token).
+								{#if absApiKeySet}
+									A key is saved; enter a new one to replace it.
+								{/if}
+							</p>
+						</div>
+						<div class="w-72">
+							<div class="relative">
+								<input
+									type={showAbsApiKey ? 'text' : 'password'}
+									id="integration.abs_api_key"
+									bind:value={absApiKeyInput}
+									disabled={!data.isAdmin}
+									autocomplete="off"
+									placeholder={absApiKeySet ? 'Saved (hidden)' : 'Paste API key'}
+									class="w-full px-3 py-2 pr-10 rounded-lg text-sm font-mono"
+									style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+								/>
+								<button
+									type="button"
+									class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-black/10"
+									onclick={() => showAbsApiKey = !showAbsApiKey}
+								>
+									{#if showAbsApiKey}
+										<EyeOff class="w-4 h-4" style="color: var(--text-muted);" />
+									{:else}
+										<Eye class="w-4 h-4" style="color: var(--text-muted);" />
+									{/if}
+								</button>
+							</div>
+							{#if absApiKeySet && data.isAdmin}
+								<button
+									type="button"
+									class="mt-2 text-xs underline"
+									style="color: var(--text-muted);"
+									onclick={clearAbsApiKey}
+								>
+									Remove saved key
+								</button>
+							{/if}
+						</div>
+					</div>
+				</div>
+
+				<!-- Connection & Sync -->
+				<div class="p-4 border-t" style="border-color: var(--border-color);">
+					<div class="flex flex-wrap gap-3 items-center">
+						<button
+							type="button"
+							class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+							style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							onclick={testAbsConnection}
+							disabled={testingAbs || !data.isAdmin}
+						>
+							{#if testingAbs}
+								<Loader2 class="w-4 h-4 animate-spin" />
+								Testing...
+							{:else}
+								<Plug class="w-4 h-4" />
+								Test Connection
+							{/if}
+						</button>
+						<button
+							type="button"
+							class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+							style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							onclick={runAbsSyncNow}
+							disabled={syncingAbs || !data.isAdmin}
+							title="Uses the saved settings - save changes first"
+						>
+							{#if syncingAbs}
+								<Loader2 class="w-4 h-4 animate-spin" />
+								Syncing...
+							{:else}
+								<RefreshCw class="w-4 h-4" />
+								Sync Now
+							{/if}
+						</button>
+						<span class="text-sm" style="color: var(--text-muted);">
+							Last sync: {absLastSync ? new Date(absLastSync).toLocaleString() : 'never'}
+						</span>
+					</div>
+					{#if absTestResult}
+						<p class="mt-2 text-sm" style="color: {absTestResult.success ? '#22c55e' : '#ef4444'};">
+							{absTestResult.message}
+						</p>
+					{/if}
+					{#if absSyncResult}
+						<p class="mt-2 text-sm" style="color: {absSyncResult.success ? '#22c55e' : '#ef4444'};">
+							{absSyncResult.message}
+						</p>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Audiobookshelf info box -->
+			<div class="p-4 rounded-lg" style="background: var(--bg-secondary);">
+				<h3 class="font-medium mb-2" style="color: var(--text-primary);">About Audiobookshelf Sync</h3>
+				<p class="text-sm" style="color: var(--text-muted);">
+					When enabled, BookShelf syncs with the audiobook library on your
+					<a href="https://www.audiobookshelf.org" target="_blank" rel="noopener" class="underline" style="color: var(--accent);">Audiobookshelf</a>
+					server every 6 hours. Books added in the last 14 days are linked by ASIN (or by a single exact title match),
+					and audiobooks that are not yet in BookShelf are added with the Audio format and Unread status.
+					Save your changes before using Sync Now.
 				</p>
 			</div>
 

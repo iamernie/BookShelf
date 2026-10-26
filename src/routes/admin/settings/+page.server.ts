@@ -1,11 +1,13 @@
 import type { PageServerLoad } from './$types';
-import { getAllSettings } from '$lib/server/services/settingsService';
+import { getAllSettings, getSetting, SECRET_SETTING_KEYS, SERVER_MANAGED_SETTING_KEYS, type SettingKey } from '$lib/server/services/settingsService';
 import { getAISettings } from '$lib/server/services/recommendationService';
 import { getEmailConfigStatus } from '$lib/server/services/emailService';
 import { getStatuses } from '$lib/server/services/statusService';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const settings = await getAllSettings();
+	// Secrets and server-managed values never enter the editable form
+	const hidden = new Set<string>([...SECRET_SETTING_KEYS, ...SERVER_MANAGED_SETTING_KEYS]);
+	const settings = (await getAllSettings()).filter((s) => !hidden.has(s.key as SettingKey));
 
 	// Group settings by category
 	const grouped: Record<string, typeof settings> = {};
@@ -25,8 +27,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Get statuses for default status dropdown
 	const statuses = await getStatuses();
 
+	// Audiobookshelf: only report whether a key is stored, never the key itself
+	const absStatus = {
+		apiKeySet: !!(await getSetting('integration.abs_api_key')).trim(),
+		lastSync: (await getSetting('integration.abs_last_sync')) || null
+	};
+
 	return {
 		settings: grouped,
+		absStatus,
 		aiSettings,
 		emailStatus,
 		statuses,
