@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.6] - 2026-10-26
+
+### Changed
+
+- **Less clutter in the book page top bar** - The action bar now shows only the **Listen on Audiobookshelf** button, and only when the book is linked. The "Change link", "Unlink", and "Find on Audiobookshelf" controls have moved out of the top bar. Linking, relinking, and unlinking are still available in the Media tab's Audiobookshelf section (book page, book modal, and edit page).
+
 ## [2.12.5] - 2026-10-26
 
 ### Fixed
