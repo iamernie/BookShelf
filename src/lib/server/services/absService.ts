@@ -14,11 +14,14 @@
  *                    (ASIN-exact first, then a single exact-title hit).
  *   2. Reverse sync - every ABS library item without a BookShelf book is created
  *                    born-linked; an unlinked exact-title book is linked instead.
+ *
+ * Linked books carry the "Audiobook Shelf" system tag. Links made here tag the book
+ * immediately; every sync also self-heals drift (tag = absItemId IS NOT NULL).
  */
 
 import { db } from '$lib/server/db';
-import { books, authors, bookAuthors, narrators, formats, statuses, users } from '$lib/server/db/schema';
-import { and, asc, count, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { books, authors, bookAuthors, bookTags, narrators, formats, statuses, tags, users } from '$lib/server/db/schema';
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, notInArray, sql } from 'drizzle-orm';
 import { getSetting, getSettingAs, setSetting } from './settingsService';
 import { createBook } from './bookService';
 import { createLogger } from './loggerService';
@@ -36,6 +39,7 @@ const SEARCH_MAX_LIMIT = 50;
 const UNLINKED_LIST_LIMIT = 500;
 const SCHEDULER_TICK_MS = 15 * 60 * 1000;
 const SCHEDULER_FIRST_TICK_MS = 60 * 1000;
+const ABS_TAG_NAME = 'Audiobook Shelf';
 
 // ============================================
 // Types
@@ -291,6 +295,76 @@ async function getDefaultOwnerId(): Promise<number | null> {
 }
 
 // ============================================
+// "Audiobook Shelf" tag parity
+// ============================================
+
+// Finds the tag by name (case-insensitive, reusing a user-made one) or creates it; marks it system
+async function ensureAbsTag(): Promise<number> {
+	const [existing] = await db.select({ id: tags.id, isSystem: tags.isSystem }).from(tags)
+		.where(sql`LOWER(${tags.name}) = LOWER(${ABS_TAG_NAME})`).limit(1);
+	const now = new Date().toISOString();
+	if (existing) {
+		if (!existing.isSystem) await db.update(tags).set({ isSystem: true, updatedAt: now }).where(eq(tags.id, existing.id));
+		return existing.id;
+	}
+	const [created] = await db.insert(tags)
+		.values({ name: ABS_TAG_NAME, color: '#f97316', icon: 'headphones', isSystem: true, createdAt: now, updatedAt: now })
+		.returning({ id: tags.id });
+	return created.id;
+}
+
+// booktags has no unique constraint, so check before inserting
+async function addAbsTag(tagId: number, bookId: number): Promise<void> {
+	const [existing] = await db.select({ id: bookTags.id }).from(bookTags)
+		.where(and(eq(bookTags.tagId, tagId), eq(bookTags.bookId, bookId))).limit(1);
+	if (existing) return;
+	const now = new Date().toISOString();
+	await db.insert(bookTags).values({ bookId, tagId, createdAt: now, updatedAt: now });
+}
+
+async function removeAbsTag(tagId: number, bookId: number): Promise<void> {
+	await db.delete(bookTags).where(and(eq(bookTags.tagId, tagId), eq(bookTags.bookId, bookId)));
+}
+
+/** Set-based self-heal: every linked book gets the tag, every unlinked book loses it. */
+async function healAbsTags(tagId: number): Promise<{ added: number; removed: number }> {
+	const now = new Date().toISOString();
+	const tagged = db.select({ bookId: bookTags.bookId }).from(bookTags).where(eq(bookTags.tagId, tagId));
+	const added = await db.insert(bookTags).select(
+		db.select({
+			id: sql<number>`NULL`.as('id'),
+			bookId: books.id,
+			tagId: sql<number>`${tagId}`.as('tagId'),
+			createdAt: sql<string>`${now}`.as('createdAt'),
+			updatedAt: sql<string>`${now}`.as('updatedAt')
+		}).from(books).where(and(isNotNull(books.absItemId), notInArray(books.id, tagged)))
+	);
+	const removed = await db.delete(bookTags).where(and(
+		eq(bookTags.tagId, tagId),
+		inArray(bookTags.bookId, db.select({ id: books.id }).from(books).where(isNull(books.absItemId)))
+	));
+	return { added: added.changes, removed: removed.changes };
+}
+
+/**
+ * Bring one book's "Audiobook Shelf" tag in line with its absItemId (manual link/unlink).
+ * No-ops when the integration is disabled or not configured.
+ */
+export async function applyAbsTagParity(bookId: number): Promise<void> {
+	try {
+		if (!isUsable(await getAbsConfig())) return;
+		const [book] = await db.select({ absItemId: books.absItemId }).from(books).where(eq(books.id, bookId)).limit(1);
+		if (!book) return;
+		const tagId = await ensureAbsTag();
+		if (book.absItemId) await addAbsTag(tagId, bookId);
+		else await removeAbsTag(tagId, bookId);
+	} catch (err) {
+		// Non-fatal: the next sync heals the tag
+		log.warn('Audiobook Shelf tag update failed', { bookId, error: err instanceof Error ? err.message : String(err) });
+	}
+}
+
+// ============================================
 // Public API
 // ============================================
 
@@ -379,7 +453,7 @@ export async function getAbsLinkStats(): Promise<AbsLinkStats> {
  * Link pass: books without absItemId added in the last 14 days.
  * ASIN-exact match first; fallback is a single exact-title hit.
  */
-async function runLinkPass(config: AbsConfig, libraryId: string, usedItemIds: Set<string>): Promise<{ linked: number; errors: number }> {
+async function runLinkPass(config: AbsConfig, libraryId: string, usedItemIds: Set<string>, tagId: number): Promise<{ linked: number; errors: number }> {
 	let linked = 0;
 	let errors = 0;
 	let lastId = 0;
@@ -415,6 +489,7 @@ async function runLinkPass(config: AbsConfig, libraryId: string, usedItemIds: Se
 
 				if (match && !usedItemIds.has(match.id)) {
 					await db.update(books).set({ absItemId: match.id, updatedAt: new Date().toISOString() }).where(eq(books.id, book.id));
+					await addAbsTag(tagId, book.id);
 					usedItemIds.add(match.id);
 					linked++;
 					log.info('Linked book to Audiobookshelf item', { bookId: book.id, absItemId: match.id });
@@ -433,7 +508,7 @@ async function runLinkPass(config: AbsConfig, libraryId: string, usedItemIds: Se
  * Reverse sync: every ABS item with no exact-title BookShelf book is created born-linked.
  * An exact-title book without absItemId is linked instead of duplicated.
  */
-async function runReverseSync(config: AbsConfig, libraryId: string, usedItemIds: Set<string>): Promise<{ linked: number; created: number; errors: number }> {
+async function runReverseSync(config: AbsConfig, libraryId: string, usedItemIds: Set<string>, tagId: number): Promise<{ linked: number; created: number; errors: number }> {
 	let linked = 0;
 	let created = 0;
 	let errors = 0;
@@ -469,6 +544,7 @@ async function runReverseSync(config: AbsConfig, libraryId: string, usedItemIds:
 					if (matches.some((m) => m.absItemId)) continue;
 					const target = matches[0];
 					await db.update(books).set({ absItemId: item.id, updatedAt: new Date().toISOString() }).where(eq(books.id, target.id));
+					await addAbsTag(tagId, target.id);
 					target.absItemId = item.id;
 					usedItemIds.add(item.id);
 					linked++;
@@ -493,7 +569,8 @@ async function runReverseSync(config: AbsConfig, libraryId: string, usedItemIds:
 					formatId,
 					statusId,
 					ownerId,
-					absItemId: item.id
+					absItemId: item.id,
+					tagIds: [tagId]
 				});
 				byTitle.set(key, [{ id: newBook.id, absItemId: item.id }]);
 				usedItemIds.add(item.id);
@@ -539,6 +616,11 @@ async function doSync(): Promise<AbsSyncResult> {
 	}
 
 	try {
+		// Heal tag drift first; it needs no network, so it runs even if ABS is unreachable
+		const tagId = await ensureAbsTag();
+		const healed = await healAbsTags(tagId);
+		if (healed.added || healed.removed) log.info('Healed Audiobook Shelf tag drift', healed);
+
 		const library = pickAudiobookLibrary(await getLibraries(config));
 		if (!library) {
 			return { ok: false, error: 'No libraries found on Audiobookshelf', ...empty, durationMs: Date.now() - started };
@@ -548,8 +630,8 @@ async function doSync(): Promise<AbsSyncResult> {
 			.where(sql`${books.absItemId} IS NOT NULL`);
 		const usedItemIds = new Set(linkedRows.map((r) => r.absItemId as string));
 
-		const linkPass = await runLinkPass(config, library.id, usedItemIds);
-		const reverse = await runReverseSync(config, library.id, usedItemIds);
+		const linkPass = await runLinkPass(config, library.id, usedItemIds, tagId);
+		const reverse = await runReverseSync(config, library.id, usedItemIds, tagId);
 
 		await setSetting('integration.abs_last_sync', new Date().toISOString());
 

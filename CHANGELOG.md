@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.1] - 2026-10-26
+
+### Added
+
+- **"Audiobook Shelf" system tag** - Books matched to Audiobookshelf are now tagged automatically.
+  - The tag is created on first use (an existing tag with the same name, any case, is reused and marked as a system tag)
+  - Auto-linked, born-linked (reverse sync), and manually linked books get the tag right away; unlinking removes it
+  - Every sync self-heals drift: all books with an Audiobookshelf link carry the tag, and no unlinked book does
+  - Tag changes only happen while the integration is enabled and configured
+
 ## [2.12.0] - 2026-10-26
 
 ### Removed

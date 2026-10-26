@@ -6,6 +6,7 @@ import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { canAccessBook, canModifyBook, canDeleteBook } from '$lib/server/services/libraryShareService';
 import { getStatusByKey } from '$lib/server/services/statusService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
+import { applyAbsTagParity } from '$lib/server/services/absService';
 import { db, books } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { notifyBookCompleted, checkAndNotifySeriesCompletion } from '$lib/server/services/notificationService';
@@ -183,6 +184,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!book) {
 		throw error(404, { message: 'Book not found' });
 	}
+
+	// Keep the "Audiobook Shelf" tag in step with manual link/unlink
+	if (data.absItemId !== undefined) await applyAbsTagParity(id);
 
 	// Send book completed notification if applicable (fire and forget)
 	if (isBookCompletion && locals.user) {

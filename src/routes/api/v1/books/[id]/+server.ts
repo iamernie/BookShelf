@@ -7,6 +7,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
 import { updateBook, deleteBook, type CreateBookData } from '$lib/server/services/bookService';
+import { applyAbsTagParity } from '$lib/server/services/absService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators } from '$lib/server/db';
 import { eq, sql } from 'drizzle-orm';
 
@@ -246,6 +247,9 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (!updatedBook) {
 			return json({ error: 'Failed to update book' }, { status: 500 });
 		}
+
+		// Keep the "Audiobook Shelf" tag in step with manual link/unlink
+		if (body.absItemId !== undefined) await applyAbsTagParity(bookId);
 
 		return json({
 			book: { id: updatedBook.id, title: updatedBook.title },
