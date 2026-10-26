@@ -83,6 +83,7 @@
 
 	// Check if there's an ebook attached
 	const hasEbook = $derived(!!data.book.ebookPath);
+	const mediaCount = $derived((hasEbook ? 1 : 0) + (data.book.absItemId ? 1 : 0));
 
 	// Audiobookshelf manual linking (admins, integration enabled)
 	const canLinkAbs = $derived(!!data.absBaseUrl && data.isAdmin);
@@ -1024,9 +1025,9 @@
 						>
 							<Music class="w-4 h-4" />
 							Media
-							{#if hasEbook}
+							{#if mediaCount > 0}
 								<span class="ml-1 px-1.5 py-0.5 text-xs rounded-full" style="background: var(--bg-tertiary); color: var(--text-muted);">
-									1
+									{mediaCount}
 								</span>
 							{/if}
 						</button>

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.5] - 2026-10-26
+
+### Fixed
+
+- **Media tab count badge** - The badge on the book page's Media tab now counts a linked Audiobookshelf book as well as the ebook (ebook only or Audiobookshelf only = 1, both = 2, neither = no badge). Previously it only appeared for ebooks.
+
 ## [2.12.4] - 2026-10-26
 
 ### Added
