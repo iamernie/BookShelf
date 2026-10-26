@@ -57,7 +57,6 @@
 	let statusId = $state(book.statusId?.toString() || '');
 	let genreId = $state(book.genreId?.toString() || '');
 	let formatId = $state(book.formatId?.toString() || '');
-	let narratorId = $state(book.narratorId?.toString() || '');
 	let releaseDate = $state(toInputDate(book.releaseDate));
 	let startReadingDate = $state(toInputDate(book.startReadingDate));
 	let completedDate = $state(toInputDate(book.completedDate));
@@ -142,6 +141,22 @@
 		!availableSeries.some((s: any) => s.title.toLowerCase() === seriesSearch.trim().toLowerCase())
 	);
 
+	// Narrator picker state
+	let selectedNarrator = $state<{ id: number; name: string } | null>(book.narrator ?? null);
+	let narratorSearch = $state('');
+	let showNarratorDropdown = $state(false);
+	let creatingNarrator = $state(false);
+	let availableNarrators = $state<{ id: number; name: string }[]>(options.narrators);
+	let filteredNarrators = $derived(
+		availableNarrators.filter((n: any) =>
+			n.name.toLowerCase().includes(narratorSearch.toLowerCase())
+		).slice(0, 10)
+	);
+	let canCreateNarrator = $derived(
+		narratorSearch.trim().length > 0 &&
+		!availableNarrators.some((n: any) => n.name.toLowerCase() === narratorSearch.trim().toLowerCase())
+	);
+
 	const tabs = [
 		{ id: 'basic', label: 'Basic', icon: Info },
 		{ id: 'summary', label: 'Summary', icon: AlignLeft },
@@ -198,6 +213,45 @@
 
 	function removeSeries(id: number) {
 		selectedSeries = selectedSeries.filter(s => s.id !== id);
+	}
+
+	function selectNarrator(n: { id: number; name: string }) {
+		selectedNarrator = { id: n.id, name: n.name };
+		narratorSearch = '';
+		showNarratorDropdown = false;
+	}
+
+	function clearNarrator() {
+		selectedNarrator = null;
+	}
+
+	async function createNewNarrator() {
+		const name = narratorSearch.trim();
+		if (!name) return;
+
+		creatingNarrator = true;
+		try {
+			const res = await fetch('/api/narrators', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name })
+			});
+
+			if (res.ok) {
+				const newNarrator = await res.json();
+				availableNarrators = [...availableNarrators, { id: newNarrator.id, name: newNarrator.name }];
+				selectNarrator({ id: newNarrator.id, name: newNarrator.name });
+				toasts.success(`Created narrator "${newNarrator.name}"`);
+			} else {
+				const err = await res.json();
+				toasts.error(err.message || 'Failed to create narrator');
+			}
+		} catch (e) {
+			console.error('Failed to create narrator:', e);
+			toasts.error('Failed to create narrator');
+		} finally {
+			creatingNarrator = false;
+		}
 	}
 
 	function toggleOmnibus(index: number) {
@@ -507,7 +561,7 @@
 					statusId: statusId ? parseInt(statusId) : null,
 					genreId: genreId ? parseInt(genreId) : null,
 					formatId: formatId ? parseInt(formatId) : null,
-					narratorId: narratorId ? parseInt(narratorId) : null,
+					narratorId: selectedNarrator?.id ?? null,
 					releaseDate: releaseDate || null,
 					startReadingDate: startReadingDate || null,
 					completedDate: completedDate || null,
@@ -563,11 +617,11 @@
 </svelte:head>
 
 <!-- Click outside handlers for dropdowns -->
-{#if showAuthorDropdown || showSeriesDropdown}
+{#if showAuthorDropdown || showSeriesDropdown || showNarratorDropdown}
 	<button
 		type="button"
 		class="fixed inset-0 z-10"
-		onclick={() => { showAuthorDropdown = false; showSeriesDropdown = false; }}
+		onclick={() => { showAuthorDropdown = false; showSeriesDropdown = false; showNarratorDropdown = false; }}
 		aria-label="Close dropdown"
 	></button>
 {/if}
@@ -964,10 +1018,91 @@
 								</div>
 							</div>
 
+							<!-- Narrator Section -->
+							<div class="rounded-lg p-4" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+								<h3 class="text-xs font-medium mb-3" style="color: var(--text-muted);">Narrator</h3>
+
+								{#if selectedNarrator}
+									<div
+										class="flex items-center justify-between gap-2 p-3 rounded-lg"
+										style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color);"
+									>
+										<p class="flex-1 min-w-0 font-medium truncate text-sm" style="color: var(--text-primary);">{selectedNarrator.name}</p>
+										<button
+											type="button"
+											onclick={clearNarrator}
+											class="p-1 rounded transition-colors hover:bg-red-500/10"
+											style="color: var(--text-muted);"
+										>
+											<X class="w-3.5 h-3.5" />
+										</button>
+									</div>
+								{:else}
+									<div class="relative">
+										<input
+											type="text"
+											placeholder="Search narrators..."
+											bind:value={narratorSearch}
+											onfocus={() => showNarratorDropdown = true}
+											oninput={() => showNarratorDropdown = true}
+											class="w-full px-3 py-2 rounded-md text-sm"
+											style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
+										/>
+										{#if showNarratorDropdown}
+											<div
+												class="absolute z-20 w-full mt-1 rounded-lg shadow-xl max-h-40 overflow-y-auto"
+												style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);"
+											>
+												{#each filteredNarrators as n}
+													<button
+														type="button"
+														class="w-full px-3 py-2 text-left text-sm transition-colors flex items-center gap-2"
+														style="color: var(--text-primary);"
+														onmouseenter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+														onmouseleave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+														onclick={() => selectNarrator(n)}
+													>
+														<Plus class="w-3.5 h-3.5" style="color: var(--accent);" />
+														{n.name}
+													</button>
+												{/each}
+												{#if canCreateNarrator}
+													<button
+														type="button"
+														class="w-full px-3 py-2 text-left text-sm transition-colors flex items-center gap-2 font-medium"
+														style="color: var(--success); border-top: 1px solid var(--border-color);"
+														onmouseenter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+														onmouseleave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+														onclick={createNewNarrator}
+														disabled={creatingNarrator}
+													>
+														{#if creatingNarrator}
+															<Loader2 class="w-3.5 h-3.5 animate-spin" />
+															Creating...
+														{:else}
+															<Plus class="w-3.5 h-3.5" />
+															Create "{narratorSearch.trim()}"
+														{/if}
+													</button>
+												{:else if filteredNarrators.length === 0 && narratorSearch.trim().length === 0}
+													<div class="px-3 py-2 text-sm" style="color: var(--text-muted);">
+														Type to search or create a new narrator
+													</div>
+												{:else if filteredNarrators.length === 0}
+													<div class="px-3 py-2 text-sm" style="color: var(--text-muted);">
+														No matching narrators found
+													</div>
+												{/if}
+											</div>
+										{/if}
+									</div>
+								{/if}
+							</div>
+
 							<!-- Classification -->
 							<div class="rounded-lg p-4" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
 								<h3 class="text-xs font-medium mb-3" style="color: var(--text-muted);">Classification</h3>
-								<div class="grid grid-cols-3 gap-3">
+								<div class="grid grid-cols-2 gap-3">
 									<div>
 										<label for="genreId" class="block text-xs mb-1" style="color: var(--text-muted);">Genre</label>
 										<select
@@ -993,20 +1128,6 @@
 											<option value="">-</option>
 											{#each options.formats as format}
 												<option value={format.id.toString()}>{format.name}</option>
-											{/each}
-										</select>
-									</div>
-									<div>
-										<label for="narratorId" class="block text-xs mb-1" style="color: var(--text-muted);">Narrator</label>
-										<select
-											id="narratorId"
-											bind:value={narratorId}
-											class="w-full px-2 py-1.5 rounded-md text-sm"
-											style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
-										>
-											<option value="">-</option>
-											{#each options.narrators as narrator}
-												<option value={narrator.id.toString()}>{narrator.name}</option>
 											{/each}
 										</select>
 									</div>

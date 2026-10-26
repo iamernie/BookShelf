@@ -8,6 +8,7 @@ import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
 import { updateBook, deleteBook, type CreateBookData } from '$lib/server/services/bookService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
+import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators } from '$lib/server/db';
 import { eq, sql } from 'drizzle-orm';
 
@@ -213,6 +214,24 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 			formatId = format?.id;
 		}
 
+		// Narrator: narratorId wins over narrator name; null/'' clears; omitted = no change
+		let narratorId: number | null | undefined = undefined;
+		if (body.narratorId !== undefined) {
+			const requestedId: number | null = body.narratorId || null;
+			if (requestedId !== null) {
+				const [narrator] = await db.select({ id: narrators.id })
+					.from(narrators)
+					.where(eq(narrators.id, requestedId))
+					.limit(1);
+				if (!narrator) {
+					return json({ error: 'Narrator not found' }, { status: 400 });
+				}
+			}
+			narratorId = requestedId;
+		} else if (body.narrator !== undefined) {
+			narratorId = await findOrCreateNarratorByName(String(body.narrator ?? ''));
+		}
+
 		const updateData: Partial<CreateBookData> = {};
 
 		// Only include fields that are explicitly provided
@@ -238,6 +257,7 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (statusId !== undefined) updateData.statusId = statusId;
 		if (genreId !== undefined) updateData.genreId = genreId;
 		if (formatId !== undefined) updateData.formatId = formatId;
+		if (narratorId !== undefined) updateData.narratorId = narratorId;
 		if (body.authors !== undefined) updateData.authors = body.authors;
 		if (body.series !== undefined) updateData.series = body.series;
 		if (body.tagIds !== undefined) updateData.tagIds = body.tagIds;

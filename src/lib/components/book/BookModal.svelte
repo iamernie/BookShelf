@@ -1128,8 +1128,67 @@
 									</div>
 								</div>
 
+								<!-- Narrator with create new option -->
+								<div>
+									<label class="block text-sm font-medium text-gray-700 mb-1">Narrator</label>
+									{#if selectedNarrator}
+										<div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+											<span class="flex-1 text-sm">{selectedNarrator.name}</span>
+											<button type="button" onclick={clearNarrator} class="p-1 text-red-500 hover:bg-red-50 rounded">
+												<X class="w-4 h-4" />
+											</button>
+										</div>
+									{:else}
+										<div class="relative">
+											<input
+												type="text"
+												placeholder="Search narrators..."
+												bind:value={narratorSearch}
+												onfocus={() => showNarratorDropdown = true}
+												oninput={() => showNarratorDropdown = true}
+												class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+											/>
+											{#if showNarratorDropdown}
+												<div class="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+													{#each filteredNarrators as n}
+														<button
+															type="button"
+															class="w-full px-3 py-2 text-left hover:bg-gray-50 text-sm"
+															onclick={() => selectNarrator(n)}
+														>
+															{n.name}
+														</button>
+													{/each}
+													{#if canCreateNarrator}
+														<button
+															type="button"
+															class="w-full px-3 py-2 text-left hover:bg-green-50 text-sm border-t border-gray-100 text-green-700 font-medium flex items-center gap-2"
+															onclick={createNewNarrator}
+															disabled={creatingNarrator}
+														>
+															{#if creatingNarrator}
+																<span class="animate-spin">⏳</span> Creating...
+															{:else}
+																<Plus class="w-4 h-4" /> Create "{narratorSearch.trim()}"
+															{/if}
+														</button>
+													{:else if filteredNarrators.length === 0 && narratorSearch.trim().length === 0}
+														<div class="px-3 py-2 text-sm text-gray-500">
+															Type to search or create a new narrator
+														</div>
+													{:else if filteredNarrators.length === 0}
+														<div class="px-3 py-2 text-sm text-gray-500">
+															No matching narrators found
+														</div>
+													{/if}
+												</div>
+											{/if}
+										</div>
+									{/if}
+								</div>
+
 								<!-- Main Details -->
-								<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+								<div class="grid grid-cols-2 gap-4">
 									<!-- Genre with create new option -->
 									<div>
 										<label class="block text-sm font-medium text-gray-700 mb-1">Genre</label>
@@ -1189,65 +1248,6 @@
 												<option value={format.id.toString()}>{format.name}</option>
 											{/each}
 										</select>
-									</div>
-
-									<!-- Narrator with create new option -->
-									<div>
-										<label class="block text-sm font-medium text-gray-700 mb-1">Narrator</label>
-										{#if selectedNarrator}
-											<div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-												<span class="flex-1 text-sm">{selectedNarrator.name}</span>
-												<button type="button" onclick={clearNarrator} class="p-1 text-red-500 hover:bg-red-50 rounded">
-													<X class="w-4 h-4" />
-												</button>
-											</div>
-										{:else}
-											<div class="relative">
-												<input
-													type="text"
-													placeholder="Search narrators..."
-													bind:value={narratorSearch}
-													onfocus={() => showNarratorDropdown = true}
-													oninput={() => showNarratorDropdown = true}
-													class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-												/>
-												{#if showNarratorDropdown}
-													<div class="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-														{#each filteredNarrators as n}
-															<button
-																type="button"
-																class="w-full px-3 py-2 text-left hover:bg-gray-50 text-sm"
-																onclick={() => selectNarrator(n)}
-															>
-																{n.name}
-															</button>
-														{/each}
-														{#if canCreateNarrator}
-															<button
-																type="button"
-																class="w-full px-3 py-2 text-left hover:bg-green-50 text-sm border-t border-gray-100 text-green-700 font-medium flex items-center gap-2"
-																onclick={createNewNarrator}
-																disabled={creatingNarrator}
-															>
-																{#if creatingNarrator}
-																	<span class="animate-spin">⏳</span> Creating...
-																{:else}
-																	<Plus class="w-4 h-4" /> Create "{narratorSearch.trim()}"
-																{/if}
-															</button>
-														{:else if filteredNarrators.length === 0 && narratorSearch.trim().length === 0}
-															<div class="px-3 py-2 text-sm text-gray-500">
-																Type to search or create a new narrator
-															</div>
-														{:else if filteredNarrators.length === 0}
-															<div class="px-3 py-2 text-sm text-gray-500">
-																No matching narrators found
-															</div>
-														{/if}
-													</div>
-												{/if}
-											</div>
-										{/if}
 									</div>
 								</div>
 

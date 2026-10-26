@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-10-26
+
+### Added
+
+- **Narrator picker with inline create** - Add Book and full edit pages now have a narrator field with inline create (parity with authors), positioned directly under Series in all three surfaces
+
+### Fixed
+
+- **v1 API narrator fixes** - POST creates missing narrator rows instead of silently dropping them; PUT now accepts narratorId/narrator changes (books no longer need delete+recreate), invalid narratorId returns 400
+
 ## [2.14.0] - 2026-10-26
 
 ### Added

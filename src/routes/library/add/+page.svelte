@@ -56,6 +56,13 @@
 	let creatingSeries = $state(false);
 	let availableSeries = $state(data.options.series);
 
+	// Narrator (single)
+	let narratorSearch = $state('');
+	let showNarratorDropdown = $state(false);
+	let creatingNarrator = $state(false);
+	let availableNarrators = $state<{ id: number; name: string }[]>(data.options.narrators);
+	let selectedNarrator = $state<{ id: number; name: string } | null>(null);
+
 	// Classification
 	let genreId = $state('');
 	let formatId = $state('');
@@ -174,6 +181,16 @@
 	let canCreateSeries = $derived(
 		seriesSearch.trim().length > 0 &&
 		!availableSeries.some(s => s.title.toLowerCase() === seriesSearch.trim().toLowerCase())
+	);
+
+	let filteredNarrators = $derived(
+		availableNarrators.filter(n =>
+			n.name.toLowerCase().includes(narratorSearch.toLowerCase())
+		).slice(0, 8)
+	);
+	let canCreateNarrator = $derived(
+		narratorSearch.trim().length > 0 &&
+		!availableNarrators.some(n => n.name.toLowerCase() === narratorSearch.trim().toLowerCase())
 	);
 
 	const authorRoles = ['Author', 'Co-Author', 'Editor', 'Translator', 'Illustrator', 'Contributor', 'Foreword By', 'Afterword By'];
@@ -367,6 +384,8 @@
 		rating = '';
 		selectedAuthors = [];
 		selectedSeries = [];
+		selectedNarrator = null;
+		narratorSearch = '';
 		genreId = '';
 		formatId = '';
 		statusId = '';
@@ -405,6 +424,45 @@
 
 	function removeSeries(id: number) {
 		selectedSeries = selectedSeries.filter(s => s.id !== id);
+	}
+
+	function selectNarrator(n: { id: number; name: string }) {
+		selectedNarrator = n;
+		narratorSearch = '';
+		showNarratorDropdown = false;
+	}
+
+	function clearNarrator() {
+		selectedNarrator = null;
+	}
+
+	async function createNewNarrator() {
+		const name = narratorSearch.trim();
+		if (!name) return;
+
+		creatingNarrator = true;
+		try {
+			const res = await fetch('/api/narrators', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name })
+			});
+
+			if (res.ok) {
+				const newNarrator = await res.json();
+				availableNarrators = [...availableNarrators, { id: newNarrator.id, name: newNarrator.name }];
+				selectNarrator({ id: newNarrator.id, name: newNarrator.name });
+				toasts.success(`Created narrator "${newNarrator.name}"`);
+			} else {
+				const err = await res.json();
+				toasts.error(err.message || 'Failed to create narrator');
+			}
+		} catch (e) {
+			console.error('Failed to create narrator:', e);
+			toasts.error('Failed to create narrator');
+		} finally {
+			creatingNarrator = false;
+		}
 	}
 
 	async function createNewAuthor() {
@@ -533,6 +591,7 @@
 				genreId: genreId ? parseInt(genreId) : null,
 				formatId: formatId ? parseInt(formatId) : null,
 				statusId: statusId ? parseInt(statusId) : null,
+				narratorId: selectedNarrator?.id ?? null,
 				isbn13: isbn13.trim() || null,
 				isbn10: isbn10.trim() || null,
 				asin: asin.trim() || null,
@@ -1224,6 +1283,70 @@
 						</div>
 					</div>
 
+					<!-- Narrator -->
+					<div>
+						<label class="block text-sm font-medium mb-1" style="color: var(--text-primary);">Narrator</label>
+						{#if selectedNarrator}
+							<div class="flex items-center gap-2 p-2 rounded-lg" style="background: var(--bg-tertiary);">
+								<span class="flex-1 text-sm font-medium" style="color: var(--text-primary);">{selectedNarrator.name}</span>
+								<button type="button" onclick={clearNarrator} class="p-1 hover:text-red-500">
+									<X class="w-4 h-4" />
+								</button>
+							</div>
+						{:else}
+							<div class="relative">
+								<input
+									type="text"
+									bind:value={narratorSearch}
+									onfocus={() => showNarratorDropdown = true}
+									oninput={() => showNarratorDropdown = true}
+									class="w-full px-4 py-2.5 rounded-lg border transition-colors"
+									style="background: var(--bg-primary); border-color: var(--border-color); color: var(--text-primary);"
+									placeholder="Search narrators..."
+								/>
+								{#if showNarratorDropdown}
+									<div class="absolute z-20 w-full mt-1 rounded-lg shadow-lg overflow-hidden" style="background: var(--bg-secondary); border: 1px solid var(--border-color);">
+										{#each filteredNarrators as n}
+											<button
+												type="button"
+												class="w-full px-4 py-2 text-left transition-colors hover:bg-[var(--bg-tertiary)]"
+												style="color: var(--text-primary);"
+												onclick={() => selectNarrator(n)}
+											>
+												{n.name}
+											</button>
+										{/each}
+										{#if canCreateNarrator}
+											<button
+												type="button"
+												class="w-full px-4 py-2 text-left transition-colors flex items-center gap-2 hover:bg-green-500/10"
+												style="color: #10b981; border-top: 1px solid var(--border-color);"
+												onclick={createNewNarrator}
+												disabled={creatingNarrator}
+											>
+												{#if creatingNarrator}
+													<Loader2 class="w-4 h-4 animate-spin" />
+													Creating...
+												{:else}
+													<Plus class="w-4 h-4" />
+													Create "{narratorSearch.trim()}"
+												{/if}
+											</button>
+										{:else if filteredNarrators.length === 0 && narratorSearch.trim().length === 0}
+											<div class="px-4 py-2 text-sm" style="color: var(--text-muted);">
+												Type to search or create a new narrator
+											</div>
+										{:else if filteredNarrators.length === 0}
+											<div class="px-4 py-2 text-sm" style="color: var(--text-muted);">
+												No matching narrators found
+											</div>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
+
 					<!-- Summary -->
 					<div>
 						<label for="summary" class="block text-sm font-medium mb-1" style="color: var(--text-primary);">Summary</label>
@@ -1495,11 +1618,11 @@
 </div>
 
 <!-- Click outside handler for dropdowns -->
-{#if showAuthorDropdown || showSeriesDropdown}
+{#if showAuthorDropdown || showSeriesDropdown || showNarratorDropdown}
 	<button
 		type="button"
 		class="fixed inset-0 z-10"
-		onclick={() => { showAuthorDropdown = false; showSeriesDropdown = false; }}
+		onclick={() => { showAuthorDropdown = false; showSeriesDropdown = false; showNarratorDropdown = false; }}
 		aria-label="Close dropdown"
 	></button>
 {/if}

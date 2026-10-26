@@ -7,6 +7,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
 import { createBook, type CreateBookData } from '$lib/server/services/bookService';
+import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators, users } from '$lib/server/db';
 import { eq, sql, desc, and, inArray, isNull } from 'drizzle-orm';
 
@@ -280,14 +281,10 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			formatId = format?.id;
 		}
 
-		// Look up narrator by name if provided
+		// Look up narrator by name if provided, creating it if missing
 		let narratorId = body.narratorId;
 		if (body.narrator && !narratorId) {
-			const [narrator] = await db.select({ id: narrators.id })
-				.from(narrators)
-				.where(sql`LOWER(${narrators.name}) = LOWER(${body.narrator})`)
-				.limit(1);
-			narratorId = narrator?.id;
+			narratorId = (await findOrCreateNarratorByName(String(body.narrator))) ?? undefined;
 		}
 
 		const bookData: CreateBookData = {

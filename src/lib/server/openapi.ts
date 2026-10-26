@@ -1719,7 +1719,7 @@ export const openApiSpec = {
 					formatId: { type: 'integer', description: 'Format ID (or use format name)' },
 					format: { type: 'string', description: 'Format name (looked up by name)' },
 					narratorId: { type: 'integer', description: 'Narrator ID (or use narrator name)' },
-					narrator: { type: 'string', description: 'Narrator name (looked up by name)' },
+					narrator: { type: 'string', description: "Narrator name (matched case-insensitively; created if it doesn't exist). Empty string or null clears it." },
 					authors: {
 						type: 'array',
 						items: {

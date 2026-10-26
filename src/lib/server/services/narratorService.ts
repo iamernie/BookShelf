@@ -275,6 +275,17 @@ export async function createNarrator(data: CreateNarratorData): Promise<Narrator
 	return newNarrator;
 }
 
+// Case-insensitive lookup by name; creates the narrator if missing. Empty name returns null.
+export async function findOrCreateNarratorByName(name: string): Promise<number | null> {
+	const trimmed = name.trim();
+	if (!trimmed) return null;
+	const [existing] = await db.select({ id: narrators.id }).from(narrators)
+		.where(sql`LOWER(${narrators.name}) = LOWER(${trimmed})`).limit(1);
+	if (existing) return existing.id;
+	const created = await createNarrator({ name: trimmed });
+	return created.id;
+}
+
 export async function updateNarrator(id: number, data: Partial<CreateNarratorData>): Promise<NarratorType | null> {
 	const now = new Date().toISOString();
 
