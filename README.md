@@ -6,6 +6,12 @@
 
 BookShelf is a self-hosted web app for book lovers who want to track their reading, organize their digital library, and discover patterns in their reading habits. Think of it as your cozy digital bookshelf that lives on your own server.
 
+
+---
+# Desgin Update
+
+I've made the decision to streamline BookShelf.  Begining in version 2.11 I'll be removing the Audiobook features, and instead create and integration with Audiobook Shelf.  It has a much more robust enivronment, and being everything in one was driving me insane.  Even if this project is AI assisted.  I'll be looking for other optimizations over the next few releases.
+
 ---
 
 ## What Can It Do?
@@ -55,7 +61,7 @@ BookShelf is a self-hosted web app for book lovers who want to track their readi
 
 ### More Goodies
 - **BookDrop** folder watching - drop files in, they appear in your library
-- **Public Library** for bulk imports and shared collections
+- **Public Library** for bulk imports and shared collections (Optional)
 - **Public widgets** for embedding on blogs
 - **Multi-user** with admin/member roles
 - **Statistics dashboard** with charts, timelines, and reading analytics
