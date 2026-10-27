@@ -87,11 +87,10 @@
 
 			<!-- Next Up -->
 			{#if nextUpTitle}
-				<div class="card-next" title="Next: {nextUpTitle}{nextUpNote ? ` - ${nextUpNote}` : ''}">
-					<span class="label">Next:</span>
-					<span class="next-book">{nextUpTitle}</span>
+				<div class="card-next" title="Next: {nextUpTitle}{nextUpNote ? ` (${nextUpNote})` : ''}">
+					<span class="next-title"><span class="label">Next:</span> <span class="next-book">{nextUpTitle}</span></span>
 					{#if nextUpNote}
-						<span class="next-note">- {nextUpNote}</span>
+						<span class="next-note">({nextUpNote})</span>
 					{/if}
 				</div>
 			{:else if series.completionPercentage === 100}
@@ -326,6 +325,15 @@
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	/* Label + title shrink and ellipsize first so the note is never truncated away */
+	.card-next .next-title {
+		flex: 0 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.card-next .next-note {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.2] - 2026-10-27
+
+### Fixed
+- Up Next in Series cards: a pre-release date now renders in parentheses right beside the Next line (e.g. "Next: Dead World (Nov 24, 2026)") and can no longer be truncated away on narrow cards; the long title ellipsizes first instead. The stray dash before the date is gone
+
 ## [2.19.1] - 2026-10-27
 
 ### Fixed
