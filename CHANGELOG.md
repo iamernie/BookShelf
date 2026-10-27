@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.6] - 2026-10-27
+
+### Fixed
+- Applying a "Search Book Metadata" result in the Edit Book page now populates authors, genre and series (with series number) the same way the book modal does: existing selections are deduplicated, matching library entries are reused, and missing authors, series or genres are created. Previously those checked fields were silently ignored and had to be set by hand
+- Fetching full details for a metadata result now merges them over the preview instead of replacing it, so fields the provider returns in the preview but omits from the detail payload stay available to apply
+- The Edit Book page's metadata toast now reports how many of the selected fields were actually applied (e.g. "Applied 7 of 9 fields") and shows as a warning when some could not be applied
+
 ## [2.19.5] - 2026-10-27
 
 ### Changed

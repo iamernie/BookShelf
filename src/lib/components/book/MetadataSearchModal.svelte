@@ -165,7 +165,14 @@
 				if (res.ok) {
 					const data = await res.json();
 					if (data.result) {
-						selectedResult = data.result;
+						// Merge details over the preview so fields the detail payload omits survive
+						const merged: MetadataResult = { ...result };
+						for (const [key, value] of Object.entries(data.result as MetadataResult)) {
+							if (value === undefined || value === null || value === '') continue;
+							if (Array.isArray(value) && value.length === 0) continue;
+							(merged as unknown as Record<string, unknown>)[key] = value;
+						}
+						selectedResult = merged;
 					}
 				}
 			} catch {
