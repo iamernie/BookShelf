@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.1] - 2026-10-27
+
+### Fixed
+- Up Next in Series cards no longer hard-truncate: the standalone dashboard section renders them at a wider density (1 / 2 / 3 / 4 across by screen size, never narrower than ~300px) and series title, author, progress count and the Next line ellipsize with hover tooltips instead of cutting mid-word or wrapping "books" onto its own line
+
 ## [2.19.0] - 2026-10-27
 
 ### Changed

@@ -50,11 +50,11 @@
 		<div class="card-content">
 			<!-- Header: Title + Author -->
 			<div class="card-header">
-				<h3 class="card-title">{series.title}</h3>
+				<h3 class="card-title" title={series.title}>{series.title}</h3>
 				{#if series.primaryAuthor}
-					<div class="card-author">
+					<div class="card-author" title={series.primaryAuthor.name}>
 						<DynamicIcon icon="fas fa-user-edit" size={12} />
-						{series.primaryAuthor.name}
+						<span class="author-name">{series.primaryAuthor.name}</span>
 					</div>
 				{/if}
 			</div>
@@ -100,7 +100,7 @@
 					<strong>Complete!</strong>
 				</div>
 			{:else if series.nextBook}
-				<div class="card-next">
+				<div class="card-next" title="Next: {series.nextBook.title}">
 					<span class="label">Next:</span>
 					<span class="next-book">{series.nextBook.title}</span>
 					<ChevronRight class="w-3 h-3" />
@@ -108,7 +108,7 @@
 			{:else if series.bookCount > 0 && series.readBooks < series.bookCount}
 				<div class="card-next">
 					<span class="label">Next:</span>
-					<span>{series.bookCount - series.readBooks} books remaining</span>
+					<span class="next-text">{series.bookCount - series.readBooks} books remaining</span>
 				</div>
 			{/if}
 		</div>
@@ -230,8 +230,19 @@
 		align-items: center;
 		gap: 0.25rem;
 		overflow: hidden;
-		text-overflow: ellipsis;
 		white-space: nowrap;
+		min-width: 0;
+	}
+
+	.card-author :global(svg),
+	.card-author :global(i) {
+		flex-shrink: 0;
+	}
+
+	.author-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	/* Progress bar */
@@ -262,17 +273,23 @@
 	.progress-text {
 		display: flex;
 		justify-content: space-between;
+		gap: 0.5rem;
 		font-size: 0.7rem;
 		color: var(--text-muted);
+		white-space: nowrap;
 	}
 
 	.progress-count {
 		font-weight: 500;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.progress-percent {
 		font-weight: 600;
 		color: var(--text-secondary);
+		flex-shrink: 0;
 	}
 
 	/* Next up line */
@@ -283,6 +300,12 @@
 		font-size: 0.75rem;
 		color: var(--text-muted);
 		overflow: hidden;
+		white-space: nowrap;
+		min-width: 0;
+	}
+
+	.card-next :global(svg) {
+		flex-shrink: 0;
 	}
 
 	.card-next .label {
@@ -293,9 +316,16 @@
 	.card-next .next-book {
 		color: var(--accent);
 		font-weight: 500;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.card-next .next-text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.card-next .next-note {

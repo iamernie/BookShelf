@@ -462,7 +462,7 @@
 							<ChevronRight class="w-4 h-4" />
 						</a>
 					</div>
-					<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+					<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
 						{#each data.upNextInSeries.slice(0, 6) as item}
 							<SeriesCard
 								series={upNextSeriesCard(item)}
