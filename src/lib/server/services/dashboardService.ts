@@ -535,6 +535,9 @@ export interface UpNextInSeries {
 		total: number;
 		percentage: number;
 	};
+	// Read / total counts matching SeriesCardData.readBooks / bookCount on the /series page
+	seriesReadCount: number;
+	seriesBookCount: number;
 }
 
 export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpNextInSeries[]> {
@@ -543,6 +546,14 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 	const currentStatusId = await getStatusId(STATUS_KEYS.CURRENT);
 
 	if (!readStatusId) return [];
+
+	// Same library filter the /series page uses for its card counts (seriesService.getSeries)
+	const seriesPageLibCond = userId
+		? or(
+				eq(books.libraryType, 'personal'),
+				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
+		  )
+		: eq(books.libraryType, 'personal');
 
 	// Find series where user has read at least one book
 	const seriesWithProgress = await db.selectDistinct({
@@ -589,6 +600,12 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 		const bookData = await getBooksCardData([nextBook.bookId]);
 		if (bookData.length === 0) continue;
 
+		// Series-card counts, matching the /series page definition exactly
+		const seriesPageBooks = await db.select({ statusId: books.statusId })
+			.from(bookSeries)
+			.innerJoin(books, eq(bookSeries.bookId, books.id))
+			.where(and(eq(bookSeries.seriesId, s.seriesId), seriesPageLibCond));
+
 		results.push({
 			book: bookData[0],
 			seriesId: s.seriesId,
@@ -599,7 +616,9 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 				read: readBooks.length,
 				total: seriesBooks.length,
 				percentage: Math.round((readBooks.length / seriesBooks.length) * 100)
-			}
+			},
+			seriesReadCount: seriesPageBooks.filter(b => b.statusId === readStatusId).length,
+			seriesBookCount: seriesPageBooks.length
 		});
 
 		if (results.length >= limit) break;

@@ -33,6 +33,10 @@
 	import SmartCollectionSection from '$lib/components/dashboard/SmartCollectionSection.svelte';
 	import type { BookCardData } from '$lib/types';
 	import type { DashboardConfig, DashboardSection, DashboardSectionId } from '$lib/server/services/userPreferencesService';
+	import type { UpNextInSeries } from '$lib/server/services/dashboardService';
+	import type { SeriesCardData } from '$lib/server/services/seriesService';
+	import SeriesCard from '$lib/components/series/SeriesCard.svelte';
+	import { isPrerelease, formatReleaseDate } from '$lib/utils/date';
 	import { toasts } from '$lib/stores/toast';
 
 	let { data } = $props();
@@ -50,6 +54,30 @@
 	// Check if a section is enabled
 	function isSectionEnabled(id: DashboardSectionId): boolean {
 		return enabledSections.some(s => s.id === id);
+	}
+
+	// Up Next in Series: one series card per series, the queued book's cover as the series cover
+	function upNextSeriesCard(item: UpNextInSeries): SeriesCardData {
+		return {
+			id: item.seriesId,
+			title: item.seriesTitle,
+			description: null,
+			numBooks: null,
+			comments: null,
+			statusId: null,
+			genreId: null,
+			createdAt: null,
+			updatedAt: null,
+			bookCount: item.seriesBookCount,
+			readBooks: item.seriesReadCount,
+			completionPercentage: item.seriesBookCount > 0 ? Math.round((item.seriesReadCount / item.seriesBookCount) * 100) : 0,
+			averageRating: null,
+			coverBook: {
+				id: item.book.id,
+				title: item.book.title,
+				coverImageUrl: item.book.coverImageUrl || item.book.originalCoverUrl || null
+			}
+		};
 	}
 
 	function handleBookClick(book: BookCardData) {
@@ -436,16 +464,11 @@
 					</div>
 					<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
 						{#each data.upNextInSeries.slice(0, 6) as item}
-							<!-- Show the series this book is up next in (its primary series may differ) -->
-							<BookCard
-								book={{ ...item.book, seriesName: item.seriesTitle, bookNum: item.bookNum }}
-								absBaseUrl={data.absBaseUrl ?? ''}
-								showTags={false}
-								onClick={handleBookClick}
-								showStatus={false}
-								quickEdit={true}
-								statuses={data.statuses}
-								onQuickEdit={handleQuickEdit}
+							<SeriesCard
+								series={upNextSeriesCard(item)}
+								nextUpTitle={item.book.title}
+								nextUpNote={isPrerelease(item.book.releaseDate) ? formatReleaseDate(item.book.releaseDate) : ''}
+								onclick={() => goto(`/series/${item.seriesId}`)}
 							/>
 						{/each}
 					</div>

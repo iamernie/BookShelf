@@ -5,10 +5,15 @@
 
 	let {
 		series,
-		onclick
+		onclick,
+		nextUpTitle = '',
+		nextUpNote = ''
 	}: {
 		series: SeriesCardData;
 		onclick: () => void;
+		// Optional explicit next-book line (dashboard Up Next); overrides the computed Next line
+		nextUpTitle?: string;
+		nextUpNote?: string;
 	} = $props();
 
 	// Determine which cover image to show
@@ -81,7 +86,15 @@
 			{/if}
 
 			<!-- Next Up -->
-			{#if series.completionPercentage === 100}
+			{#if nextUpTitle}
+				<div class="card-next" title="Next: {nextUpTitle}{nextUpNote ? ` - ${nextUpNote}` : ''}">
+					<span class="label">Next:</span>
+					<span class="next-book">{nextUpTitle}</span>
+					{#if nextUpNote}
+						<span class="next-note">- {nextUpNote}</span>
+					{/if}
+				</div>
+			{:else if series.completionPercentage === 100}
 				<div class="card-next complete">
 					<CheckCircle class="w-3 h-3" />
 					<strong>Complete!</strong>
@@ -282,6 +295,11 @@
 		font-weight: 500;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.card-next .next-note {
+		flex-shrink: 0;
 		white-space: nowrap;
 	}
 

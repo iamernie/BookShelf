@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-10-27
+
+### Changed
+- Up Next in Series (standalone dashboard section) now shows one series card per series instead of book cards: series name, X / Y books progress, and a "Next:" line naming the queued book (with its release date when it's a pre-release). Clicking a card opens the series page
+
 ## [2.18.2] - 2026-10-27
 
 ### Changed

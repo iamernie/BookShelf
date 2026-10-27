@@ -146,11 +146,19 @@ export function isPrerelease(releaseDate: string | null | undefined): boolean {
  */
 export function formatReleaseTooltip(releaseDate: string | null | undefined): string {
 	if (!releaseDate) return '';
+	return `Releases ${formatReleaseDate(releaseDate)}`;
+}
+
+/**
+ * Release date as shown in the pre-release tooltip, e.g. "Nov 17, 2026"
+ */
+export function formatReleaseDate(releaseDate: string | null | undefined): string {
+	if (!releaseDate) return '';
 	const match = releaseDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-	if (!match) return `Releases ${releaseDate}`;
+	if (!match) return releaseDate;
 	// Build a local date so the day never shifts across timezones
 	const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-	return `Releases ${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`;
+	return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 /**
