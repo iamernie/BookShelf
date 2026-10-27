@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-10-27
+
+### Added
+
+- **Audiobookshelf write-back** - optional **Mark finished on Audiobookshelf** toggle (off by default): each sync marks the ABS item finished for every linked Done book, using the book's completed date as the ABS finish date. Only `isFinished`/`finishedAt` are sent, so the listening position is kept and nothing is ever un-finished
+- **Write-back ledger** - new `books.absWritebackItemId` column records the item written, so each link is written at most once: re-listening in ABS isn't re-finished, relinking to a different item makes it eligible again, and moving a book off Done never gets pulled back to Done by the status sync from our own write
+- **Write-back safeguards** - items linked to more than one book are skipped with a warning; missing ABS items (404) are reported as "missing items" rather than errors; write-back never runs when the progress lookup fails
+- **Integrations tab** - pending write-back preview ("Up to N books will be marked finished on the next sync"); Last result and the Sync Now toast show marked-finished and missing-item counts (results stored by older versions still render)
+
 ## [2.15.0] - 2026-10-26
 
 ### Added

@@ -7,16 +7,19 @@
  *   integration.abs_api_key   - ABS API key (sent as Authorization: Bearer)
  *   integration.abs_sync_interval_hours - hours between automatic syncs (1-48)
  *   integration.abs_sync_status - advance book status from ABS listening progress
+ *   integration.abs_sync_writeback - mark ABS items finished for Done books
  *
  * When the integration is disabled or not configured, every public function no-ops.
  *
- * Sync runs two passes, plus an optional third:
+ * Sync runs two passes, plus two optional ones:
  *   1. Link pass   - recently added, unlinked books are matched to ABS items
  *                    (ASIN-exact first, then a single exact-title hit).
  *   2. Reverse sync - every ABS library item without a BookShelf book is created
  *                    born-linked; an unlinked exact-title book is linked instead.
  *   3. Status sync - (toggle) linked books advance to Current / Done from the
  *                    key user's ABS progress; never moved backwards.
+ *   4. Write-back  - (toggle) linked Done books mark their ABS item finished, once
+ *                    per link (books.absWritebackItemId ledger); never un-finishes.
  *
  * Linked books carry the "Audiobook Shelf" system tag. Links made here tag the book
  * immediately; every sync also self-heals drift (tag = absItemId IS NOT NULL).
@@ -24,7 +27,7 @@
 
 import { db } from '$lib/server/db';
 import { books, authors, bookAuthors, bookTags, narrators, formats, statuses, tags, users } from '$lib/server/db/schema';
-import { and, asc, count, eq, gt, inArray, isNotNull, isNull, notInArray, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, ne, notInArray, or, sql } from 'drizzle-orm';
 import { getSetting, getSettingAs, setSetting } from './settingsService';
 import { createBook } from './bookService';
 import { createLogger } from './loggerService';
@@ -173,6 +176,10 @@ export interface AbsSyncResult {
 	errors: number;
 	/** Books advanced to Current / Done by the status sync (absent in results stored before 2.12.4) */
 	statusFlips?: number;
+	/** ABS items marked finished from Done books (absent in results stored before 2.16.0) */
+	writeBacks?: number;
+	/** Done books whose linked ABS item no longer exists; not counted as errors (absent before 2.16.0) */
+	writeBackMissing?: number;
 	durationMs: number;
 }
 
@@ -190,6 +197,8 @@ export interface AbsSyncStatus {
 	/** lastSync + interval; null when there has never been a successful sync */
 	nextRunAt: string | null;
 	schedulerCheckMinutes: number;
+	/** Linked Done books not yet written back (upper bound: items already finished on ABS need no PATCH) */
+	writeBackPending: number;
 }
 
 // ============================================
@@ -251,6 +260,21 @@ async function absGet<T>(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: st
 		throw new AbsHttpError(`Audiobookshelf returned ${res.status}${reason ? ` (${reason})` : ''} for ${path.split('?')[0]}`, res.status);
 	}
 	return (await res.json()) as T;
+}
+
+/** PATCH a JSON body; the response body is ignored (ABS returns JSON or plain "OK" by version). */
+async function absPatch(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: string, body: unknown): Promise<void> {
+	const res = await fetch(`${config.baseUrl}${path}`, {
+		method: 'PATCH',
+		headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify(body),
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+	});
+	if (!res.ok) {
+		const reason = res.status === 401 || res.status === 403 ? 'API key rejected' : res.statusText;
+		throw new AbsHttpError(`Audiobookshelf returned ${res.status}${reason ? ` (${reason})` : ''} for ${path.split('?')[0]}`, res.status);
+	}
+	await res.body?.cancel();
 }
 
 async function getLibraries(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>): Promise<AbsLibrary[]> {
@@ -766,12 +790,24 @@ function toDateOnly(epochMs: number | null | undefined): string {
 	return (epochMs ? new Date(epochMs) : new Date()).toISOString().split('T')[0];
 }
 
+/** The API key user's progress for every book item, in one GET /api/me (podcast episodes skipped). */
+async function fetchProgressByItem(config: AbsConfig): Promise<Map<string, AbsMediaProgress>> {
+	const me = await absGet<{ mediaProgress?: AbsMediaProgress[] }>(config, '/api/me');
+	const progressByItem = new Map<string, AbsMediaProgress>();
+	for (const p of me.mediaProgress ?? []) {
+		if (p.libraryItemId && !p.episodeId) progressByItem.set(p.libraryItemId, p);
+	}
+	return progressByItem;
+}
+
 /**
  * Status sync: advance linked books from the API key user's ABS progress.
  * Finished -> Done; started but unfinished -> Current. Advance-only: Done is never
  * touched, Current is never re-set, and books without ABS progress are skipped.
+ * A finish that write-back sent itself (absWritebackItemId === absItemId) never pulls
+ * a book the user has since moved off Done back to Done.
  */
-async function runStatusSync(config: AbsConfig): Promise<{ flips: number; errors: number }> {
+async function runStatusSync(config: AbsConfig, progressByItem: Map<string, AbsMediaProgress>): Promise<{ flips: number; errors: number }> {
 	const [doneId, currentId] = await Promise.all([
 		getStatusIdByName(STATUS_DONE_NAME),
 		getStatusIdByName(STATUS_CURRENT_NAME)
@@ -780,12 +816,6 @@ async function runStatusSync(config: AbsConfig): Promise<{ flips: number; errors
 	if (currentId === null) log.warn(`No "${STATUS_CURRENT_NAME}" status found; in-progress audiobooks will not be marked`);
 	if (doneId === null && currentId === null) return { flips: 0, errors: 0 };
 
-	// One request for every item's progress instead of one per linked book
-	const me = await absGet<{ mediaProgress?: AbsMediaProgress[] }>(config, '/api/me');
-	const progressByItem = new Map<string, AbsMediaProgress>();
-	for (const p of me.mediaProgress ?? []) {
-		if (p.libraryItemId && !p.episodeId) progressByItem.set(p.libraryItemId, p);
-	}
 	if (progressByItem.size === 0) return { flips: 0, errors: 0 };
 
 	const linked = await db
@@ -794,7 +824,8 @@ async function runStatusSync(config: AbsConfig): Promise<{ flips: number; errors
 			absItemId: books.absItemId,
 			statusId: books.statusId,
 			startReadingDate: books.startReadingDate,
-			completedDate: books.completedDate
+			completedDate: books.completedDate,
+			absWritebackItemId: books.absWritebackItemId
 		})
 		.from(books)
 		.where(isNotNull(books.absItemId));
@@ -814,6 +845,8 @@ async function runStatusSync(config: AbsConfig): Promise<{ flips: number; errors
 
 		if (progress.isFinished) {
 			if (doneId === null) continue;
+			// We finished this item ourselves and the user has since moved the book off Done
+			if (book.absWritebackItemId === book.absItemId) continue;
 			update = { statusId: doneId };
 			if (!book.startReadingDate && raw.startedAt) update.startReadingDate = toDateOnly(raw.startedAt);
 			if (!book.completedDate) update.completedDate = toDateOnly(raw.finishedAt);
@@ -842,9 +875,131 @@ async function runStatusSync(config: AbsConfig): Promise<{ flips: number; errors
 	return { flips, errors };
 }
 
+// Book completedDate (YYYY-MM-DD) -> epoch ms at 12:00 UTC, so the ABS day matches in any timezone
+function completedDateToEpochMs(date: string | null): number | null {
+	if (!date || !/^\d{4}-\d{2}-\d{2}/.test(date)) return null;
+	const ms = Date.parse(`${date.slice(0, 10)}T12:00:00Z`);
+	return Number.isNaN(ms) ? null : ms;
+}
+
+/**
+ * Write-back: mark the ABS item finished for every linked Done book, at most once per
+ * link (books.absWritebackItemId records the item written). Only isFinished, plus
+ * finishedAt from completedDate, is ever sent, so the listening position is kept and
+ * nothing is un-finished. Verified against ABS 2.37.2: PATCH creates a missing
+ * progress record, keeps currentTime, sets progress to 1, honours a supplied
+ * finishedAt, and returns 404 for unknown items. ABS clears isFinished when playback
+ * resumes, which is why the ledger exists: re-listened books are not re-finished.
+ */
+async function runWriteBack(
+	config: AbsConfig,
+	progressByItem: Map<string, AbsMediaProgress>
+): Promise<{ writeBacks: number; missing: number; errors: number }> {
+	const result = { writeBacks: 0, missing: 0, errors: 0 };
+	const doneId = await getStatusIdByName(STATUS_DONE_NAME);
+	if (doneId === null) {
+		log.warn(`No "${STATUS_DONE_NAME}" status found; nothing will be marked finished on Audiobookshelf`);
+		return result;
+	}
+
+	// Only Done books are selected, so moving a book off Done never writes anything
+	const [candidates, linkedRows] = await Promise.all([
+		db.select({
+			id: books.id,
+			absItemId: books.absItemId,
+			completedDate: books.completedDate,
+			absWritebackItemId: books.absWritebackItemId
+		})
+			.from(books)
+			.where(and(isNotNull(books.absItemId), eq(books.statusId, doneId))),
+		db.select({ id: books.id, absItemId: books.absItemId }).from(books).where(isNotNull(books.absItemId))
+	]);
+
+	// One item, one book: an item linked to several books is ambiguous and left alone
+	const bookIdsByItem = new Map<string, number[]>();
+	for (const r of linkedRows) {
+		const ids = bookIdsByItem.get(r.absItemId as string) ?? [];
+		ids.push(r.id);
+		bookIdsByItem.set(r.absItemId as string, ids);
+	}
+
+	const recordWriteBack = (bookId: number, absItemId: string) =>
+		db.update(books).set({ absWritebackItemId: absItemId }).where(eq(books.id, bookId));
+	const warnedDuplicates = new Set<string>();
+
+	for (const book of candidates) {
+		const absItemId = book.absItemId as string;
+		if (book.absWritebackItemId === absItemId) continue;
+
+		const bookIds = bookIdsByItem.get(absItemId) ?? [];
+		if (bookIds.length > 1) {
+			if (!warnedDuplicates.has(absItemId)) {
+				warnedDuplicates.add(absItemId);
+				log.warn('Audiobookshelf item is linked to several books; skipping write-back', { absItemId, bookIds });
+			}
+			continue;
+		}
+
+		const record = progressByItem.get(absItemId);
+		try {
+			if (record?.isFinished) {
+				// Already finished on ABS (including books the status sync just moved to Done)
+				await recordWriteBack(book.id, absItemId);
+				continue;
+			}
+
+			const finishedAt = completedDateToEpochMs(book.completedDate);
+			await absPatch(
+				config,
+				`/api/me/progress/${encodeURIComponent(absItemId)}`,
+				finishedAt === null ? { isFinished: true } : { isFinished: true, finishedAt }
+			);
+			await recordWriteBack(book.id, absItemId);
+			result.writeBacks++;
+			log.info('Marked Audiobookshelf item finished', {
+				bookId: book.id,
+				absItemId,
+				hadProgress: !!record,
+				progress: record ? toAbsProgress(record).progress : 0
+			});
+		} catch (err) {
+			if (err instanceof AbsHttpError && err.status === 404) {
+				// Stale link; retried next sync, not counted as an error
+				result.missing++;
+				log.warn('Audiobookshelf item not found; skipping write-back', { bookId: book.id, absItemId });
+				continue;
+			}
+			// Every remaining request would be rejected the same way
+			if (err instanceof AbsHttpError && (err.status === 401 || err.status === 403)) throw err;
+			result.errors++;
+			log.warn('Audiobookshelf write-back failed', { bookId: book.id, absItemId, error: describeError(err) });
+		}
+	}
+
+	return result;
+}
+
+/** Done + linked books the next write-back would mark finished (ledger-filtered, duplicates excluded). */
+async function getAbsWriteBackPendingCount(): Promise<number> {
+	const doneId = await getStatusIdByName(STATUS_DONE_NAME);
+	if (doneId === null) return 0;
+
+	const dupItems = db.select({ absItemId: books.absItemId }).from(books)
+		.where(isNotNull(books.absItemId))
+		.groupBy(books.absItemId)
+		.having(sql`COUNT(*) > 1`);
+	const [row] = await db.select({ n: count() }).from(books).where(and(
+		isNotNull(books.absItemId),
+		eq(books.statusId, doneId),
+		or(isNull(books.absWritebackItemId), ne(books.absWritebackItemId, books.absItemId)),
+		notInArray(books.absItemId, dupItems)
+	));
+	return row?.n ?? 0;
+}
+
 let activeSync: Promise<AbsSyncResult> | null = null;
 
-/** Run one full sync (link pass + reverse sync). Concurrent calls share the in-flight run. */
+/** Run one full sync (link, reverse, then the optional status sync and write-back). Concurrent calls share the in-flight run. */
 export function runAbsSync(): Promise<AbsSyncResult> {
 	if (!activeSync) {
 		activeSync = doSync()
@@ -872,10 +1027,11 @@ async function persistLastResult(result: AbsSyncResult): Promise<void> {
 
 /** Sync status for the Integrations settings tab. */
 export async function getAbsSyncStatus(): Promise<AbsSyncStatus> {
-	const [lastSyncRaw, lastResultRaw, intervalHours] = await Promise.all([
+	const [lastSyncRaw, lastResultRaw, intervalHours, writeBackPending] = await Promise.all([
 		getSetting('integration.abs_last_sync'),
 		getSetting('integration.abs_last_result'),
-		getAbsSyncIntervalHours()
+		getAbsSyncIntervalHours(),
+		getAbsWriteBackPendingCount()
 	]);
 
 	let lastResult: AbsLastSyncResult | null = null;
@@ -895,13 +1051,14 @@ export async function getAbsSyncStatus(): Promise<AbsSyncStatus> {
 		lastResult,
 		intervalHours,
 		nextRunAt,
-		schedulerCheckMinutes: SCHEDULER_TICK_MS / 60000
+		schedulerCheckMinutes: SCHEDULER_TICK_MS / 60000,
+		writeBackPending
 	};
 }
 
 async function doSync(): Promise<AbsSyncResult> {
 	const started = Date.now();
-	const empty = { linked: 0, created: 0, errors: 0, statusFlips: 0 };
+	const empty = { linked: 0, created: 0, errors: 0, statusFlips: 0, writeBacks: 0, writeBackMissing: 0 };
 	const config = await getAbsConfig();
 
 	if (!isUsable(config)) {
@@ -932,14 +1089,41 @@ async function doSync(): Promise<AbsSyncResult> {
 		const linkPass = await runLinkPass(config, library.id, usedItemIds, tagId);
 		const reverse = await runReverseSync(config, library.id, usedItemIds, tagId);
 
+		const [statusOn, writebackOn] = await Promise.all([
+			getSettingAs<boolean>('integration.abs_sync_status', 'boolean'),
+			getSettingAs<boolean>('integration.abs_sync_writeback', 'boolean')
+		]);
+
+		// One progress snapshot shared by both passes; write-back never runs without it
 		const statusSync = { flips: 0, errors: 0 };
-		if (await getSettingAs<boolean>('integration.abs_sync_status', 'boolean')) {
+		const writeBack = { writeBacks: 0, missing: 0, errors: 0 };
+		let progressByItem: Map<string, AbsMediaProgress> | null = null;
+		if (statusOn || writebackOn) {
 			try {
-				Object.assign(statusSync, await runStatusSync(config));
+				progressByItem = await fetchProgressByItem(config);
 			} catch (err) {
 				// Progress lookup failed; links and created books from this run still count
 				statusSync.errors++;
+				log.warn('Audiobookshelf progress lookup failed', { error: describeError(err) });
+			}
+		}
+
+		// Forward first: a book it moves to Done was finished in this snapshot, so write-back skips it
+		if (statusOn && progressByItem) {
+			try {
+				Object.assign(statusSync, await runStatusSync(config, progressByItem));
+			} catch (err) {
+				statusSync.errors++;
 				log.warn('Audiobookshelf status sync failed', { error: describeError(err) });
+			}
+		}
+
+		if (writebackOn && progressByItem) {
+			try {
+				Object.assign(writeBack, await runWriteBack(config, progressByItem));
+			} catch (err) {
+				writeBack.errors++;
+				log.warn('Audiobookshelf write-back failed', { error: describeError(err) });
 			}
 		}
 
@@ -949,8 +1133,10 @@ async function doSync(): Promise<AbsSyncResult> {
 			ok: true,
 			linked: linkPass.linked + reverse.linked,
 			created: reverse.created,
-			errors: linkPass.errors + reverse.errors + statusSync.errors,
+			errors: linkPass.errors + reverse.errors + statusSync.errors + writeBack.errors,
 			statusFlips: statusSync.flips,
+			writeBacks: writeBack.writeBacks,
+			writeBackMissing: writeBack.missing,
 			durationMs: Date.now() - started
 		};
 		log.info('Audiobookshelf sync complete', { library: library.name, ...result });

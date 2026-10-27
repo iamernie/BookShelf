@@ -1,7 +1,8 @@
 /**
  * POST /api/v1/admin/abs/sync - Run one Audiobookshelf sync now (admin only)
  *
- * Returns { ok, linked, created, errors, durationMs, lastSync, status, error? }.
+ * Returns { ok, linked, created, errors, statusFlips, writeBacks, writeBackMissing, durationMs, lastSync, status, error? }.
+ * Status sync and write-back only run when their toggles are on (counts are 0 otherwise).
  */
 
 import { json } from '@sveltejs/kit';

@@ -129,7 +129,8 @@ Connect BookShelf to an [Audiobookshelf](https://www.audiobookshelf.org) server 
 - Admins can link, re-link, or unlink a book by hand from its book page header or the **Media** tab of the book page or edit page (**Find on Audiobookshelf**, **Change link**, **Unlink**), and the Integrations tab lists every audiobook that isn't linked yet with a **Find match** button
 - For linked books, the **Media** tab shows the audiobook's details from Audiobookshelf: narrator, duration, chapters, files, publication info, and description, plus your listening progress (percent, position, Finished badge) once you've started it
 - Optional **Sync listening status** (off by default): each sync moves linked books to **Current** while you're listening and **Done** when Audiobookshelf marks them finished. It only moves forward (a Done book is never changed), never touches books you haven't started, and skips a step if your library has no status with that name
-- The Integrations tab shows the sync status: last successful sync, the last run's outcome (linked, created, status updates, errors, duration, or the failure message), and when the next scheduled run is due
+- Optional **Mark finished on Audiobookshelf** (off by default): each sync marks the Audiobookshelf item finished for every linked **Done** book, using the book's completed date. It only ever marks finished (never un-finishes or moves your listening position), writes each linked item once (so re-listening in Audiobookshelf isn't undone), and skips items linked to more than one book. It writes as the API key's Audiobookshelf user, and the first sync after enabling marks every Done audiobook finished; the toggle shows how many books are pending
+- The Integrations tab shows the sync status: last successful sync, the last run's outcome (linked, created, status updates, marked finished, missing items, errors, duration, or the failure message), and when the next scheduled run is due
 
 ### Volumes
 

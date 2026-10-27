@@ -479,7 +479,7 @@
 			if (result.ok) {
 				absSyncResult = {
 					success: true,
-					message: `Sync complete: ${result.linked} linked, ${result.created} created${result.statusFlips ? `, ${result.statusFlips} status updates` : ''}${result.errors ? `, ${result.errors} errors (see logs)` : ''}`
+					message: `Sync complete: ${result.linked} linked, ${result.created} created${result.statusFlips ? `, ${result.statusFlips} status updates` : ''}${result.writeBacks ? `, ${result.writeBacks} marked finished on Audiobookshelf` : ''}${result.writeBackMissing ? `, ${result.writeBackMissing} missing items` : ''}${result.errors ? `, ${result.errors} errors (see logs)` : ''}`
 				};
 			} else {
 				absSyncResult = { success: false, message: result.error || result.message || 'Sync failed' };
@@ -1143,6 +1143,33 @@
 							</button>
 						</div>
 					</div>
+
+					<!-- Write-back Toggle -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label class="font-medium" style="color: var(--text-primary);">Mark finished on Audiobookshelf</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">When a linked book is Done in BookShelf, mark its Audiobookshelf item finished (never un-finishes)</p>
+							<p class="text-sm mt-1" style="color: var(--text-muted);">Uses the API key's Audiobookshelf user. The first sync after enabling marks every Done audiobook finished.</p>
+							{#if absSyncStatus.writeBackPending > 0}
+								<p class="text-sm mt-1" style="color: #f59e0b;">
+									Up to {absSyncStatus.writeBackPending} {absSyncStatus.writeBackPending === 1 ? 'book' : 'books'} will be marked finished on the next sync
+								</p>
+							{/if}
+						</div>
+						<div class="w-72">
+							<button
+								type="button"
+								class="toggle-switch {editedSettings['integration.abs_sync_writeback'] === 'true' ? 'active' : ''}"
+								onclick={() => updateSetting('integration.abs_sync_writeback', editedSettings['integration.abs_sync_writeback'] === 'true' ? 'false' : 'true')}
+								disabled={!data.isAdmin}
+								role="switch"
+								aria-checked={editedSettings['integration.abs_sync_writeback'] === 'true'}
+								aria-label="Mark finished on Audiobookshelf"
+							>
+								<span class="toggle-knob"></span>
+							</button>
+						</div>
+					</div>
 				</div>
 
 				<!-- Connection & Sync -->
@@ -1213,7 +1240,7 @@
 						{#if lastResult}
 							<dt style="color: var(--text-muted);">Last result</dt>
 							<dd style="color: var(--text-primary);">
-								{lastResult.linked} linked · {lastResult.created} created{#if lastResult.statusFlips !== undefined} · {lastResult.statusFlips} {lastResult.statusFlips === 1 ? 'status update' : 'status updates'}{/if} · {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} · {formatSyncDuration(lastResult.durationMs)}
+								{lastResult.linked} linked · {lastResult.created} created{#if lastResult.statusFlips !== undefined} · {lastResult.statusFlips} {lastResult.statusFlips === 1 ? 'status update' : 'status updates'}{/if}{#if lastResult.writeBacks !== undefined} · {lastResult.writeBacks} marked finished{/if}{#if lastResult.writeBackMissing} · {lastResult.writeBackMissing} {lastResult.writeBackMissing === 1 ? 'missing item' : 'missing items'}{/if} · {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} · {formatSyncDuration(lastResult.durationMs)}
 							</dd>
 						{/if}
 

@@ -373,6 +373,13 @@ export const DEFAULT_SETTINGS = {
 		label: 'Sync listening status',
 		description: 'Books move Current while listening and Done when finished, based on Audiobookshelf progress'
 	},
+	'integration.abs_sync_writeback': {
+		value: 'false',
+		type: 'boolean',
+		category: 'integrations',
+		label: 'Mark finished on Audiobookshelf',
+		description: 'When a linked book is Done in BookShelf, mark its Audiobookshelf item finished (never un-finishes)'
+	},
 	'integration.abs_last_sync': {
 		value: '',
 		type: 'string',

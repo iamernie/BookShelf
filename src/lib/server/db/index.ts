@@ -679,6 +679,7 @@ function runMigrations() {
 		safeAddColumn('books', 'isbn13', 'VARCHAR(13)');
 		safeAddColumn('books', 'asin', 'VARCHAR(10)');
 		safeAddColumn('books', 'absItemId', 'TEXT');
+		safeAddColumn('books', 'absWritebackItemId', 'TEXT');
 		safeAddColumn('books', 'goodreadsId', 'VARCHAR(50)');
 		safeAddColumn('books', 'googleBooksId', 'VARCHAR(50)');
 		safeAddColumn('books', 'originalCoverUrl', 'VARCHAR(255)');
