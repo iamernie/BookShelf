@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.1] - 2026-10-27
+
+### Fixed
+- Up Next in Series (standalone section) cards now match the size of the other dashboard sections
+
 ## [2.18.0] - 2026-10-27
 
 ### Added

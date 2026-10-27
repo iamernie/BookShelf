@@ -431,7 +431,7 @@
 							<ChevronRight class="w-4 h-4" />
 						</a>
 					</div>
-					<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+					<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
 						{#each data.upNextInSeries.slice(0, 6) as item}
 							<!-- Show the series this book is up next in (its primary series may differ) -->
 							<BookCard
