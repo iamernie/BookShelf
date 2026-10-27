@@ -18,6 +18,7 @@
 		ChevronRight
 	} from 'lucide-svelte';
 	import type { ChangelogVersion } from '$lib/server/services/changelogService';
+	import { formatDate } from '$lib/utils/date';
 
 	interface Props {
 		version: string;
@@ -77,20 +78,6 @@
 			Star
 		};
 		return icons[iconName] || CheckCircle;
-	}
-
-	function formatDate(dateStr: string): string {
-		if (!dateStr) return '';
-		try {
-			const date = new Date(dateStr);
-			return date.toLocaleDateString('en-US', {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric'
-			});
-		} catch {
-			return dateStr;
-		}
 	}
 </script>
 

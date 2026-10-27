@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toLocalDate, toInputDate } from '$lib/utils/date';
 	import { ChevronLeft, ChevronRight, Flame, BookOpen, Clock } from 'lucide-svelte';
 
 	interface DayActivity {
@@ -146,7 +147,7 @@
 			[];
 
 		while (currentDate <= endDate) {
-			const dateStr = currentDate.toISOString().split('T')[0];
+			const dateStr = toInputDate(currentDate.toISOString());
 			const isCurrentYear = currentDate.getFullYear() === year;
 
 			currentWeek.push({
@@ -229,7 +230,7 @@
 			// Find first day of year in this week
 			const yearDay = week.find((d) => d.isCurrentMonth);
 			if (yearDay) {
-				const month = new Date(yearDay.date).getMonth();
+				const month = toLocalDate(yearDay.date).getMonth();
 				if (month !== lastMonth) {
 					labels.push({ month: monthNames[month], weekIndex });
 					lastMonth = month;
@@ -385,7 +386,7 @@
 			style="left: {tooltipPosition.x}px; top: {tooltipPosition.y}px"
 		>
 			<div class="tooltip-date">
-				{new Date(hoveredDay.date).toLocaleDateString('en-US', {
+				{toLocalDate(hoveredDay.date).toLocaleDateString('en-US', {
 					weekday: 'short',
 					month: 'short',
 					day: 'numeric'

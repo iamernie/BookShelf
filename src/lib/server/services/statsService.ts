@@ -1,5 +1,6 @@
 import { db, books, authors, series, genres, narrators, tags, statuses, bookAuthors, bookTags, userBooks } from '$lib/server/db';
 import { eq, sql, desc, asc, and, isNotNull, ne, gte, lt, or } from 'drizzle-orm';
+import { toLocalDate } from '$lib/utils/date';
 
 // Status key constants (match V1 system statuses)
 const STATUS_KEYS = {
@@ -441,7 +442,7 @@ export async function getReadingTimeline(year?: number, userId?: number): Promis
 
 	for (const book of booksWithDetails) {
 		if (book.completedDate) {
-			const month = new Date(book.completedDate).getMonth();
+			const month = toLocalDate(book.completedDate).getMonth();
 			timelineData[month].books.push(book);
 			timelineData[month].count++;
 		}

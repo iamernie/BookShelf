@@ -5,6 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { formatDate as formatDisplayDate } from '$lib/utils/date';
 
 export interface ChangelogItem {
 	title: string;
@@ -227,15 +228,5 @@ export function clearCache(): void {
  */
 export function formatDate(dateStr: string): string {
 	if (!dateStr) return '';
-
-	try {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
-	} catch {
-		return dateStr;
-	}
+	return formatDisplayDate(dateStr) || dateStr;
 }

@@ -17,6 +17,7 @@ import {
 	bookTags
 } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { toLocalDate } from '$lib/utils/date';
 
 export interface ExportOptions {
 	format: 'csv' | 'json';
@@ -351,7 +352,7 @@ export async function exportToCsv(options: ExportOptions): Promise<ExportResult>
 				book.format?.name || '',
 				book.pageCount?.toString() || '',
 				book.publishYear?.toString() || '',
-				book.releaseDate ? new Date(book.releaseDate).getFullYear().toString() : '',
+				book.releaseDate ? toLocalDate(book.releaseDate).getFullYear().toString() : '',
 				book.completedDate || '',
 				book.createdAt || '',
 				bookshelves,

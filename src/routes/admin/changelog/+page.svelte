@@ -17,6 +17,7 @@
 		Calendar
 	} from 'lucide-svelte';
 	import type { PageData } from './$types';
+	import { formatDate } from '$lib/utils/date';
 
 	let { data }: { data: PageData } = $props();
 
@@ -37,20 +38,6 @@
 		if (title.includes('database') || title.includes('schema') || title.includes('migration')) return Database;
 
 		return CheckCircle;
-	}
-
-	function formatDate(dateStr: string): string {
-		if (!dateStr) return '';
-		try {
-			const date = new Date(dateStr);
-			return date.toLocaleDateString('en-US', {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric'
-			});
-		} catch {
-			return dateStr;
-		}
 	}
 </script>
 

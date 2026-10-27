@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.4] - 2026-10-27
+
+### Fixed
+- Date-only values (release, started, completed, birth and death dates) are no longer parsed as UTC midnight. West of UTC every displayed date rendered a day early (e.g. "2026-03-01" showed as February 28), and every save from the book, author or narrator editors shifted the stored date back one more day. Both display and edit paths are fixed centrally in the shared date helpers, so dates now display as stored and saving an editor without touching a date writes it back unchanged
+- The same fix applies to changelog / What's New dates, the yearly stats month timeline, the CSV export publication year and the reading heatmap's month labels and tooltips
+
 ## [2.19.3] - 2026-10-27
 
 ### Changed
