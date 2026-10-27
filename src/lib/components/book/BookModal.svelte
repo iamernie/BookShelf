@@ -438,8 +438,46 @@
 		if (data.coverUrl && !originalCoverUrl) originalCoverUrl = data.coverUrl;
 	}
 
+	// Re-read the picker lists (e.g. an entity created elsewhere after this form loaded)
+	async function refreshOptionLists(): Promise<boolean> {
+		try {
+			const res = await fetch('/api/books/options');
+			if (!res.ok) return false;
+			const fresh = await res.json();
+			availableAuthors = fresh.authors;
+			availableSeries = fresh.series;
+			availableGenres = fresh.genres;
+			availableNarrators = fresh.narrators;
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	// Create an entity during metadata apply; if the create fails, refresh the lists once and look it up again
+	async function createOrRefind<E>(
+		endpoint: string,
+		body: Record<string, string>,
+		find: () => E | undefined,
+		onCreated: (created: { id: number; name: string; title: string }) => E
+	): Promise<E | undefined> {
+		try {
+			const res = await fetch(endpoint, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			if (res.ok) return onCreated(await res.json());
+		} catch (e) {
+			console.error(`Failed to create via ${endpoint}:`, e);
+		}
+		if (await refreshOptionLists()) return find();
+		return undefined;
+	}
+
 	async function applyMetadataResult(result: any, selectedFields: string[]) {
 		let appliedCount = 0;
+		const failedEntities: string[] = [];
 
 		for (const field of selectedFields) {
 			switch (field) {
@@ -496,27 +534,25 @@
 
 							if (!existing) {
 								// Create new author
-								try {
-									const res = await fetch('/api/authors', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ name })
-									});
-									if (res.ok) {
-										const newAuthor = await res.json();
-										availableAuthors = [...availableAuthors, { id: newAuthor.id, name: newAuthor.name }];
-										existing = { id: newAuthor.id, name: newAuthor.name };
+								existing = await createOrRefind(
+									'/api/authors',
+									{ name },
+									() => availableAuthors.find(a => a.name.toLowerCase() === name.toLowerCase()),
+									(created) => {
+										const entry = { id: created.id, name: created.name };
+										availableAuthors = [...availableAuthors, entry];
+										return entry;
 									}
-								} catch (e) {
-									console.error('Failed to create author:', e);
-								}
+								);
 							}
 
 							if (existing) {
 								selectedAuthors = [...selectedAuthors, { id: existing.id, name: existing.name, role: 'Author' }];
+							} else {
+								failedEntities.push(`Author '${name}'`);
 							}
 						}
-						appliedCount++;
+						if (!failedEntities.some(f => f.startsWith('Author '))) appliedCount++;
 					}
 					break;
 				case 'seriesName':
@@ -530,28 +566,26 @@
 
 							if (!existing) {
 								// Create new series
-								try {
-									const res = await fetch('/api/series', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ title: seriesTitle })
-									});
-									if (res.ok) {
-										const newSeries = await res.json();
-										availableSeries = [...availableSeries, { id: newSeries.id, title: newSeries.title }];
-										existing = { id: newSeries.id, title: newSeries.title };
+								existing = await createOrRefind(
+									'/api/series',
+									{ title: seriesTitle },
+									() => availableSeries.find(s => s.title.toLowerCase() === seriesTitle.toLowerCase()),
+									(created) => {
+										const entry = { id: created.id, title: created.title };
+										availableSeries = [...availableSeries, entry];
+										return entry;
 									}
-								} catch (e) {
-									console.error('Failed to create series:', e);
-								}
+								);
 							}
 
 							if (existing) {
 								const bookNum = result.seriesNumber?.toString() || '';
 								selectedSeries = [...selectedSeries, { id: existing.id, title: existing.title, bookNum, bookNumEnd: '' }];
+							} else {
+								failedEntities.push(`Series '${seriesTitle}'`);
 							}
 						}
-						appliedCount++;
+						if (!failedEntities.some(f => f.startsWith('Series '))) appliedCount++;
 					}
 					break;
 				case 'genres':
@@ -564,27 +598,25 @@
 
 							if (!existing) {
 								// Create new genre
-								try {
-									const res = await fetch('/api/genres', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ name: genreName })
-									});
-									if (res.ok) {
-										const newGenre = await res.json();
-										availableGenres = [...availableGenres, { id: newGenre.id, name: newGenre.name }];
-										existing = { id: newGenre.id, name: newGenre.name };
+								existing = await createOrRefind(
+									'/api/genres',
+									{ name: genreName },
+									() => availableGenres.find(g => g.name.toLowerCase() === genreName.toLowerCase()),
+									(created) => {
+										const entry = { id: created.id, name: created.name };
+										availableGenres = [...availableGenres, entry];
+										return entry;
 									}
-								} catch (e) {
-									console.error('Failed to create genre:', e);
-								}
+								);
 							}
 
 							if (existing) {
 								selectedGenre = { id: existing.id, name: existing.name };
+							} else {
+								failedEntities.push(`Genre '${genreName}'`);
 							}
 						}
-						appliedCount++;
+						if (!failedEntities.some(f => f.startsWith('Genre '))) appliedCount++;
 					}
 					break;
 			}
@@ -597,7 +629,13 @@
 			googleBooksId = result.providerId;
 		}
 
-		toasts.success(`Applied ${appliedCount} fields from ${result.provider}`);
+		const failedMsg = failedEntities.length > 0 ? ` - could not add: ${failedEntities.join(', ')}` : '';
+		const message = `Applied ${appliedCount} of ${selectedFields.length} fields from ${result.provider}${failedMsg}`;
+		if (appliedCount < selectedFields.length) {
+			toasts.warning(message);
+		} else {
+			toasts.success(message);
+		}
 	}
 
 	// Ebook upload handling
@@ -681,6 +719,13 @@
 
 	async function handleSave() {
 		if (!title.trim()) return;
+		// Number inputs bind numbers/null at runtime despite the string type
+		const numberless = selectedSeries.filter(s => !String(s.bookNum ?? '').trim());
+		if (numberless.length > 0) {
+			const names = numberless.map(s => `'${s.title}'`).join(', ');
+			toasts.error(`Series ${names} ${numberless.length === 1 ? 'needs a book number' : 'need book numbers'} before saving`);
+			return;
+		}
 		saving = true;
 		try {
 			await onSave({

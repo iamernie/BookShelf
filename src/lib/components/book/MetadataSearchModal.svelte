@@ -83,7 +83,6 @@
 		language: 'Language',
 		genres: 'Genres',
 		seriesName: 'Series',
-		seriesNumber: 'Series Number',
 		rating: 'Rating'
 	};
 
@@ -519,7 +518,7 @@
 												<div class="flex-1 min-w-0">
 													<p class="text-sm font-medium" style="color: var(--text-primary);">{label}</p>
 													<p class="text-xs truncate" style="color: var(--text-muted);">
-														{field === 'coverUrl' ? '(image URL)' : value}
+														{field === 'coverUrl' ? '(image URL)' : field === 'seriesName' && selectedResult.seriesNumber ? `${value} #${selectedResult.seriesNumber}` : value}
 													</p>
 												</div>
 											</label>

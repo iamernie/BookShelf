@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.9] - 2026-10-27
+
+### Fixed
+- Removed the "Series Number" checkbox from metadata search. It did nothing, and when ticked it made the applied-fields toast show a false warning. The book number now shows on the Series row itself (for example "Able Bodied Soldier #1") and is still applied with the series
+- When applying metadata creates a new author, series or genre and the create fails, BookShelf now reloads the lists once and looks for it again. This covers a series or author added after the editor was opened. If it still can't be added, it is not counted as applied and the toast names it, for example "Applied 7 of 9 fields - could not add: Series 'X'". Before, the failure was only logged to the console and the series seemed not to save
+- Saving a book with a series that has no book number is now blocked with a message naming the series, for example "Series 'Able Bodied Soldier' needs a book number before saving". This applies to both the book modal and the edit page
+
 ## [2.19.8] - 2026-10-27
 
 ### Fixed
