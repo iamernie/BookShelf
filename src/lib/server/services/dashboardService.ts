@@ -737,8 +737,11 @@ export async function getSmartCollectionBooks(
 			const shelfData = shelf[0];
 			const result = await getShelfBooks(section.shelfId, { userId, limit });
 
+			// getShelfBooks returns raw book rows; enrich with author/series/etc. (order preserved)
+			const shelfBooks = await getBooksCardData((result?.books || []).map(b => b.id));
+
 			return {
-				books: result?.books || [],
+				books: shelfBooks,
 				shelfName: shelfData.name,
 				shelfId: shelfData.id,
 				isCustomFilter: false

@@ -6,9 +6,10 @@
 	interface Props {
 		data: SmartCollectionData;
 		absBaseUrl?: string;
+		showTags?: boolean;
 	}
 
-	let { data, absBaseUrl = '' }: Props = $props();
+	let { data, absBaseUrl = '', showTags = false }: Props = $props();
 </script>
 
 <section class="mb-8">
@@ -35,7 +36,7 @@
 	{#if data.books.length > 0}
 		<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
 			{#each data.books as book (book.id)}
-				<BookCard {book} {absBaseUrl} />
+				<BookCard {book} {absBaseUrl} {showTags} />
 			{/each}
 		</div>
 	{:else}

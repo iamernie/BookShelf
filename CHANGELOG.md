@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.2] - 2026-10-27
+
+### Changed
+- Dashboard book cards no longer show tag chips, for a cleaner dashboard. Tags still show everywhere else (library, books, series, authors, shelves, search, book modal)
+
+### Fixed
+- Smart collection cards on the dashboard (standalone section and the Currently Reading companion) now show author and series like every other card, instead of the title only
+
 ## [2.18.1] - 2026-10-27
 
 ### Fixed

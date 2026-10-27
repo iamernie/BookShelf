@@ -337,6 +337,7 @@
 										<BookCard
 											{book}
 											absBaseUrl={data.absBaseUrl ?? ''}
+											showTags={false}
 											onClick={handleBookClick}
 											showStatus={false}
 											quickEdit={true}
@@ -368,6 +369,7 @@
 											<BookCard
 												book={{ ...item.book, seriesName: item.seriesTitle, bookNum: item.bookNum }}
 												absBaseUrl={data.absBaseUrl ?? ''}
+												showTags={false}
 												onClick={handleBookClick}
 												showStatus={false}
 												quickEdit={true}
@@ -396,6 +398,7 @@
 											<BookCard
 												{book}
 												absBaseUrl={data.absBaseUrl ?? ''}
+												showTags={false}
 												onClick={handleBookClick}
 												quickEdit={true}
 												statuses={data.statuses}
@@ -437,6 +440,7 @@
 							<BookCard
 								book={{ ...item.book, seriesName: item.seriesTitle, bookNum: item.bookNum }}
 								absBaseUrl={data.absBaseUrl ?? ''}
+								showTags={false}
 								onClick={handleBookClick}
 								showStatus={false}
 								quickEdit={true}
@@ -467,6 +471,7 @@
 							<BookCard
 								{book}
 								absBaseUrl={data.absBaseUrl ?? ''}
+								showTags={false}
 								onClick={handleBookClick}
 								quickEdit={true}
 								statuses={data.statuses}
@@ -495,6 +500,7 @@
 							<BookCard
 								{book}
 								absBaseUrl={data.absBaseUrl ?? ''}
+								showTags={false}
 								onClick={handleBookClick}
 								showStatus={false}
 								quickEdit={true}
