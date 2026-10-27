@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.3] - 2026-10-27
+
+### Changed
+- Up Next in Series cards: a pre-release date now renders on its own muted line below the Next line (e.g. "Next: Dead World" with "Nov 24, 2026" underneath) instead of inline beside the title
+- Series cards no longer render an empty bottom row; the Rating | Genre | Status row (and its divider line) only appears when it has content, removing the stray horizontal line on dashboard cards
+
 ## [2.19.2] - 2026-10-27
 
 ### Fixed

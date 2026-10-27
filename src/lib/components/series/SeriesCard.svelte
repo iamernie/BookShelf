@@ -87,10 +87,12 @@
 
 			<!-- Next Up -->
 			{#if nextUpTitle}
-				<div class="card-next" title="Next: {nextUpTitle}{nextUpNote ? ` (${nextUpNote})` : ''}">
-					<span class="next-title"><span class="label">Next:</span> <span class="next-book">{nextUpTitle}</span></span>
+				<div class="next-up">
+					<div class="card-next" title="Next: {nextUpTitle}{nextUpNote ? ` (${nextUpNote})` : ''}">
+						<span class="next-title"><span class="label">Next:</span> <span class="next-book">{nextUpTitle}</span></span>
+					</div>
 					{#if nextUpNote}
-						<span class="next-note">({nextUpNote})</span>
+						<div class="next-date" title={nextUpNote}>{nextUpNote}</div>
 					{/if}
 				</div>
 			{:else if series.completionPercentage === 100}
@@ -113,48 +115,50 @@
 		</div>
 	</div>
 
-	<!-- Bottom Row: Rating | Genre | Status -->
-	<div class="card-bottom">
-		<div class="bottom-left">
-			{#if series.averageRating && series.averageRating > 0}
-				<span class="rating">
-					<Star class="w-3 h-3" />
-					{series.averageRating.toFixed(1)}
-				</span>
-			{/if}
-		</div>
+	<!-- Bottom Row: Rating | Genre | Status (omitted when empty to avoid a stray divider) -->
+	{#if (series.averageRating && series.averageRating > 0) || displayGenre || series.statusName}
+		<div class="card-bottom">
+			<div class="bottom-left">
+				{#if series.averageRating && series.averageRating > 0}
+					<span class="rating">
+						<Star class="w-3 h-3" />
+						{series.averageRating.toFixed(1)}
+					</span>
+				{/if}
+			</div>
 
-		<div class="bottom-meta">
-			{#if displayGenre}
-				<span
-					class="genre-badge"
-					style="background-color: {displayGenre.color || '#6c757d'};"
-					title="{displayGenre.name}{displayGenre.isInferred ? ' (inferred)' : ''}"
-				>
-					{#if displayGenre.isInferred}
-						<DynamicIcon icon="fas fa-magic" size={10} />
-					{/if}
-					{#if displayGenre.icon}
-						<DynamicIcon icon={displayGenre.icon} size={10} />
-					{/if}
-					{displayGenre.name}
-				</span>
-			{/if}
+			<div class="bottom-meta">
+				{#if displayGenre}
+					<span
+						class="genre-badge"
+						style="background-color: {displayGenre.color || '#6c757d'};"
+						title="{displayGenre.name}{displayGenre.isInferred ? ' (inferred)' : ''}"
+					>
+						{#if displayGenre.isInferred}
+							<DynamicIcon icon="fas fa-magic" size={10} />
+						{/if}
+						{#if displayGenre.icon}
+							<DynamicIcon icon={displayGenre.icon} size={10} />
+						{/if}
+						{displayGenre.name}
+					</span>
+				{/if}
 
-			{#if series.statusName}
-				<span
-					class="status-badge"
-					style="background-color: {series.statusColor || '#6c757d'};"
-					title="Series Status: {series.statusName}"
-				>
-					{#if series.statusIcon}
-						<DynamicIcon icon={series.statusIcon} size={10} />
-					{/if}
-					{series.statusName}
-				</span>
-			{/if}
+				{#if series.statusName}
+					<span
+						class="status-badge"
+						style="background-color: {series.statusColor || '#6c757d'};"
+						title="Series Status: {series.statusName}"
+					>
+						{#if series.statusIcon}
+							<DynamicIcon icon={series.statusIcon} size={10} />
+						{/if}
+						{series.statusName}
+					</span>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 </button>
 
 <style>
@@ -327,7 +331,6 @@
 		text-overflow: ellipsis;
 	}
 
-	/* Label + title shrink and ellipsize first so the note is never truncated away */
 	.card-next .next-title {
 		flex: 0 1 auto;
 		min-width: 0;
@@ -336,9 +339,21 @@
 		white-space: nowrap;
 	}
 
-	.card-next .next-note {
-		flex-shrink: 0;
+	/* Next line + pre-release date stacked tightly */
+	.next-up {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		min-width: 0;
+	}
+
+	.next-date {
+		font-size: 0.7rem;
+		color: var(--text-muted);
 		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		min-width: 0;
 	}
 
 	.card-next.complete {
