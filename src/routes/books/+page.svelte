@@ -29,6 +29,7 @@
 			seriesName: book.series[0]?.title || null,
 			bookNum: book.series[0]?.bookNum || null,
 			ebookPath: book.ebookPath,
+			absItemId: book.absItemId,
 			status: book.status,
 			genre: book.genre,
 			format: book.format,
@@ -515,6 +516,7 @@
 						{#each data.items as book (book.id)}
 							<BookCard
 								book={toBookCardData(book)}
+								absBaseUrl={data.absBaseUrl ?? ''}
 								selectable={selectMode}
 								selected={$selectedBooks.has(book.id)}
 								quickEdit={!selectMode}
@@ -554,6 +556,7 @@
 									{#each group.books as book (book.id)}
 										<BookCard
 											book={toBookCardData(book)}
+											absBaseUrl={data.absBaseUrl ?? ''}
 											selectable={selectMode}
 											selected={$selectedBooks.has(book.id)}
 											quickEdit={!selectMode}
@@ -582,6 +585,7 @@
 							{#each data.items as book (book.id)}
 								<BookRow
 									book={toBookCardData(book)}
+									absBaseUrl={data.absBaseUrl ?? ''}
 									selectable={selectMode}
 									selected={$selectedBooks.has(book.id)}
 									onSelect={(id) => selectedBooks.toggle(id)}

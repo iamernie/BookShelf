@@ -20,6 +20,7 @@
 		rating: book.rating,
 		bookNum: book.bookNum,
 		ebookPath: book.ebookPath,
+		absItemId: book.absItemId,
 		authorName: null, // TODO: join with authors
 		seriesName: null, // TODO: join with series
 		status: null, // TODO: join with statuses
@@ -110,6 +111,7 @@
 			{#each books as book (book.id)}
 				<BookCard
 					{book}
+					absBaseUrl={data.absBaseUrl ?? ''}
 					onClick={handleBookClick}
 				/>
 			{/each}

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-10-27
+
+### Added
+
+- **Listen button** - "Listen" button on book cards (dashboard, library grid, series, shelves, authors), the book modal, and list rows for ABS-linked books, opening the item in Audiobookshelf (parity with the detail page's Listen and the ebook Read badge)
+
 ## [2.16.0] - 2026-10-27
 
 ### Added

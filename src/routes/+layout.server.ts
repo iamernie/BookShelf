@@ -5,6 +5,7 @@ import { sql, eq, count, asc, or, and, ne, inArray } from 'drizzle-orm';
 import { getAllShelves, getShelfBookCounts } from '$lib/server/services/magicShelfService';
 import { getSettingAs } from '$lib/server/services/settingsService';
 import { getLatestVersion, type ChangelogVersion } from '$lib/server/services/changelogService';
+import { getAbsLinkBaseUrl } from '$lib/server/services/absService';
 import { APP_CONFIG } from '$lib/config/app';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
@@ -67,6 +68,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	// Get public library setting
 	const publicLibraryEnabled = await getSettingAs<boolean>('library.enable_public_library', 'boolean');
 
+	// Audiobookshelf deep link base URL for Listen buttons on cards/modals; null unless the integration is enabled
+	const absBaseUrl = locals.user ? await getAbsLinkBaseUrl() : null;
+
 	// Get What's New modal data for admin users
 	let whatsNewData: { show: boolean; version: string; changelog: ChangelogVersion | null } | null = null;
 	if (locals.user?.role === 'admin') {
@@ -98,6 +102,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			isAdmin: locals.user?.role === 'admin',
 			publicLibraryEnabled
 		},
-		whatsNew: whatsNewData
+		whatsNew: whatsNewData,
+		absBaseUrl
 	};
 };

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BookOpen, Star, FileText } from 'lucide-svelte';
+	import { BookOpen, Star, FileText, Headphones } from 'lucide-svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import type { BookCardData } from '$lib/types';
 
@@ -11,6 +11,7 @@
 		showTags = true,
 		showAuthor = true,
 		showSeries = true,
+		absBaseUrl = '',
 		onSelect,
 		onClick
 	}: {
@@ -21,6 +22,8 @@
 		showTags?: boolean;
 		showAuthor?: boolean;
 		showSeries?: boolean;
+		/** Audiobookshelf base URL; empty when the integration is off (no Listen link) */
+		absBaseUrl?: string;
 		onSelect?: (id: number) => void;
 		onClick?: (book: BookCardData) => void;
 	} = $props();
@@ -47,6 +50,8 @@
 
 	// Get first 3 tags for display in list view
 	let displayTags = $derived((book.tags || []).slice(0, 3));
+
+	let absListenUrl = $derived(book.absItemId && absBaseUrl ? `${absBaseUrl}/item/${book.absItemId}` : null);
 </script>
 
 <button
@@ -85,7 +90,22 @@
 			{/if}
 		</div>
 		<div class="title-info">
-			<h3 class="book-title">{book.title}</h3>
+			<div class="title-line">
+				<h3 class="book-title">{book.title}</h3>
+				{#if absListenUrl}
+					<a
+						href={absListenUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="listen-link"
+						title="Listen on Audiobookshelf"
+						onclick={(e) => e.stopPropagation()}
+					>
+						<Headphones class="w-3 h-3" />
+						<span>Listen</span>
+					</a>
+				{/if}
+			</div>
 			{#if showAuthor && book.authorName}
 				<span class="book-author">{book.authorName}</span>
 			{/if}
@@ -302,6 +322,31 @@
 		text-overflow: ellipsis;
 		margin: 0;
 		line-height: 1.25;
+	}
+
+	.title-line {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		min-width: 0;
+	}
+
+	.listen-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.1875rem;
+		flex-shrink: 0;
+		padding: 0.0625rem 0.375rem;
+		border-radius: 0.25rem;
+		font-size: 0.65rem;
+		font-weight: 500;
+		color: white;
+		background-color: #8b5cf6;
+		white-space: nowrap;
+	}
+
+	.listen-link:hover {
+		filter: brightness(1.1);
 	}
 
 	.book-author {

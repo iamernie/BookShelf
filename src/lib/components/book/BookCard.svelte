@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BookOpen, Star, Edit3, Info, BookOpenCheck, MoreVertical } from 'lucide-svelte';
+	import { BookOpen, Star, Edit3, Info, BookOpenCheck, MoreVertical, Headphones } from 'lucide-svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import LucideIcon from '$lib/components/ui/LucideIcon.svelte';
 	import QuickEditOverlay from './QuickEditOverlay.svelte';
@@ -25,6 +25,7 @@
 		quickEdit = false,
 		showHoverActions = true,
 		statuses = [],
+		absBaseUrl = '',
 		onSelect,
 		onClick,
 		onQuickEdit,
@@ -45,6 +46,8 @@
 		quickEdit?: boolean;
 		showHoverActions?: boolean;
 		statuses?: Status[];
+		/** Audiobookshelf base URL; empty when the integration is off (no Listen button) */
+		absBaseUrl?: string;
 		onSelect?: (id: number) => void;
 		onClick?: (book: BookCardData) => void;
 		onQuickEdit?: (bookId: number, field: string, value: any) => Promise<void>;
@@ -153,6 +156,8 @@
 	// Get first 4 tags for display (to show more tags without cluttering)
 	let displayTags = $derived((book.tags || []).slice(0, 4));
 
+	let absListenUrl = $derived(book.absItemId && absBaseUrl ? `${absBaseUrl}/item/${book.absItemId}` : null);
+
 	// Hover action handlers
 	function handleReadClick(e: MouseEvent) {
 		e.stopPropagation();
@@ -253,6 +258,20 @@
 						</button>
 					{/if}
 
+					<!-- Listen Button (if linked to Audiobookshelf) -->
+					{#if absListenUrl}
+						<a
+							href={absListenUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="hover-action-btn p-2.5 rounded-full bg-white/90 text-gray-800 hover:bg-white hover:scale-110 transition-all shadow-lg"
+							onclick={(e) => e.stopPropagation()}
+							title="Listen on Audiobookshelf"
+						>
+							<Headphones class="w-5 h-5" />
+						</a>
+					{/if}
+
 					<!-- Info Button -->
 					<button
 						type="button"
@@ -318,8 +337,8 @@
 			</div>
 		{/if}
 
-		<!-- Media Format Badges (eBook) - Always visible, tappable -->
-		{#if book.ebookPath}
+		<!-- Media Format Badges (eBook, Audiobookshelf) - Always visible, tappable -->
+		{#if book.ebookPath || absListenUrl}
 			<div class="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1.5 justify-start format-badges">
 				{#if book.ebookPath}
 					<button
@@ -332,6 +351,20 @@
 						<BookOpen class="w-3.5 h-3.5" />
 						<span class="hidden sm:inline">Read</span>
 					</button>
+				{/if}
+				{#if absListenUrl}
+					<a
+						href={absListenUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="format-badge flex items-center gap-1 px-2 py-1 rounded-md text-white text-[11px] font-medium shadow-md hover:scale-105 active:scale-95 transition-transform"
+						style="background-color: #8b5cf6;"
+						onclick={(e) => e.stopPropagation()}
+						title="Listen on Audiobookshelf"
+					>
+						<Headphones class="w-3.5 h-3.5" />
+						<span class="hidden sm:inline">Listen</span>
+					</a>
 				{/if}
 			</div>
 		{/if}

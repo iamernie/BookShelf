@@ -500,6 +500,7 @@
 					{#each data.books as book (book.id)}
 						<BookCard
 							{book}
+							absBaseUrl={data.absBaseUrl ?? ''}
 							showSeries={false}
 							selectable={selectMode}
 							selected={$selectedBooks.has(book.id)}
@@ -519,6 +520,7 @@
 					{#each data.books as book (book.id)}
 						<BookRow
 							{book}
+							absBaseUrl={data.absBaseUrl ?? ''}
 							showSeries={false}
 							selectable={selectMode}
 							selected={$selectedBooks.has(book.id)}

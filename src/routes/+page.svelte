@@ -336,6 +336,7 @@
 									{#each data.continueReading.slice(0, showCompanion && hasCompanionData ? 3 : 6) as book}
 										<BookCard
 											{book}
+											absBaseUrl={data.absBaseUrl ?? ''}
 											onClick={handleBookClick}
 											showStatus={false}
 											quickEdit={true}
@@ -408,6 +409,7 @@
 										{#each data.companionSmartCollectionData.books.slice(0, 3) as book}
 											<BookCard
 												{book}
+												absBaseUrl={data.absBaseUrl ?? ''}
 												onClick={handleBookClick}
 												quickEdit={true}
 												statuses={data.statuses}
@@ -424,7 +426,7 @@
 
 			<!-- Smart Collection (standalone, if enabled separately) -->
 			{#if data.smartCollectionData && isSectionEnabled('smart-collection')}
-				<SmartCollectionSection data={data.smartCollectionData} />
+				<SmartCollectionSection data={data.smartCollectionData} absBaseUrl={data.absBaseUrl ?? ''} />
 			{/if}
 
 			<!-- Up Next in Series (standalone, when not used as companion) -->
@@ -492,6 +494,7 @@
 						{#each data.recentlyAdded.slice(0, 12) as book}
 							<BookCard
 								{book}
+								absBaseUrl={data.absBaseUrl ?? ''}
 								onClick={handleBookClick}
 								quickEdit={true}
 								statuses={data.statuses}
@@ -519,6 +522,7 @@
 						{#each data.recentlyCompleted as book}
 							<BookCard
 								{book}
+								absBaseUrl={data.absBaseUrl ?? ''}
 								onClick={handleBookClick}
 								showStatus={false}
 								quickEdit={true}

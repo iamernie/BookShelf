@@ -24,6 +24,7 @@
 			seriesName: null,
 			bookNum: null,
 			ebookPath: null,
+			absItemId: book.absItemId,
 			status: null,
 			genre: book.genreId && book.genreName ? { id: book.genreId, name: book.genreName } : null,
 			format: null,
@@ -373,6 +374,7 @@
 					<div class="relative group">
 						<BookCard
 							book={toBookCardData(book)}
+							absBaseUrl={data.absBaseUrl ?? ''}
 							onClick={() => goto(`/books/${book.id}`)}
 						/>
 
@@ -427,6 +429,7 @@
 						<div class="relative">
 							<BookRow
 								book={toBookCardData(book)}
+								absBaseUrl={data.absBaseUrl ?? ''}
 								showSeries={false}
 								showStatus={false}
 								showTags={false}

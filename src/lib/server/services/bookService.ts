@@ -516,6 +516,7 @@ export async function getBooksCardData(bookIds: number[]): Promise<{
 	rating: number | null;
 	bookNum: number | null;
 	ebookPath: string | null;
+	absItemId: string | null;
 	authorName: string | null;
 	seriesName: string | null;
 	summary: string | null;
@@ -577,6 +578,7 @@ export async function getBooksCardData(bookIds: number[]): Promise<{
 			rating: book.rating,
 			bookNum: primarySeries?.bookNum ?? null,
 			ebookPath: book.ebookPath,
+			absItemId: book.absItemId,
 			authorName: primaryAuthor?.name ?? null,
 			seriesName: primarySeries?.title ?? null,
 			summary: book.summary,

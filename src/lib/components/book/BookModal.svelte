@@ -3,7 +3,7 @@
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import {
 		BookOpen, Star, Calendar, Edit2, Trash2, BookMarked, User, Library, Tag, X,
-		Info, AlignLeft, Fingerprint, Image, CalendarDays, Tablet, Download, Search, Loader2, Database, Plus, Headphones
+		Info, AlignLeft, Fingerprint, Image, CalendarDays, Tablet, Download, Search, Loader2, Database, Plus, Headphones, ExternalLink
 	} from 'lucide-svelte';
 	import type { BookWithRelations } from '$lib/server/services/bookService';
 	import { toasts } from '$lib/stores/toast';
@@ -864,6 +864,19 @@
 							Read
 						</a>
 					{/if}
+					{#if absItemId && absBaseUrl}
+						<a
+							href="{absBaseUrl}/item/{absItemId}"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2"
+							title="Listen on Audiobookshelf"
+						>
+							<Headphones class="w-4 h-4" />
+							Listen
+							<ExternalLink class="w-3 h-3" />
+						</a>
+					{/if}
 					<button
 						type="button"
 						class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -894,6 +907,20 @@
 						<a href="/reader/{book?.id}" class="flex items-center justify-center gap-2 w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
 							<BookMarked class="w-4 h-4" />
 							Read Ebook
+						</a>
+					{/if}
+
+					{#if absItemId && absBaseUrl}
+						<a
+							href="{absBaseUrl}/item/{absItemId}"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="flex items-center justify-center gap-2 w-full py-2 {ebookPath ? 'mt-2' : ''} bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm"
+							title="Listen on Audiobookshelf"
+						>
+							<Headphones class="w-4 h-4" />
+							Listen
+							<ExternalLink class="w-3 h-3" />
 						</a>
 					{/if}
 
