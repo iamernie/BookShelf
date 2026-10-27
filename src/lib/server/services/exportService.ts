@@ -18,6 +18,7 @@ import {
 } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { toLocalDate } from '$lib/utils/date';
+import { todayInAppTz } from '$lib/server/utils/appTime';
 
 export interface ExportOptions {
 	format: 'csv' | 'json';
@@ -255,7 +256,7 @@ export async function exportToJson(options: ExportOptions): Promise<ExportResult
 		exportData.statuses = allStatuses;
 	}
 
-	const dateStr = new Date().toISOString().split('T')[0];
+	const dateStr = todayInAppTz();
 
 	return {
 		data: JSON.stringify(exportData, null, 2),
@@ -464,7 +465,7 @@ export async function exportToCsv(options: ExportOptions): Promise<ExportResult>
 		...rows.map((row) => row.map(escapeCSV).join(','))
 	];
 
-	const dateStr = new Date().toISOString().split('T')[0];
+	const dateStr = todayInAppTz();
 	const filename = options.goodreadsCompatible
 		? `goodreads-export-${dateStr}.csv`
 		: `bookshelf-export-${dateStr}.csv`;

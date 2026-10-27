@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import {
 	validateWidgetToken,
 	areWidgetsEnabled,
@@ -257,7 +258,7 @@ function renderWidget(
 			content = renderStats(data.stats!, colors);
 			break;
 		case 'goal':
-			title = `${new Date().getFullYear()} Reading Goal`;
+			title = `${currentYearInAppTz()} Reading Goal`;
 			icon = targetIcon;
 			content = renderGoal(data.goal, colors);
 			break;

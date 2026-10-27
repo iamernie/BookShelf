@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.8] - 2026-10-27
+
+### Fixed
+- Dates now roll over at midnight in your timezone, not at 7-8 pm. Before, the server used UTC, so evening activity in North America counted as the next day
+- Start and finish dates stamped automatically on a status change (single book, bulk change and the service path) now use today's date in the app timezone. Finishing a book at 9 pm no longer records tomorrow's date or, on December 31, counts it toward next year
+- Reading stats, current streaks and the reading heatmap now group sessions by app-timezone day. Evening sessions land on the right heatmap cell, evening-only readers keep their streak, and "yesterday" is calendar math, so DST days no longer throw it off. Year and period windows now start and end at local midnight
+- Audiobookshelf sync now converts listening and finish times to app-timezone dates. This applies to the start and finish dates set by status sync and to the listening days on the heatmap. Dates already stored are not changed
+- Audible import no longer marks a book you listened to today as Read when you import it in the evening
+- The upcoming releases widget no longer drops a book releasing today after 8 pm. Magic shelf rules that use "Today" on date fields now use the local date
+- "Current year" and "current month" in the dashboard, stats, goals, widgets and reading-session defaults now roll over in the app timezone. A visit on the evening of December 31 no longer creates next year's reading goal
+- Export filenames, the author CSV "date added" column and the Kobo publication-date fallback now use the app-timezone date
+
+### Added
+- `APP_TIMEZONE` setting (IANA name, default `America/Toronto`) that controls which timezone BookShelf uses for calendar days. An invalid value logs a warning and falls back to the default. It is documented in `docker-compose.yml` and `.env.example`
+
 ## [2.19.7] - 2026-10-27
 
 ### Fixed

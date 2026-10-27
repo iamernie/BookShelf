@@ -8,6 +8,7 @@
 import { db } from '$lib/server/db';
 import { books, authors, bookAuthors, series, bookSeries, genres } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { todayInAppTz } from '$lib/server/utils/appTime';
 import { getOrCreateSyncState } from './koboService';
 import { ebookExists, getEbookPath } from './ebookService';
 import { statSync } from 'fs';
@@ -338,7 +339,7 @@ export async function generateBookMetadata(
 		IsSocialEnabled: false,
 		Language: book.language || 'en',
 		PhoneticPronunciations: {},
-		PublicationDate: book.releaseDate || new Date().toISOString().split('T')[0],
+		PublicationDate: book.releaseDate || todayInAppTz(),
 		Publisher: {
 			Imprint: book.publisher || '',
 			Name: book.publisher || ''

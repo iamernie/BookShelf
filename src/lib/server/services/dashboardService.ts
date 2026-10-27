@@ -5,6 +5,7 @@
 
 import { db, books, authors, series, statuses, bookAuthors, bookSeries, genres, formats, tags, bookTags, settings, userBooks, magicShelves } from '$lib/server/db';
 import { eq, sql, desc, asc, and, isNotNull, isNull, ne, or, count, inArray } from 'drizzle-orm';
+import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import { getBooksCardData } from './bookService';
 import { getGoalForDashboard } from './goalsService';
 import { getDashboardConfig, getEnabledSections, type DashboardConfig, type DashboardSection, type FilterConfig } from './userPreferencesService';
@@ -97,7 +98,7 @@ export interface StatsOverview {
 }
 
 export async function getStatsOverview(userId?: number): Promise<StatsOverview> {
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 	const yearPattern = `${currentYear}%`;
 	const libCond = getUserLibraryCondition(userId);
 
@@ -269,7 +270,7 @@ export interface MonthlyReadingData {
 }
 
 export async function getMonthlyReadingData(userId?: number, year?: number): Promise<MonthlyReadingData[]> {
-	const selectedYear = year || new Date().getFullYear();
+	const selectedYear = year || currentYearInAppTz();
 	const yearPattern = `${selectedYear}%`;
 
 	const readStatusId = await getStatusId(STATUS_KEYS.READ);

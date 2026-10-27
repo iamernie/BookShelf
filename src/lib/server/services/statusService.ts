@@ -1,5 +1,6 @@
 import { db, statuses, books } from '$lib/server/db';
 import { eq, asc, sql } from 'drizzle-orm';
+import { todayInAppTz } from '$lib/server/utils/appTime';
 
 // Infer Status type from schema
 type StatusType = typeof statuses.$inferSelect;
@@ -97,7 +98,7 @@ export async function getStatusByKey(key: string): Promise<StatusType | null> {
 	return status || null;
 }
 
-// Today's date as YYYY-MM-DD (UTC), matching the existing completion-date stampers
+// Today's date as YYYY-MM-DD in the app timezone, matching the other completion-date stampers
 export function todayDateOnly(): string {
-	return new Date().toISOString().split('T')[0];
+	return todayInAppTz();
 }

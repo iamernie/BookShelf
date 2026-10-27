@@ -1,6 +1,7 @@
 import { db, readingGoals, books, statuses, genres, formats, bookAuthors, authors } from '$lib/server/db';
 import { eq, and, gte, lt, sql, or, count, countDistinct } from 'drizzle-orm';
 import type { ReadingGoal, NewReadingGoal } from '$lib/server/db/schema';
+import { currentYearInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 
 const STATUS_READ = 'READ';
 
@@ -274,8 +275,8 @@ async function calculateMonthlyProgress(
 		.groupBy(sql`strftime('%m', completedDate)`);
 
 	// Count months meeting target (skip future months)
-	const now = new Date();
-	const currentMonth = now.getFullYear() === year ? now.getMonth() + 1 : 12;
+	const today = todayInAppTz();
+	const currentMonth = Number(today.slice(0, 4)) === year ? Number(today.slice(5, 7)) : 12;
 
 	let monthsMeetingTarget = 0;
 	for (let m = 1; m <= currentMonth; m++) {
@@ -338,7 +339,7 @@ function getChallengeTarget(challenge: ReadingGoal): number {
 }
 
 export async function getActiveGoal(year?: number, userId?: number): Promise<GoalProgress | null> {
-	const targetYear = year || new Date().getFullYear();
+	const targetYear = year || currentYearInAppTz();
 
 	// Get the main book goal for this year (challengeType = 'books' or null)
 	const goals = await db
@@ -422,16 +423,16 @@ export async function getActiveGoal(year?: number, userId?: number): Promise<Goa
 	const remaining = Math.max(0, targetBooks - booksRead);
 
 	// Calculate pace
-	const now = new Date();
-	const isCurrentYear = targetYear === now.getFullYear();
+	const today = todayInAppTz();
+	const isCurrentYear = targetYear === Number(today.slice(0, 4));
 	let expectedByNow = 0;
 	let paceStatus: 'ahead' | 'behind' | 'on_track' = 'on_track';
 	let paceDiff = 0;
 
 	if (isCurrentYear) {
-		const dayOfYear = Math.floor(
-			(now.getTime() - new Date(targetYear, 0, 1).getTime()) / (1000 * 60 * 60 * 24)
-		);
+		// Days elapsed since Jan 1, from app-timezone calendar dates
+		const [ty, tm, td] = today.split('-').map(Number);
+		const dayOfYear = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(targetYear, 0, 1)) / 86400000);
 		const daysInYear = targetYear % 4 === 0 ? 366 : 365;
 		expectedByNow = Math.floor((targetBooks * dayOfYear) / daysInYear);
 		paceDiff = Math.abs(booksRead - expectedByNow);
@@ -506,7 +507,7 @@ export async function getGoalForDashboard(userId?: number): Promise<{
 	remaining: number;
 	challenges: ChallengeProgress[];
 } | null> {
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 	const goalProgress = await getActiveGoal(currentYear, userId);
 
 	if (!goalProgress) {
@@ -636,7 +637,7 @@ export async function deleteGoal(id: number): Promise<boolean> {
 }
 
 export async function getOrCreateCurrentYearGoal(): Promise<ReadingGoal> {
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 
 	// Check if a book goal exists for current year
 	const existing = await db

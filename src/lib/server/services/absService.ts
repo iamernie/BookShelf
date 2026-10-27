@@ -31,6 +31,7 @@ import { and, asc, count, eq, gt, inArray, isNotNull, isNull, ne, notInArray, or
 import { getSetting, getSettingAs, setSetting } from './settingsService';
 import { createBook } from './bookService';
 import { createLogger } from './loggerService';
+import { dateInAppTz, startOfDayInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 
 const log = createLogger('abs');
 
@@ -785,9 +786,9 @@ async function getStatusIdByName(name: string): Promise<number | null> {
 	return row?.id ?? null;
 }
 
-// ABS timestamps are epoch ms; book reading dates are YYYY-MM-DD
+// ABS timestamps are epoch ms; book reading dates are YYYY-MM-DD in the app timezone
 function toDateOnly(epochMs: number | null | undefined): string {
-	return (epochMs ? new Date(epochMs) : new Date()).toISOString().split('T')[0];
+	return epochMs ? dateInAppTz(epochMs) : todayInAppTz();
 }
 
 /** The API key user's progress for every book item, in one GET /api/me (podcast episodes skipped). */
@@ -1173,7 +1174,7 @@ interface AbsListeningSessionsPage {
 }
 
 export interface AbsListeningDay {
-	date: string; // YYYY-MM-DD (UTC, same rule as reading sessions)
+	date: string; // YYYY-MM-DD (app timezone, same rule as reading sessions)
 	seconds: number;
 	sessionCount: number;
 	itemIds: string[];
@@ -1189,8 +1190,9 @@ export interface AbsListeningResult {
 const listeningCache = new Map<string, { at: number; promise: Promise<AbsListeningResult> }>();
 
 async function fetchListeningByDay(config: AbsConfig, year: number): Promise<AbsListeningResult> {
-	const yearStart = Date.UTC(year, 0, 1);
-	const yearEnd = Date.UTC(year + 1, 0, 1);
+	// App-timezone year window, so the bounds match the day keys below and the reading heatmap
+	const yearStart = Date.parse(startOfDayInAppTz(`${year}-01-01`));
+	const yearEnd = Date.parse(startOfDayInAppTz(`${year + 1}-01-01`));
 	const dayMap = new Map<string, AbsListeningDay>();
 
 	try {
@@ -1211,7 +1213,7 @@ async function fetchListeningByDay(config: AbsConfig, year: number): Promise<Abs
 			for (const s of sessions) {
 				if (s.mediaType !== 'book' || typeof s.startedAt !== 'number') continue;
 				if (s.startedAt < yearStart || s.startedAt >= yearEnd) continue;
-				const date = new Date(s.startedAt).toISOString().slice(0, 10);
+				const date = dateInAppTz(s.startedAt);
 				const day = dayMap.get(date) ?? { date, seconds: 0, sessionCount: 0, itemIds: [] };
 				// Raw float seconds; rounding happens once per day when merging
 				day.seconds += Number.isFinite(s.timeListening) ? (s.timeListening as number) : 0;
@@ -1235,7 +1237,7 @@ async function fetchListeningByDay(config: AbsConfig, year: number): Promise<Abs
 	}
 }
 
-/** Per-day ABS listening for a UTC calendar year. Never throws; cached for 60s per server + year. */
+/** Per-day ABS listening for an app-timezone calendar year. Never throws; cached for 60s per server + year. */
 export async function getAbsListeningByDay(year: number): Promise<AbsListeningResult> {
 	const config = await getAbsConfig();
 	if (!isUsable(config)) return { available: false, days: [] };

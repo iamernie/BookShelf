@@ -40,6 +40,11 @@ services:
       # Required for SvelteKit in production
       - ORIGIN=${ORIGIN:-http://localhost:3000}
 
+      # Optional: Timezone for calendar days (auto-stamped reading dates, streaks,
+      # heatmap days, year/month roll-overs). IANA name, default America/Toronto.
+      # Do not set TZ for this; BookShelf reads APP_TIMEZONE explicitly.
+      # - APP_TIMEZONE=America/Toronto
+
       # Body size limit for uploads (default 512KB is too small for ebooks/audiobooks)
       # Set to 500MB to allow large audiobook uploads
       - BODY_SIZE_LIMIT=500M

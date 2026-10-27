@@ -3,6 +3,7 @@ import { eq, like, sql, desc, asc, and, inArray, or } from 'drizzle-orm';
 import type { Author, NewAuthor } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
 import type { BookCardData } from '$lib/types';
+import { dateInAppTz } from '$lib/server/utils/appTime';
 
 interface TagInfo {
 	id: number;
@@ -669,7 +670,7 @@ export async function exportAuthorsToCSV(): Promise<string> {
 			author.bookCount || 0,
 			author.readCount || 0,
 			author.averageRating ? author.averageRating.toFixed(2) : '',
-			author.createdAt ? author.createdAt.split('T')[0] : ''
+			author.createdAt ? dateInAppTz(author.createdAt) : ''
 		].join(',')
 	);
 

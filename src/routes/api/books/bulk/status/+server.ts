@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, books } from '$lib/server/db';
 import { eq, inArray, and, isNull } from 'drizzle-orm';
+import { todayInAppTz } from '$lib/server/utils/appTime';
 import { getStatusByKey } from '$lib/server/services/statusService';
 import { notifyBookCompleted, checkAndNotifySeriesCompletion } from '$lib/server/services/notificationService';
 
@@ -22,7 +23,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const now = new Date().toISOString();
-	const today = now.split('T')[0]; // YYYY-MM-DD format
+	const today = todayInAppTz(); // YYYY-MM-DD in the app timezone
 
 	// Get status keys
 	const [currentStatus, readStatus] = await Promise.all([

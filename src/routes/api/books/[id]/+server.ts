@@ -9,6 +9,7 @@ import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
 import { db, books } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
+import { todayInAppTz } from '$lib/server/utils/appTime';
 import { notifyBookCompleted, checkAndNotifySeriesCompletion } from '$lib/server/services/notificationService';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -143,7 +144,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	// Auto-set dates when status changes (only if date not already set and not explicitly provided)
 	if (data.statusId !== undefined && data.statusId !== existingBook.statusId) {
-		const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+		const today = todayInAppTz(); // YYYY-MM-DD in the app timezone
 
 		// Get the status keys for CURRENT and READ
 		const [currentStatus, readStatus] = await Promise.all([

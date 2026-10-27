@@ -7,8 +7,9 @@
 
 import { db } from '$lib/server/db';
 import { readingSessions, books } from '$lib/server/db/schema';
-import { eq, and, gte, lte, desc, sql, isNull } from 'drizzle-orm';
+import { eq, and, gte, lt, lte, desc, sql, isNull } from 'drizzle-orm';
 import { getAbsListeningByDay } from './absService';
+import { addDays, dateInAppTz, isDateOnlyString, startOfDayInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 
 export interface ReadingSessionData {
 	id: number;
@@ -147,12 +148,10 @@ export async function getActiveSession(
  * Get heatmap data for a year
  */
 export async function getHeatmapData(year: number, userId?: number): Promise<HeatmapData> {
-	const startDate = `${year}-01-01`;
-	const endDate = `${year}-12-31`;
-
+	// startedAt is a UTC instant: bound the year at app-timezone midnights
 	const conditions = [
-		gte(readingSessions.startedAt, startDate),
-		lte(readingSessions.startedAt, endDate + 'T23:59:59')
+		gte(readingSessions.startedAt, startOfDayInAppTz(`${year}-01-01`)),
+		lt(readingSessions.startedAt, startOfDayInAppTz(`${year + 1}-01-01`))
 	];
 
 	if (userId) {
@@ -175,7 +174,7 @@ export async function getHeatmapData(year: number, userId?: number): Promise<Hea
 	const dayMap = new Map<string, DayActivity>();
 
 	for (const session of sessions) {
-		const date = session.startedAt.split('T')[0];
+		const date = dateInAppTz(session.startedAt);
 		const existing = dayMap.get(date) || {
 			date,
 			totalMinutes: 0,
@@ -283,8 +282,8 @@ function calculateStreaks(days: DayActivity[]): { longestStreak: number; current
 	let currentStreak = 0;
 
 	// Check if today or yesterday has activity (for current streak)
-	const today = new Date().toISOString().split('T')[0];
-	const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+	const today = todayInAppTz();
+	const yesterday = addDays(today, -1);
 
 	// Calculate longest streak
 	let streak = 0;
@@ -380,10 +379,14 @@ export async function getReadingStats(
 	uniqueBooks: number;
 	avgSessionMinutes: number;
 }> {
-	const conditions = [
-		gte(readingSessions.startedAt, startDate),
-		lte(readingSessions.startedAt, endDate + 'T23:59:59')
-	];
+	// startedAt is a UTC instant: bound the period at app-timezone midnights when given plain dates
+	const conditions =
+		isDateOnlyString(startDate) && isDateOnlyString(endDate)
+			? [
+					gte(readingSessions.startedAt, startOfDayInAppTz(startDate)),
+					lt(readingSessions.startedAt, startOfDayInAppTz(addDays(endDate, 1)))
+				]
+			: [gte(readingSessions.startedAt, startDate), lte(readingSessions.startedAt, endDate + 'T23:59:59')];
 
 	if (userId) {
 		conditions.push(eq(readingSessions.userId, userId));

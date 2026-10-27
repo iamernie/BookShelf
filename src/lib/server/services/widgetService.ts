@@ -6,6 +6,7 @@
 import { db } from '$lib/server/db';
 import { books, authors, series, bookAuthors, readingGoals, settings, statuses } from '$lib/server/db/schema';
 import { eq, sql, desc, asc, and, isNotNull, gte } from 'drizzle-orm';
+import { currentYearInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 import crypto from 'crypto';
 import { createLogger } from './loggerService';
 
@@ -258,7 +259,7 @@ export async function getRecentReads(limit: number = 5): Promise<WidgetBook[]> {
  * Get reading statistics for widget
  */
 export async function getWidgetStats(): Promise<WidgetStats> {
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 	const yearStart = `${currentYear}-01-01`;
 
 	// Look up status IDs by key first, then by common name variations
@@ -315,7 +316,7 @@ export async function getWidgetStats(): Promise<WidgetStats> {
  * Get reading goal progress for widget
  */
 export async function getWidgetGoal(): Promise<WidgetGoal | null> {
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 
 	const [goal] = await db
 		.select()
@@ -387,7 +388,7 @@ export async function getNextUp(limit: number = 5): Promise<WidgetBook[]> {
  * Get upcoming releases for widget (books with future release dates)
  */
 export async function getUpcomingReleases(limit: number = 10): Promise<(WidgetBook & { releaseDate: string })[]> {
-	const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+	const today = todayInAppTz(); // YYYY-MM-DD in the app timezone
 
 	const result = await db
 		.select({

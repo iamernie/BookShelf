@@ -1,6 +1,7 @@
 import { db, books, authors, series, genres, narrators, tags, statuses, bookAuthors, bookTags, userBooks } from '$lib/server/db';
 import { eq, sql, desc, asc, and, isNotNull, ne, gte, lt, or } from 'drizzle-orm';
 import { toLocalDate } from '$lib/utils/date';
+import { currentYearInAppTz } from '$lib/server/utils/appTime';
 
 // Status key constants (match V1 system statuses)
 const STATUS_KEYS = {
@@ -51,7 +52,7 @@ export interface DashboardStats {
 }
 
 export async function getDashboardStats(userId?: number): Promise<DashboardStats> {
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 	const yearStart = `${currentYear}-01-01`;
 	const yearEnd = `${currentYear + 1}-01-01`;
 
@@ -349,7 +350,7 @@ export interface ReadingTimelineData {
 }
 
 export async function getReadingTimeline(year?: number, userId?: number): Promise<ReadingTimelineData> {
-	const selectedYear = year || new Date().getFullYear();
+	const selectedYear = year || currentYearInAppTz();
 
 	// Get READ status
 	const readStatus = await db.select().from(statuses).where(eq(statuses.key, STATUS_KEYS.READ)).limit(1);

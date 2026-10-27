@@ -3,6 +3,8 @@
  * Parses Audible listening history HTML exports
  */
 
+import { todayInAppTz } from '$lib/server/utils/appTime';
+
 export interface AudibleBook {
 	title: string;
 	author: string;
@@ -260,7 +262,6 @@ export function isDateInPast(dateStr: string | null): boolean {
 	if (!dateStr) return false;
 	const date = new Date(dateStr);
 	if (isNaN(date.getTime())) return false;
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-	return date < today;
+	// Compare calendar dates as zero-padded strings against the app-timezone today
+	return dateStr.slice(0, 10) < todayInAppTz();
 }

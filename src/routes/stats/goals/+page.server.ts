@@ -1,5 +1,6 @@
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
+import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import {
 	getActiveGoal,
 	getAllGoals,
@@ -20,7 +21,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	const userId = locals.user.id;
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 
 	// Ensure a goal exists for the current year
 	await getOrCreateCurrentYearGoal();

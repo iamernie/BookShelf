@@ -1,6 +1,7 @@
 import { db, magicShelves, books, bookAuthors, bookSeries, bookTags, authors, series, tags, statuses, genres, formats, narrators } from '$lib/server/db';
 import type { MagicShelf, NewMagicShelf, Book } from '$lib/server/db/schema';
 import { eq, and, or, like, gt, lt, gte, lte, isNull, isNotNull, inArray, notInArray, sql, desc, asc, type SQL } from 'drizzle-orm';
+import { todayInAppTz } from '$lib/server/utils/appTime';
 
 // ============================================
 // Filter Rule Types
@@ -196,8 +197,8 @@ const BOOK_COLUMNS: Record<string, keyof typeof books> = {
 // Resolve dynamic date values like $today
 function resolveDateValue(value: string | number | string[] | number[] | null): string | number | string[] | number[] | null {
 	if (value === '$today') {
-		// Return today's date in YYYY-MM-DD format
-		return new Date().toISOString().split('T')[0];
+		// Today's date (YYYY-MM-DD) in the app timezone
+		return todayInAppTz();
 	}
 	return value;
 }

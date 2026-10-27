@@ -8,6 +8,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { HeatmapSource } from '$lib/server/services/readingSessionService';
+import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import {
 	startSession,
 	getHeatmapDataForSource,
@@ -18,7 +19,7 @@ import {
 const HEATMAP_SOURCES: Array<HeatmapSource | 'auto'> = ['all', 'books', 'listening', 'auto'];
 
 export const GET: RequestHandler = async ({ url }) => {
-	const year = parseInt(url.searchParams.get('year') || new Date().getFullYear().toString());
+	const year = parseInt(url.searchParams.get('year') || currentYearInAppTz().toString());
 	const type = url.searchParams.get('type') || 'heatmap';
 
 	if (type === 'heatmap') {

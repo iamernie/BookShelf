@@ -7,6 +7,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, books, userBooks, statuses } from '$lib/server/db';
 import { eq, sql, and } from 'drizzle-orm';
+import { currentYearInAppTz } from '$lib/server/utils/appTime';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	// Admin-only access
@@ -15,7 +16,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	}
 
 	const userId = locals.user.id;
-	const currentYear = new Date().getFullYear();
+	const currentYear = currentYearInAppTz();
 	const yearPattern = `${currentYear}%`;
 
 	// Get READ status ID
