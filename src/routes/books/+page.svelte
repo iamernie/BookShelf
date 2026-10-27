@@ -30,6 +30,7 @@
 			bookNum: book.series[0]?.bookNum || null,
 			ebookPath: book.ebookPath,
 			absItemId: book.absItemId,
+			releaseDate: book.releaseDate,
 			status: book.status,
 			genre: book.genre,
 			format: book.format,

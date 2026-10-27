@@ -5,6 +5,7 @@
 	import QuickEditOverlay from './QuickEditOverlay.svelte';
 	import BookCardMenu from './BookCardMenu.svelte';
 	import type { BookCardData } from '$lib/types';
+	import { isPrerelease, formatReleaseTooltip } from '$lib/utils/date';
 
 	interface Status {
 		id: number;
@@ -158,6 +159,10 @@
 
 	let absListenUrl = $derived(book.absItemId && absBaseUrl ? `${absBaseUrl}/item/${book.absItemId}` : null);
 
+	let prerelease = $derived(isPrerelease(book.releaseDate));
+	// Top-corner badges drop below the pre-release banner so nothing overlaps it
+	let topBadgeClass = $derived(prerelease ? 'top-[22px]' : 'top-1');
+
 	// Hover action handlers
 	function handleReadClick(e: MouseEvent) {
 		e.stopPropagation();
@@ -229,6 +234,17 @@
 			onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
 		/>
 
+		<!-- Pre-release Banner (future releaseDate) -->
+		{#if prerelease}
+			<div
+				class="absolute top-0 inset-x-0 h-[18px] flex items-center justify-center text-[10px] font-semibold uppercase tracking-wide cursor-default shadow-sm"
+				style="background-color: #ffc107; color: #212529;"
+				title={formatReleaseTooltip(book.releaseDate)}
+			>
+				Pre-release
+			</div>
+		{/if}
+
 		<!-- Quick Edit Overlay -->
 		{#if showQuickEditOverlay && quickEdit}
 			<QuickEditOverlay
@@ -285,7 +301,7 @@
 			</div>
 
 			<!-- Menu Button (top right) -->
-			<div class="book-card-menu absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+			<div class="book-card-menu absolute {topBadgeClass} right-1 opacity-0 group-hover:opacity-100 transition-opacity">
 				<BookCardMenu
 					bookId={book.id}
 					hasEbook={!!book.ebookPath}
@@ -301,7 +317,7 @@
 			<!-- Quick Edit Button (fallback when hover actions disabled) -->
 			<button
 				type="button"
-				class="quick-edit-btn absolute top-1 right-1 p-1.5 rounded bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+				class="quick-edit-btn absolute {topBadgeClass} right-1 p-1.5 rounded bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
 				onclick={handleQuickEditClick}
 				title="Quick edit"
 			>
@@ -311,7 +327,7 @@
 
 		<!-- Selection Checkbox -->
 		{#if selectable}
-			<div class="absolute top-2 left-2">
+			<div class="absolute {prerelease ? 'top-[24px]' : 'top-2'} left-2">
 				<input
 					type="checkbox"
 					checked={selected}
@@ -324,7 +340,7 @@
 
 		<!-- Rating Badge (move to bottom when quick edit is enabled to avoid overlap) -->
 		{#if book.rating && !quickEdit}
-			<div class="absolute top-1 right-1 bg-black/70 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5 text-xs">
+			<div class="absolute {topBadgeClass} right-1 bg-black/70 text-white px-1.5 py-0.5 rounded flex items-center gap-0.5 text-xs">
 				<Star class="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
 				{book.rating.toFixed(1)}
 			</div>
@@ -332,7 +348,7 @@
 
 		<!-- Series Number Badge (hidden when selectable to avoid checkbox overlap) -->
 		{#if !selectable && book.seriesName && book.bookNum}
-			<div class="absolute top-1 left-1 bg-black/70 text-white px-1.5 py-0.5 rounded text-[10px] font-medium">
+			<div class="absolute {topBadgeClass} left-1 bg-black/70 text-white px-1.5 py-0.5 rounded text-[10px] font-medium">
 				#{book.bookNum}
 			</div>
 		{/if}

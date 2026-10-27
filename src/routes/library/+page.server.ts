@@ -89,6 +89,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			pageCount: books.pageCount,
 			createdAt: books.createdAt,
 			absItemId: books.absItemId,
+			releaseDate: books.releaseDate,
 			genreId: books.genreId,
 			genreName: genres.name,
 			genreColor: genres.color

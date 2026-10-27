@@ -21,6 +21,7 @@
 		bookNum: book.bookNum,
 		ebookPath: book.ebookPath,
 		absItemId: book.absItemId,
+		releaseDate: book.releaseDate,
 		authorName: null, // TODO: join with authors
 		seriesName: null, // TODO: join with series
 		status: null, // TODO: join with statuses

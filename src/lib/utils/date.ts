@@ -134,6 +134,26 @@ export function getCurrentInputDate(): string {
 }
 
 /**
+ * True when a book's releaseDate is after today (local date, string compare on YYYY-MM-DD)
+ */
+export function isPrerelease(releaseDate: string | null | undefined): boolean {
+	if (!releaseDate) return false;
+	return releaseDate.slice(0, 10) > getCurrentInputDate();
+}
+
+/**
+ * Tooltip for the pre-release banner, e.g. "Releases Nov 17, 2026"
+ */
+export function formatReleaseTooltip(releaseDate: string | null | undefined): string {
+	if (!releaseDate) return '';
+	const match = releaseDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (!match) return `Releases ${releaseDate}`;
+	// Build a local date so the day never shifts across timezones
+	const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+	return `Releases ${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`;
+}
+
+/**
  * Get current date/time as ISO string for database storage
  */
 export function getCurrentISODate(): string {

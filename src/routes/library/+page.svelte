@@ -25,6 +25,7 @@
 			bookNum: null,
 			ebookPath: null,
 			absItemId: book.absItemId,
+			releaseDate: book.releaseDate,
 			status: null,
 			genre: book.genreId && book.genreName ? { id: book.genreId, name: book.genreName } : null,
 			format: null,

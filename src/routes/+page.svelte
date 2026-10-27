@@ -362,32 +362,18 @@
 											<ChevronRight class="w-4 h-4" />
 										</a>
 									</div>
-									<div class="space-y-2">
+									<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
 										{#each data.upNextInSeries.slice(0, 3) as item}
-											<a
-												href="/books/{item.book.id}"
-												class="card p-3 flex gap-3 hover:shadow-md transition-shadow group"
-											>
-												<div class="w-12 flex-shrink-0 rounded overflow-hidden aspect-[2/3]" style="background-color: var(--bg-tertiary);">
-													<img
-														src={item.book.coverImageUrl || '/placeholder.png'}
-														alt={item.book.title}
-														class="w-full h-full object-cover group-hover:scale-105 transition-transform"
-														onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
-													/>
-												</div>
-												<div class="flex-1 min-w-0">
-													<p class="text-sm font-medium line-clamp-2 mb-1" style="color: var(--text-primary);">{item.book.title}</p>
-													<p class="text-xs mb-1" style="color: var(--accent);">
-														{item.seriesTitle}
-														{#if item.bookNum} #{item.bookNum}{/if}
-													</p>
-													<div class="flex items-center gap-1 text-xs" style="color: var(--text-muted);">
-														<CheckCircle2 class="w-3 h-3" />
-														<span>{item.seriesProgress.read}/{item.seriesProgress.total} read</span>
-													</div>
-												</div>
-											</a>
+											<!-- Show the series this book is up next in (its primary series may differ) -->
+											<BookCard
+												book={{ ...item.book, seriesName: item.seriesTitle, bookNum: item.bookNum }}
+												absBaseUrl={data.absBaseUrl ?? ''}
+												onClick={handleBookClick}
+												showStatus={false}
+												quickEdit={true}
+												statuses={data.statuses}
+												onQuickEdit={handleQuickEdit}
+											/>
 										{/each}
 									</div>
 								</section>

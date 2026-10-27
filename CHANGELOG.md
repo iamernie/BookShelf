@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-10-27
+
+### Added
+
+- **Pre-release banner** - books with a release date in the future show an amber "Pre-release" banner across the top of the cover on book cards (dashboard, library, books, series, authors, shelves, search) and in the book modal, plus a matching "Pre-release" chip next to the title in list rows. Hover it to see the release date (e.g. "Releases Nov 17, 2026"); it disappears on its own once the release date arrives
+- **Up Next in Series as book cards** - the dashboard's Up Next in Series panel (next to Currently Reading) now uses the same book cards as Currently Reading, with quick edit and Read/Listen badges. The per-series "X/Y read" count was removed from this panel; series progress is still shown on the series pages
+
 ## [2.17.0] - 2026-10-27
 
 ### Added

@@ -2,6 +2,7 @@
 	import { BookOpen, Star, FileText, Headphones } from 'lucide-svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import type { BookCardData } from '$lib/types';
+	import { isPrerelease, formatReleaseTooltip } from '$lib/utils/date';
 
 	let {
 		book,
@@ -52,6 +53,8 @@
 	let displayTags = $derived((book.tags || []).slice(0, 3));
 
 	let absListenUrl = $derived(book.absItemId && absBaseUrl ? `${absBaseUrl}/item/${book.absItemId}` : null);
+
+	let prerelease = $derived(isPrerelease(book.releaseDate));
 </script>
 
 <button
@@ -92,6 +95,9 @@
 		<div class="title-info">
 			<div class="title-line">
 				<h3 class="book-title">{book.title}</h3>
+				{#if prerelease}
+					<span class="prerelease-chip" title={formatReleaseTooltip(book.releaseDate)}>Pre-release</span>
+				{/if}
 				{#if absListenUrl}
 					<a
 						href={absListenUrl}
@@ -347,6 +353,19 @@
 
 	.listen-link:hover {
 		filter: brightness(1.1);
+	}
+
+	.prerelease-chip {
+		display: inline-flex;
+		align-items: center;
+		flex-shrink: 0;
+		padding: 0.0625rem 0.375rem;
+		border-radius: 0.25rem;
+		font-size: 0.65rem;
+		font-weight: 600;
+		color: #212529;
+		background-color: #ffc107;
+		white-space: nowrap;
 	}
 
 	.book-author {

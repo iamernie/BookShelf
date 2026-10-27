@@ -7,7 +7,7 @@
 	} from 'lucide-svelte';
 	import type { BookWithRelations } from '$lib/server/services/bookService';
 	import { toasts } from '$lib/stores/toast';
-	import { toInputDate } from '$lib/utils/date';
+	import { toInputDate, isPrerelease, formatReleaseTooltip } from '$lib/utils/date';
 	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
 
 	interface FormOptions {
@@ -79,6 +79,7 @@
 	// Cover download state
 	let downloadingCover = $state(false);
 	let coverPreviewUrl = $derived(coverImageUrl || originalCoverUrl || '');
+	let prerelease = $derived(isPrerelease(book?.releaseDate));
 
 	// Ebook upload state
 	let uploadingEbook = $state(false);
@@ -737,13 +738,22 @@
 		<div class="p-6 space-y-6">
 			<div class="flex gap-6">
 				<!-- Cover -->
-				<div class="flex-shrink-0">
+				<div class="flex-shrink-0 relative rounded-lg overflow-hidden shadow-md">
 					<img
 						src={book.coverImageUrl || book.originalCoverUrl || '/placeholder.png'}
 						alt={book.title}
-						class="w-40 h-60 object-cover rounded-lg shadow-md"
+						class="w-40 h-60 object-cover"
 						onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
 					/>
+					{#if prerelease}
+						<div
+							class="absolute top-0 inset-x-0 h-[18px] flex items-center justify-center text-[10px] font-semibold uppercase tracking-wide shadow-sm"
+							style="background-color: #ffc107; color: #212529;"
+							title={formatReleaseTooltip(book.releaseDate)}
+						>
+							Pre-release
+						</div>
+					{/if}
 				</div>
 
 				<!-- Details -->
@@ -894,13 +904,22 @@
 			<!-- Left Column - Cover Preview (hidden on mobile) -->
 			<div class="hidden md:block w-48 p-4 bg-gray-50 border-r flex-shrink-0">
 				<div class="sticky top-4">
-					<div class="bg-white rounded-lg shadow-sm overflow-hidden mb-3">
+					<div class="relative bg-white rounded-lg shadow-sm overflow-hidden mb-3">
 						<img
 							src={coverPreviewUrl || '/placeholder.png'}
 							alt="Cover Preview"
 							class="w-full aspect-[2/3] object-cover"
 							onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
 						/>
+						{#if prerelease}
+							<div
+								class="absolute top-0 inset-x-0 h-[18px] flex items-center justify-center text-[10px] font-semibold uppercase tracking-wide shadow-sm"
+								style="background-color: #ffc107; color: #212529;"
+								title={formatReleaseTooltip(book?.releaseDate)}
+							>
+								Pre-release
+							</div>
+						{/if}
 					</div>
 
 					{#if ebookPath}

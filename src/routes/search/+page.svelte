@@ -498,6 +498,7 @@
 									authorName: book.authors[0]?.name || null,
 									seriesName: book.series[0]?.title || null,
 									bookNum: book.series[0]?.bookNum || null,
+									releaseDate: book.releaseDate,
 									status: book.status
 								}}
 								showStatus={true}

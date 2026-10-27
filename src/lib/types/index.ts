@@ -12,6 +12,7 @@ export interface BookCardData {
 	bookNum?: number | null;
 	ebookPath?: string | null;
 	absItemId?: string | null;
+	releaseDate?: string | null;
 	authorName?: string | null;
 	seriesName?: string | null;
 	summary?: string | null;
