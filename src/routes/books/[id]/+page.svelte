@@ -549,9 +549,10 @@
 						<a
 							href="/reader/{data.book.id}"
 							class="btn-accent flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
+							title="Read book"
+							aria-label="Read book"
 						>
 							<BookOpen class="w-4 h-4" />
-							<span class="hidden xs:inline">Read</span>
 						</a>
 					{/if}
 				{/if}
@@ -562,9 +563,9 @@
 						rel="noopener noreferrer"
 						class="btn-accent flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
 						title="Listen on Audiobookshelf"
+						aria-label="Listen on Audiobookshelf"
 					>
 						<Headphones class="w-4 h-4" />
-						<span class="hidden xs:inline">Listen</span>
 						<ExternalLink class="w-3 h-3" />
 					</a>
 				{/if}

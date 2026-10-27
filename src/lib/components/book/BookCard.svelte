@@ -269,6 +269,7 @@
 							class="hover-action-btn p-2.5 rounded-full bg-white/90 text-gray-800 hover:bg-white hover:scale-110 transition-all shadow-lg"
 							onclick={handleReadClick}
 							title="Read book"
+							aria-label="Read book"
 						>
 							<BookOpenCheck class="w-5 h-5" />
 						</button>
@@ -283,6 +284,7 @@
 							class="hover-action-btn p-2.5 rounded-full bg-white/90 text-gray-800 hover:bg-white hover:scale-110 transition-all shadow-lg"
 							onclick={(e) => e.stopPropagation()}
 							title="Listen on Audiobookshelf"
+							aria-label="Listen on Audiobookshelf"
 						>
 							<Headphones class="w-5 h-5" />
 						</a>
@@ -359,13 +361,13 @@
 				{#if book.ebookPath}
 					<button
 						type="button"
-						class="format-badge flex items-center gap-1 px-2 py-1 rounded-md text-white text-[11px] font-medium shadow-md hover:scale-105 active:scale-95 transition-transform"
+						class="format-badge flex items-center p-1 rounded-md text-white shadow-md hover:scale-105 active:scale-95 transition-transform"
 						style="background-color: #3b82f6;"
 						onclick={handleReadClick}
 						title="Read eBook"
+						aria-label="Read eBook"
 					>
 						<BookOpen class="w-3.5 h-3.5" />
-						<span class="hidden sm:inline">Read</span>
 					</button>
 				{/if}
 				{#if absListenUrl}
@@ -373,13 +375,13 @@
 						href={absListenUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="format-badge flex items-center gap-1 px-2 py-1 rounded-md text-white text-[11px] font-medium shadow-md hover:scale-105 active:scale-95 transition-transform"
+						class="format-badge flex items-center p-1 rounded-md text-white shadow-md hover:scale-105 active:scale-95 transition-transform"
 						style="background-color: #8b5cf6;"
 						onclick={(e) => e.stopPropagation()}
 						title="Listen on Audiobookshelf"
+						aria-label="Listen on Audiobookshelf"
 					>
 						<Headphones class="w-3.5 h-3.5" />
-						<span class="hidden sm:inline">Listen</span>
 					</a>
 				{/if}
 			</div>

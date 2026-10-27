@@ -105,10 +105,10 @@
 						rel="noopener noreferrer"
 						class="listen-link"
 						title="Listen on Audiobookshelf"
+						aria-label="Listen on Audiobookshelf"
 						onclick={(e) => e.stopPropagation()}
 					>
 						<Headphones class="w-3 h-3" />
-						<span>Listen</span>
 					</a>
 				{/if}
 			</div>
@@ -340,12 +340,9 @@
 	.listen-link {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.1875rem;
 		flex-shrink: 0;
-		padding: 0.0625rem 0.375rem;
+		padding: 0.125rem 0.25rem;
 		border-radius: 0.25rem;
-		font-size: 0.65rem;
-		font-weight: 500;
 		color: white;
 		background-color: #8b5cf6;
 		white-space: nowrap;

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.5] - 2026-10-27
+
+### Changed
+- Read and Listen actions now render as icon-only buttons across book cards, the book modal, book rows and the book detail page. Each keeps a tooltip and gains an aria-label so screen readers still announce the action; button padding is tightened so the icon buttons stay compact
+
 ## [2.19.4] - 2026-10-27
 
 ### Fixed

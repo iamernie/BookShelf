@@ -868,10 +868,11 @@
 					{#if book.ebookPath}
 						<a
 							href="/reader/{book.id}"
-							class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+							class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+							title="Read"
+							aria-label="Read"
 						>
 							<BookMarked class="w-4 h-4" />
-							Read
 						</a>
 					{/if}
 					{#if absItemId && absBaseUrl}
@@ -879,11 +880,11 @@
 							href="{absBaseUrl}/item/{absItemId}"
 							target="_blank"
 							rel="noopener noreferrer"
-							class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2"
+							class="px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2"
 							title="Listen on Audiobookshelf"
+							aria-label="Listen"
 						>
 							<Headphones class="w-4 h-4" />
-							Listen
 							<ExternalLink class="w-3 h-3" />
 						</a>
 					{/if}
@@ -923,9 +924,8 @@
 					</div>
 
 					{#if ebookPath}
-						<a href="/reader/{book?.id}" class="flex items-center justify-center gap-2 w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+						<a href="/reader/{book?.id}" class="flex items-center justify-center gap-2 w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm" title="Read Ebook" aria-label="Read Ebook">
 							<BookMarked class="w-4 h-4" />
-							Read Ebook
 						</a>
 					{/if}
 
@@ -936,9 +936,9 @@
 							rel="noopener noreferrer"
 							class="flex items-center justify-center gap-2 w-full py-2 {ebookPath ? 'mt-2' : ''} bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm"
 							title="Listen on Audiobookshelf"
+							aria-label="Listen"
 						>
 							<Headphones class="w-4 h-4" />
-							Listen
 							<ExternalLink class="w-3 h-3" />
 						</a>
 					{/if}
