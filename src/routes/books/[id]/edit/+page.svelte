@@ -613,6 +613,12 @@
 			if (res.ok) {
 				const data = await res.json();
 				ebookPath = data.ebookPath;
+				// Server assigns the eBook format when the book had none; mirror it so Save doesn't clear it
+				if (!formatId) {
+					const ebookFormatId = data.formatId
+						?? options.formats.find((f: { id: number; name: string }) => f.name.toLowerCase().includes('ebook'))?.id;
+					if (ebookFormatId) formatId = ebookFormatId.toString();
+				}
 				toasts.success('Ebook uploaded successfully');
 			} else {
 				const err = await res.json();
@@ -703,16 +709,23 @@
 			});
 			if (res.ok) {
 				// Also save media sources
+				let mediaSourcesSaved = false;
 				try {
-					await fetch(`/api/books/${book.id}/media-sources`, {
+					const mediaRes = await fetch(`/api/books/${book.id}/media-sources`, {
 						method: 'PUT',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({
 							sources: selectedMediaSourceIds.map(id => ({ mediaSourceId: id }))
 						})
 					});
+					mediaSourcesSaved = mediaRes.ok;
 				} catch (e) {
 					console.error('Failed to save media sources:', e);
+				}
+
+				if (!mediaSourcesSaved) {
+					toasts.error('Book saved, but media sources failed to save');
+					return;
 				}
 
 				toasts.success('Book saved');
@@ -722,6 +735,8 @@
 				const err = await res.json();
 				toasts.error(err.message || 'Failed to save book');
 			}
+		} catch (err) {
+			toasts.error(err instanceof Error ? err.message : 'Failed to save book');
 		} finally {
 			saving = false;
 		}

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.7] - 2026-10-27
+
+### Fixed
+- The metadata toast's "Applied N of M fields" count no longer includes fields that were ticked by default but never shown because the selected result had no value for them, so it no longer warns about fields you never saw
+- Removed the "Subtitle" checkbox from metadata search. BookShelf has no subtitle field, so ticking it did nothing
+- Provider ratings (rating, source and rating count) now save. The book update endpoint was ignoring them, so ratings applied from metadata search, on either the Edit Book page or the book detail page, were lost on save
+- Applying a metadata rating in the book modal now fills in the provider rating instead of overwriting your personal rating. Metadata apply never touches your personal rating, whichever editor you use
+- Uploading an ebook on the Edit Book page no longer leads to the next Save clearing the book's format. The page now picks up the eBook format the server assigns when the book had none
+- The Edit Book page no longer says "Book saved" when the media sources fail to save. It now shows "Book saved, but media sources failed to save" and stays on the page. Network and other unexpected save errors now show an error message instead of failing silently, and a failed save in the book modal no longer leaves an unhandled error in the console
+
 ## [2.19.6] - 2026-10-27
 
 ### Fixed

@@ -72,7 +72,6 @@
 
 	const fieldLabels: Record<string, string> = {
 		title: 'Title',
-		subtitle: 'Subtitle',
 		authors: 'Authors',
 		summary: 'Summary/Description',
 		coverUrl: 'Cover Image',
@@ -195,7 +194,12 @@
 
 	function handleApply() {
 		if (selectedResult) {
-			onApply(selectedResult, Array.from(selectedFields));
+			// Only pass fields that are ticked AND rendered a checkbox (same test as the field list)
+			const result = selectedResult;
+			const visibleTicked = Object.keys(fieldLabels).filter(
+				(field) => selectedFields.has(field) && getResultValue(result, field === 'summary' ? 'description' : field)
+			);
+			onApply(result, visibleTicked);
 			onClose();
 		}
 	}

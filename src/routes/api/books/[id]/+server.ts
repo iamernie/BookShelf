@@ -122,6 +122,11 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.publishYear !== undefined) updateData.publishYear = data.publishYear || null;
 	if (data.purchasePrice !== undefined) updateData.purchasePrice = data.purchasePrice || null;
 
+	// Provider (external) rating fields - separate from the user's personal rating
+	if (data.providerRating !== undefined) updateData.providerRating = data.providerRating ?? null;
+	if (data.providerRatingSource !== undefined) updateData.providerRatingSource = data.providerRatingSource?.trim() || null;
+	if (data.providerRatingCount !== undefined) updateData.providerRatingCount = data.providerRatingCount ?? null;
+
 	// Foreign key fields
 	if (data.statusId !== undefined) updateData.statusId = data.statusId || null;
 	if (data.genreId !== undefined) updateData.genreId = data.genreId || null;
