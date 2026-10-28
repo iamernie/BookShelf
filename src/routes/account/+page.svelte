@@ -141,6 +141,9 @@
 		<a href="/account/tokens" class="px-4 py-2 rounded-lg font-medium" style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
 			API Tokens
 		</a>
+		<a href="/account/widgets" class="px-4 py-2 rounded-lg font-medium" style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+			Widgets
+		</a>
 	</div>
 
 	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

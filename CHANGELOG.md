@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-10-28
+
+### Added
+- Widgets now belong to you. Create them under Account > Widgets: pick one of six types (Currently Reading, Recent Reads, Next Up, Upcoming Releases, Reading Stats, Reading Goal), a light or dark theme and how many books to show (1 to 20). Each widget gets its own private URL, plus ready-made iframe code and a live preview
+- You can rename a widget, change its theme or book count, get a new URL for it (the old one stops working), or revoke it. Each person can have up to 20 widgets
+- Next Up and Upcoming Releases can now be embedded as iframes, not just read as JSON
+
+### Changed
+- The admin Widgets page is now called Widgets & API. It shows a list of everyone's widgets (owner, name, type, when it was created and last viewed) with an off switch for each. An admin-disabled widget shows "Not found" and its owner can't turn it back on by getting a new URL, though they can still delete it
+- The Widget Access switch is still the master switch: when it's off, every user's widget URLs show "Not found". Users can still manage their widgets while it's off. The v1 API switch and token are unchanged
+- The widget builder (type picker, options, preview and embed code) moved from the admin page to Account > Widgets
+
+### Removed
+- The old shared widget addresses (`/widgets/api/<type>` and `/widgets/embed`) no longer work and now show "Not found". Create a widget in your account and replace your embed code with the new one
+
+### Fixed
+- Widgets show the author and series again. They now read them the same way the dashboard does; before, they came back empty or the widget failed to load
+- Reading Stats now count only the books read in the current year for "This Year", and the reading goal widget uses the active goal for the year and counts omnibus editions as several books, matching the Goals page
+
+### Security
+- Widgets only ever show the data of the person who created them: their own books, reading status, ratings and dates. Before, every widget showed the whole library, including other users' personal books
+- A widget's URL is the only way to view it. Theme and book count come from the saved widget and can't be changed from the URL. A wrong, revoked, disabled or mistyped URL always gets the same "Not found" answer
+- Widget URLs are stored only in scrambled (hashed) form, so a copy of the database can't be used to open them. That is why the full URL is shown only once, when you create the widget or get a new URL for it
+- Widget URLs are hidden in the server logs, and embedded widgets don't send their URL to other sites when loading images
+- Deleting a user also deletes their widgets
+
 ## [2.21.4] - 2026-10-28
 
 ### Security

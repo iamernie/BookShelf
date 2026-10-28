@@ -3,7 +3,7 @@
  * CRUD operations for user management (admin functions)
  */
 
-import { db, users, userPreferences, sessions } from '$lib/server/db';
+import { db, users, userPreferences, sessions, widgetInstances } from '$lib/server/db';
 import { eq, desc, asc, like, or, sql, count } from 'drizzle-orm';
 import { hashPassword } from './authService';
 import type { UserRole } from '$lib/server/db/schema';
@@ -316,6 +316,12 @@ export async function deleteUser(id: number): Promise<{ success: boolean; error?
 
 	// Delete user preferences
 	await db.delete(userPreferences).where(eq(userPreferences.userId, id));
+
+	// Delete user's widgets explicitly (older databases may lack the ON DELETE CASCADE)
+	await db.delete(widgetInstances).where(eq(widgetInstances.userId, id));
+
+	// Widgets this user disabled as an admin stay disabled; drop the reference so it doesn't block the delete
+	await db.update(widgetInstances).set({ disabledBy: null }).where(eq(widgetInstances.disabledBy, id));
 
 	// Delete user
 	await db.delete(users).where(eq(users.id, id));

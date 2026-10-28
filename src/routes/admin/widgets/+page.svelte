@@ -1,19 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import {
-		Code,
-		Copy,
-		Check,
-		RefreshCw,
-		Eye,
-		EyeOff,
-		Book,
-		CheckCircle,
-		BarChart3,
-		Target,
-		Loader2,
-		AlertTriangle
-	} from 'lucide-svelte';
+	import { Copy, Check, RefreshCw, Eye, EyeOff, Loader2, LayoutGrid } from 'lucide-svelte';
 
 	let { data } = $props();
 
@@ -25,58 +12,27 @@
 	let copied = $state<string | null>(null);
 	let regenerating = $state(false);
 	let showRegenerateConfirm = $state(false);
+	let busyWidgetId = $state<number | null>(null);
 
-	// Widget configuration
-	let selectedType = $state<'currently-reading' | 'recent-reads' | 'stats' | 'goal'>('currently-reading');
-	let selectedTheme = $state<'light' | 'dark'>('light');
-	let selectedLimit = $state(5);
-	let customWidth = $state('400');
-	let customHeight = $state('300');
-	let activeCodeTab = $state<'iframe' | 'json'>('iframe');
+	const typeLabels: Record<string, string> = {
+		'currently-reading': 'Currently Reading',
+		'recent-reads': 'Recent Reads',
+		stats: 'Reading Stats',
+		goal: 'Reading Goal',
+		'next-up': 'Next Up',
+		'upcoming-releases': 'Upcoming Releases'
+	};
 
-	const widgetTypes = [
-		{
-			id: 'currently-reading' as const,
-			name: 'Currently Reading',
-			description: 'Books you are currently reading',
-			icon: Book,
-			hasLimit: true
-		},
-		{
-			id: 'recent-reads' as const,
-			name: 'Recent Reads',
-			description: 'Recently completed books with ratings',
-			icon: CheckCircle,
-			hasLimit: true
-		},
-		{
-			id: 'stats' as const,
-			name: 'Reading Stats',
-			description: 'Overview of your reading statistics',
-			icon: BarChart3,
-			hasLimit: false
-		},
-		{
-			id: 'goal' as const,
-			name: 'Reading Goal',
-			description: 'Progress towards your yearly goal',
-			icon: Target,
-			hasLimit: false
-		}
-	];
-
-	// Generated URLs
-	let embedUrl = $derived(
-		`${data.baseUrl}/widgets/embed?type=${selectedType}&theme=${selectedTheme}${widgetTypes.find((t) => t.id === selectedType)?.hasLimit ? `&limit=${selectedLimit}` : ''}`
-	);
-
-	let apiUrl = $derived(
-		`${data.baseUrl}/widgets/api/${selectedType}?theme=${selectedTheme}${widgetTypes.find((t) => t.id === selectedType)?.hasLimit ? `&limit=${selectedLimit}` : ''}`
-	);
-
-	let iframeCode = $derived(
-		`<iframe src="${embedUrl}"\n  width="${customWidth}${customWidth.includes('%') ? '' : 'px'}"\n  height="${customHeight}${customHeight.includes('%') ? '' : 'px'}"\n  style="border: none; border-radius: 8px;">\n</iframe>`
-	);
+	function formatDate(dateStr: string | null): string {
+		if (!dateStr) return 'Never';
+		return new Date(dateStr).toLocaleString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
 
 	async function copyToClipboard(text: string, type: string) {
 		await navigator.clipboard.writeText(text);
@@ -86,15 +42,15 @@
 </script>
 
 <svelte:head>
-	<title>Public Widgets - BookShelf Admin</title>
+	<title>Widgets & API - BookShelf Admin</title>
 </svelte:head>
 
 <div class="p-6 max-w-6xl mx-auto">
 	<!-- Header -->
 	<div class="mb-6">
-		<h1 class="text-2xl font-bold" style="color: var(--text-primary);">Public Widgets</h1>
+		<h1 class="text-2xl font-bold" style="color: var(--text-primary);">Widgets & API</h1>
 		<p style="color: var(--text-secondary);">
-			Embed reading widgets on your blog or website
+			Control public widgets and the v1 API. Users create their own widgets under Account &gt; Widgets.
 		</p>
 	</div>
 
@@ -104,8 +60,8 @@
 			<div>
 				<h3 class="font-semibold" style="color: var(--text-primary);">Widget Access</h3>
 				<p class="text-sm" style="color: var(--text-muted);">
-					{enabled ? 'Public widgets are enabled' : 'Public widgets are disabled'}. Widgets are
-					display URLs anyone can open without logging in. Off by default.
+					{enabled ? 'Public widgets are enabled' : 'Public widgets are disabled'}. When off, every
+					user's widget URLs return Not found. Off by default.
 				</p>
 			</div>
 			<form
@@ -225,170 +181,90 @@
 		</div>
 	{/if}
 
-	{#if enabled}
-		<!-- Widget Type Selection -->
-		<div class="card p-4 mb-6">
-			<h3 class="font-semibold mb-4" style="color: var(--text-primary);">Widget Type</h3>
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-				{#each widgetTypes as wtype}
-					<button
-						type="button"
-						class="p-4 rounded-lg text-left transition-all border-2"
-						style="background-color: var(--bg-tertiary); border-color: {selectedType === wtype.id
-							? 'var(--accent)'
-							: 'transparent'};"
-						onclick={() => (selectedType = wtype.id)}
-					>
-						<div class="flex items-center gap-3 mb-2">
-							<wtype.icon
-								class="w-5 h-5"
-								style="color: {selectedType === wtype.id ? 'var(--accent)' : 'var(--text-muted)'};"
-							/>
-							<span class="font-medium" style="color: var(--text-primary);">{wtype.name}</span>
-						</div>
-						<p class="text-sm" style="color: var(--text-muted);">{wtype.description}</p>
-					</button>
-				{/each}
-			</div>
+	<!-- Widget Registry -->
+	<div class="card p-4">
+		<div class="flex items-center gap-2 mb-1">
+			<LayoutGrid class="w-5 h-5" style="color: var(--accent);" />
+			<h3 class="font-semibold" style="color: var(--text-primary);">Widget Registry</h3>
 		</div>
+		<p class="text-sm mb-4" style="color: var(--text-muted);">
+			Every widget users have created. Disabling one makes its URL return Not found; the owner
+			can't undo it by rotating the key.
+		</p>
 
-		<!-- Customization Options -->
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-			<!-- Options -->
-			<div class="card p-4">
-				<h3 class="font-semibold mb-4" style="color: var(--text-primary);">Options</h3>
-
-				<div class="space-y-4">
-					<!-- Theme -->
-					<div>
-						<label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
-							Theme
-						</label>
-						<div class="flex gap-2">
-							<button
-								type="button"
-								class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-								style="background-color: {selectedTheme === 'light'
-									? 'var(--accent)'
-									: 'var(--bg-tertiary)'}; color: {selectedTheme === 'light' ? 'white' : 'var(--text-primary)'};"
-								onclick={() => (selectedTheme = 'light')}
-							>
-								Light
-							</button>
-							<button
-								type="button"
-								class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-								style="background-color: {selectedTheme === 'dark'
-									? 'var(--accent)'
-									: 'var(--bg-tertiary)'}; color: {selectedTheme === 'dark' ? 'white' : 'var(--text-primary)'};"
-								onclick={() => (selectedTheme = 'dark')}
-							>
-								Dark
-							</button>
-						</div>
-					</div>
-
-					<!-- Limit (for book widgets) -->
-					{#if widgetTypes.find((t) => t.id === selectedType)?.hasLimit}
-						<div>
-							<label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
-								Number of Books
-							</label>
-							<select bind:value={selectedLimit} class="input">
-								<option value={3}>3 books</option>
-								<option value={5}>5 books</option>
-								<option value={10}>10 books</option>
-							</select>
-						</div>
-					{/if}
-
-					<!-- Size -->
-					<div class="grid grid-cols-2 gap-4">
-						<div>
-							<label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
-								Width
-							</label>
-							<input type="text" bind:value={customWidth} class="input" placeholder="400" />
-						</div>
-						<div>
-							<label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
-								Height
-							</label>
-							<input type="text" bind:value={customHeight} class="input" placeholder="300" />
-						</div>
-					</div>
-				</div>
+		{#if data.widgets.length === 0}
+			<p class="text-sm py-6 text-center" style="color: var(--text-muted);">No widgets yet</p>
+		{:else}
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-left" style="color: var(--text-muted);">
+							<th class="py-2 pr-4 font-medium">Owner</th>
+							<th class="py-2 pr-4 font-medium">Name</th>
+							<th class="py-2 pr-4 font-medium">Type</th>
+							<th class="py-2 pr-4 font-medium">Created</th>
+							<th class="py-2 pr-4 font-medium">Last fetched</th>
+							<th class="py-2 pr-4 font-medium">Status</th>
+							<th class="py-2 font-medium"></th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.widgets as widget (widget.id)}
+							<tr class="border-t" style="border-color: var(--border-color); color: var(--text-primary);">
+								<td class="py-2 pr-4">{widget.ownerUsername ?? `#${widget.ownerId}`}</td>
+								<td class="py-2 pr-4">{widget.name ?? '—'}</td>
+								<td class="py-2 pr-4">{typeLabels[widget.type] ?? widget.type}</td>
+								<td class="py-2 pr-4" style="color: var(--text-muted);">{formatDate(widget.createdAt)}</td>
+								<td class="py-2 pr-4" style="color: var(--text-muted);">{formatDate(widget.lastFetchedAt)}</td>
+								<td class="py-2 pr-4">
+									{#if widget.disabledAt}
+										<span
+											class="text-xs px-2 py-0.5 rounded-full"
+											style="background: rgba(239, 68, 68, 0.1); color: #ef4444;"
+										>
+											Disabled
+										</span>
+									{:else}
+										<span
+											class="text-xs px-2 py-0.5 rounded-full"
+											style="background: rgba(34, 197, 94, 0.1); color: #22c55e;"
+										>
+											Active
+										</span>
+									{/if}
+								</td>
+								<td class="py-2 text-right">
+									<form
+										method="POST"
+										action={widget.disabledAt ? '?/enableWidget' : '?/disableWidget'}
+										use:enhance={() => {
+											busyWidgetId = widget.id;
+											return async ({ update }) => {
+												await update();
+												busyWidgetId = null;
+											};
+										}}
+									>
+										<input type="hidden" name="id" value={widget.id} />
+										<button
+											type="submit"
+											class="btn-secondary text-xs px-3 py-1 flex items-center gap-1 ml-auto"
+											disabled={busyWidgetId === widget.id}
+										>
+											{#if busyWidgetId === widget.id}
+												<Loader2 class="w-3 h-3 animate-spin" />
+											{/if}
+											{widget.disabledAt ? 'Enable' : 'Disable'}
+										</button>
+									</form>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
-
-			<!-- Preview -->
-			<div class="card p-4">
-				<h3 class="font-semibold mb-4" style="color: var(--text-primary);">Preview</h3>
-				<div
-					class="rounded-lg overflow-hidden"
-					style="background-color: var(--bg-tertiary); height: 300px;"
-				>
-					<iframe src={embedUrl} width="100%" height="100%" style="border: none;"></iframe>
-				</div>
-			</div>
-		</div>
-
-		<!-- Embed Code -->
-		<div class="card p-4">
-			<div class="flex items-center justify-between mb-4">
-				<h3 class="font-semibold" style="color: var(--text-primary);">Embed Code</h3>
-				<div class="flex gap-2">
-					<button
-						type="button"
-						class="px-3 py-1.5 rounded text-sm font-medium transition-colors"
-						style="background-color: {activeCodeTab === 'iframe'
-							? 'var(--accent)'
-							: 'var(--bg-tertiary)'}; color: {activeCodeTab === 'iframe' ? 'white' : 'var(--text-primary)'};"
-						onclick={() => (activeCodeTab = 'iframe')}
-					>
-						<Code class="w-4 h-4 inline mr-1" />
-						Iframe
-					</button>
-					<button
-						type="button"
-						class="px-3 py-1.5 rounded text-sm font-medium transition-colors"
-						style="background-color: {activeCodeTab === 'json'
-							? 'var(--accent)'
-							: 'var(--bg-tertiary)'}; color: {activeCodeTab === 'json' ? 'white' : 'var(--text-primary)'};"
-						onclick={() => (activeCodeTab = 'json')}
-					>
-						JSON API
-					</button>
-				</div>
-			</div>
-
-			<div class="relative">
-				<pre
-					class="p-4 rounded-lg text-sm overflow-x-auto font-mono"
-					style="background-color: var(--bg-tertiary); color: var(--text-primary);">{activeCodeTab === 'iframe' ? iframeCode : apiUrl}</pre>
-				<button
-					type="button"
-					class="absolute top-2 right-2 p-2 rounded hover:bg-black/10"
-					onclick={() => copyToClipboard(activeCodeTab === 'iframe' ? iframeCode : apiUrl, 'code')}
-				>
-					{#if copied === 'code'}
-						<Check class="w-4 h-4 text-green-500" />
-					{:else}
-						<Copy class="w-4 h-4" style="color: var(--text-muted);" />
-					{/if}
-				</button>
-			</div>
-		</div>
-	{:else}
-		<div class="card p-8 text-center">
-			<AlertTriangle class="w-12 h-12 mx-auto mb-4" style="color: var(--text-muted);" />
-			<h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);">
-				Widgets Disabled
-			</h3>
-			<p style="color: var(--text-muted);">
-				Enable widgets above to start embedding your reading data on external sites.
-			</p>
-		</div>
-	{/if}
+		{/if}
+	</div>
 </div>
 
 <!-- Regenerate Token Confirmation Modal -->

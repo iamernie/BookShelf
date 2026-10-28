@@ -36,6 +36,13 @@
       "when": 1793117380806,
       "tag": "0004_abs_writeback_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793202531763,
+      "tag": "0005_widget_instances",
+      "breakpoints": true
     }
   ]
 }

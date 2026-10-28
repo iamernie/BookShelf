@@ -186,6 +186,13 @@
 		>
 			API Tokens
 		</a>
+		<a
+			href="/account/widgets"
+			class="px-4 py-2 rounded-lg font-medium"
+			style="background-color: var(--bg-tertiary); color: var(--text-secondary);"
+		>
+			Widgets
+		</a>
 	</div>
 
 	<!-- Info Box -->

@@ -57,6 +57,13 @@ const PUBLIC_PATHS = [
 	'/api/system/migration-status'
 ];
 
+// Widget URLs carry a capability key in the path; never write it to the logs
+const WIDGET_KEY_PATH = /^\/widgets\/(api|embed)\/w\/[^/]+/;
+
+function redactWidgetKey(pathname: string): string {
+	return pathname.replace(WIDGET_KEY_PATH, '/widgets/$1/w/[key]');
+}
+
 // KOReader sync routes that use header-based auth (x-auth-user, x-auth-key)
 // These are handled by the endpoints themselves, so we skip session auth for them
 const KOREADER_SYNC_PATHS = [
@@ -229,14 +236,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	} : undefined);
 	const duration = Date.now() - start;
 
-	logRequest(event.request.method, event.url.pathname, response.status, duration);
+	logRequest(event.request.method, redactWidgetKey(event.url.pathname), response.status, duration);
 
 	// Add security headers to response
-	// The widget embed sets its own X-Frame-Options so external sites can iframe it
-	const isWidgetEmbed = event.url.pathname === '/widgets/embed';
+	// Widget embeds are iframed by external sites (no X-Frame-Options) and set their
+	// own Referrer-Policy (no-referrer) so the keyed URL never leaks as a referer
+	const isWidgetEmbed = event.url.pathname.startsWith('/widgets/embed/w/');
 	const responseWithHeaders = new Response(response.body, response);
 	for (const [header, value] of Object.entries(securityHeaders)) {
-		if (isWidgetEmbed && header === 'X-Frame-Options') continue;
+		if (isWidgetEmbed && (header === 'X-Frame-Options' || header === 'Referrer-Policy')) continue;
 		responseWithHeaders.headers.set(header, value);
 	}
 
@@ -247,13 +255,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 export const handleError: HandleServerError = async ({ error: err, event, status, message }) => {
 	const errorObj = err instanceof Error ? err : new Error(String(err));
 
-	logError(errorObj, `${event.request.method} ${event.url.pathname}`);
+	logError(errorObj, `${event.request.method} ${redactWidgetKey(event.url.pathname)}`);
 
 	// Log additional details for debugging
 	log.debug('Error details', {
 		status,
 		message,
-		url: event.url.href,
+		url: event.url.href.replace(event.url.pathname, redactWidgetKey(event.url.pathname)),
 		method: event.request.method,
 		userAgent: event.request.headers.get('user-agent')
 	});

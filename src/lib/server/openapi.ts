@@ -1026,7 +1026,7 @@ export const openApiSpec = {
 				summary: 'List books',
 				description: 'Get paginated list of books with optional filters. Requires API token.',
 				parameters: [
-					{ name: 'token', in: 'query', required: true, schema: { type: 'string' }, description: 'API token from Settings > Widgets' },
+					{ name: 'token', in: 'query', required: true, schema: { type: 'string' }, description: 'API token from Admin > Widgets & API' },
 					{ name: 'limit', in: 'query', schema: { type: 'integer', default: 50, maximum: 500 } },
 					{ name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
 					{ name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search books by title' },

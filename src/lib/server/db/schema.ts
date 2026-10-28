@@ -719,6 +719,31 @@ export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
 }));
 
 // ============================================
+// Widget Instances (per-user embeddable widgets)
+// ============================================
+
+export const widgetInstances = sqliteTable('widget_instances', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }), // owner
+	name: text('name'), // optional label ("Blog sidebar")
+	type: text('type').notNull(), // one of the widget types; immutable after creation
+	theme: text('theme').notNull().default('light'), // light | dark
+	itemLimit: integer('itemLimit').notNull().default(5), // clamped 1..20 on write and on read
+	keyHash: text('keyHash').notNull().unique(), // sha256(rawKey), hex; the raw key is never stored
+	keyPrefix: text('keyPrefix').notNull(), // first 6 chars, shown to the owner only
+	lastFetchedAt: text('lastFetchedAt'),
+	rotatedAt: text('rotatedAt'),
+	disabledAt: text('disabledAt'), // admin kill switch; non-null = 404
+	disabledBy: integer('disabledBy').references(() => users.id),
+	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
+	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
+});
+
+export const widgetInstancesRelations = relations(widgetInstances, ({ one }) => ({
+	user: one(users, { fields: [widgetInstances.userId], references: [users.id] })
+}));
+
+// ============================================
 // KOReader Sync Tables
 // ============================================
 
@@ -900,6 +925,10 @@ export type NewKoreaderProgress = typeof koreaderProgress.$inferInsert;
 // API Token types
 export type ApiToken = typeof apiTokens.$inferSelect;
 export type NewApiToken = typeof apiTokens.$inferInsert;
+
+// Widget instance types
+export type WidgetInstance = typeof widgetInstances.$inferSelect;
+export type NewWidgetInstance = typeof widgetInstances.$inferInsert;
 
 // Library type values
 export type LibraryType = 'personal' | 'public';

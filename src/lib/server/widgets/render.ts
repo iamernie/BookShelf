@@ -1,16 +1,19 @@
-import { error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+/**
+ * Widget HTML renderer (server-only). Self-contained markup and styles so the
+ * output can be dropped into an iframe on any site.
+ */
+
 import { currentYearInAppTz } from '$lib/server/utils/appTime';
-import {
-	areWidgetsEnabled,
-	getWidgetData,
-	type WidgetType,
-	type WidgetTheme
+import type {
+	WidgetBook,
+	WidgetData,
+	WidgetGoal,
+	WidgetStats,
+	WidgetTheme,
+	WidgetType
 } from '$lib/server/services/widgetService';
 
-const VALID_TYPES: WidgetType[] = ['currently-reading', 'recent-reads', 'stats', 'goal'];
-
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
 	return str
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
@@ -19,44 +22,7 @@ function escapeHtml(str: string): string {
 		.replace(/'/g, '&#039;');
 }
 
-export const GET: RequestHandler = async ({ url }) => {
-	const type = (url.searchParams.get('type') || 'currently-reading') as WidgetType;
-	const theme = (url.searchParams.get('theme') || 'light') as WidgetTheme;
-	// Clamp to 1..20; non-numeric falls back to 5 (LIMIT -1 would be unlimited in SQLite)
-	const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit') || '', 10) || 5, 20));
-
-	// Check enabled first so a disabled install doesn't reveal which widget types exist
-	if (!(await areWidgetsEnabled())) {
-		throw error(404, 'Not found');
-	}
-
-	// Validate type
-	if (!VALID_TYPES.includes(type)) {
-		throw error(400, `Invalid widget type`);
-	}
-
-	try {
-		const data = await getWidgetData(type, limit);
-		const html = renderWidget(type, theme, data);
-
-		return new Response(html, {
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'X-Frame-Options': 'ALLOWALL',
-				'Cache-Control': 'no-cache'
-			}
-		});
-	} catch (err) {
-		console.error('Widget embed error:', err);
-		throw error(500, 'Failed to render widget');
-	}
-};
-
-function renderWidget(
-	type: WidgetType,
-	theme: WidgetTheme,
-	data: Awaited<ReturnType<typeof getWidgetData>>
-): string {
+export function renderWidget(type: WidgetType, theme: WidgetTheme, data: WidgetData): string {
 	const isDark = theme === 'dark';
 
 	const colors = isDark
@@ -223,6 +189,11 @@ function renderWidget(
 			color: ${colors.textMuted};
 			margin-top: 4px;
 		}
+		.book-release {
+			font-size: 11px;
+			color: ${colors.textMuted};
+			margin-top: 2px;
+		}
 		.empty-state {
 			text-align: center;
 			padding: 24px;
@@ -239,22 +210,32 @@ function renderWidget(
 		case 'currently-reading':
 			title = 'Currently Reading';
 			icon = bookIcon;
-			content = renderBookList(data.books || [], colors);
+			content = renderBookList(data.books || []);
 			break;
 		case 'recent-reads':
 			title = 'Recent Reads';
 			icon = checkIcon;
-			content = renderBookList(data.books || [], colors, true);
+			content = renderBookList(data.books || [], { showRating: true });
 			break;
 		case 'stats':
 			title = 'Reading Stats';
 			icon = chartIcon;
-			content = renderStats(data.stats!, colors);
+			content = data.stats ? renderStats(data.stats) : '<div class="empty-state">No stats available</div>';
 			break;
 		case 'goal':
-			title = `${currentYearInAppTz()} Reading Goal`;
+			title = `${data.goal?.year ?? currentYearInAppTz()} Reading Goal`;
 			icon = targetIcon;
-			content = renderGoal(data.goal, colors);
+			content = renderGoal(data.goal ?? null);
+			break;
+		case 'next-up':
+			title = 'Next Up';
+			icon = listIcon;
+			content = renderBookList(data.books || []);
+			break;
+		case 'upcoming-releases':
+			title = 'Upcoming Releases';
+			icon = calendarIcon;
+			content = renderBookList(data.books || [], { showReleaseDate: true });
 			break;
 	}
 
@@ -279,9 +260,8 @@ function renderWidget(
 }
 
 function renderBookList(
-	books: NonNullable<Awaited<ReturnType<typeof getWidgetData>>['books']>,
-	colors: Record<string, string>,
-	showRating = false
+	books: WidgetBook[],
+	{ showRating = false, showReleaseDate = false }: { showRating?: boolean; showReleaseDate?: boolean } = {}
 ): string {
 	if (books.length === 0) {
 		return '<div class="empty-state">No books to display</div>';
@@ -297,6 +277,7 @@ function renderBookList(
 					<div class="book-title">${escapeHtml(book.title)}</div>
 					${book.author ? `<div class="book-author">${escapeHtml(book.author)}</div>` : ''}
 					${book.series ? `<div class="book-series">${escapeHtml(book.series)}${book.bookNum ? ` #${book.bookNum}` : ''}</div>` : ''}
+					${showReleaseDate && book.releaseDate ? `<div class="book-release">${escapeHtml(book.releaseDate)}</div>` : ''}
 					${showRating && book.rating ? `<div class="book-rating">${'★'.repeat(Math.round(book.rating))}${'☆'.repeat(5 - Math.round(book.rating))}</div>` : ''}
 				</div>
 			</div>
@@ -306,10 +287,7 @@ function renderBookList(
 	</div>`;
 }
 
-function renderStats(
-	stats: NonNullable<Awaited<ReturnType<typeof getWidgetData>>['stats']>,
-	colors: Record<string, string>
-): string {
+function renderStats(stats: WidgetStats): string {
 	return `<div class="stats-grid">
 		<div class="stat-item">
 			<div class="stat-value">${stats.totalBooks}</div>
@@ -338,10 +316,7 @@ function renderStats(
 	</div>`;
 }
 
-function renderGoal(
-	goal: Awaited<ReturnType<typeof getWidgetData>>['goal'],
-	colors: Record<string, string>
-): string {
+function renderGoal(goal: WidgetGoal | null): string {
 	if (!goal) {
 		return '<div class="empty-state">No reading goal set for this year</div>';
 	}
@@ -374,3 +349,7 @@ const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20
 const chartIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
 
 const targetIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
+
+const listIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+
+const calendarIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;

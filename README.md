@@ -62,7 +62,7 @@ I've made the decision to streamline BookShelf.  Begining in version 2.11 I'll b
 ### More Goodies
 - **BookDrop** folder watching - drop files in, they appear in your library
 - **Public Library** for bulk imports and shared collections (Optional)
-- **Public widgets** for embedding on blogs
+- **Per-user embeddable widgets** for blogs and websites, each showing only its creator's reading
 - **Multi-user** with admin/member roles
 - **Statistics dashboard** with charts, timelines, and reading analytics
 - **Admin console** with log viewer and diagnostics
@@ -183,7 +183,7 @@ Visit **http://localhost:5173** (Vite's default port).
 | OPDS Catalog | ✅ |
 | BookDrop Auto-Import | ✅ |
 | Public Library | ✅ |
-| Public Widgets | ✅ |
+| Per-user Embeddable Widgets | ✅ |
 | Multi-user | ✅ |
 | Dark Theme | ✅ |
 | Collapsible Sidebar | ✅ |

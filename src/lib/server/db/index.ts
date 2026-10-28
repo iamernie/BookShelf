@@ -309,6 +309,7 @@ function runMigrations() {
 		'Removing legacy audiobook tables',
 		'Creating media sources tables',
 		'Creating API tokens table',
+		'Creating widget instances table',
 		'Finalizing'
 	];
 
@@ -1562,6 +1563,37 @@ function runMigrations() {
 	}
 
 	completeStep('Creating API tokens table');
+
+	// ========== Widget Instances Table ==========
+	updateStatus('Creating widget instances table...');
+
+	safeCreateTable('widget_instances', `
+		CREATE TABLE widget_instances (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			name TEXT,
+			type TEXT NOT NULL,
+			theme TEXT NOT NULL DEFAULT 'light',
+			itemLimit INTEGER NOT NULL DEFAULT 5,
+			keyHash TEXT NOT NULL UNIQUE,
+			keyPrefix TEXT NOT NULL,
+			lastFetchedAt TEXT,
+			rotatedAt TEXT,
+			disabledAt TEXT,
+			disabledBy INTEGER REFERENCES users(id),
+			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+		)
+	`);
+
+	// Create index for widget instances
+	try {
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_widget_instances_user ON widget_instances(userId)');
+	} catch {
+		// Index may already exist
+	}
+
+	completeStep('Creating widget instances table');
 
 	// ========== Migrate owned books to user_books table ==========
 	// For users who own books (via ownerId), ensure those books appear in their personal library (user_books)
