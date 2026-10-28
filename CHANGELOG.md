@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.20.2] - 2026-10-28
+
+### Fixed
+- The Lookup button on the book page silently skipped author, series and genre selections. It said the fields were updated but never saved them. It now applies and saves them the same way the edit page does: new authors and series are added alongside the ones the book already has, and missing authors, series or genres are created
+- The Lookup completion message now counts only the fields that were actually saved, and names any author, series or genre that could not be added
+
 ## [2.20.1] - 2026-10-27
 
 ### Fixed

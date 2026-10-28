@@ -125,6 +125,10 @@
 	// Metadata update state
 	let showMetadataModal = $state(false);
 	let updatingMetadata = $state(false);
+	// Picker lists for metadata apply; the page data doesn't carry them, so they're filled by refreshOptionLists()
+	let availableAuthors = $state<{ id: number; name: string }[]>([]);
+	let availableSeries = $state<{ id: number; title: string }[]>([]);
+	let availableGenres = $state<{ id: number; name: string }[]>([]);
 
 	// Inline rating/status state
 	let currentRating = $state(data.book.rating ?? 0);
@@ -404,20 +408,72 @@
 		return `#${s.bookNum}`;
 	}
 
+	// Re-read the picker lists (e.g. an entity created elsewhere after this page loaded)
+	async function refreshOptionLists(): Promise<boolean> {
+		try {
+			const res = await fetch('/api/books/options');
+			if (!res.ok) return false;
+			const fresh = await res.json();
+			availableAuthors = fresh.authors;
+			availableSeries = fresh.series;
+			availableGenres = fresh.genres;
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	// Author names compare equal across case and punctuation spacing ("J. N. Chaney" == "J.N. Chaney")
+	function normAuthorName(name: string): string {
+		return name.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
+	}
+
+	// Create an entity during metadata apply. The pick lists can miss existing entities (e.g. bookless ones),
+	// so refresh and re-look-up before creating; if the create fails, refresh the lists once more and look it up again
+	async function createOrRefind<E>(
+		endpoint: string,
+		body: Record<string, string>,
+		find: () => E | undefined,
+		onCreated: (created: { id: number; name: string; title: string }) => E,
+		preFind: () => E | undefined = find
+	): Promise<E | undefined> {
+		if (await refreshOptionLists()) {
+			const found = preFind();
+			if (found) return found;
+		}
+		try {
+			const res = await fetch(endpoint, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			if (res.ok) return onCreated(await res.json());
+		} catch (e) {
+			console.error(`Failed to create via ${endpoint}:`, e);
+		}
+		if (await refreshOptionLists()) return find();
+		return undefined;
+	}
+
 	// Apply metadata from search modal
 	async function applyMetadataResult(result: any, selectedFields: string[]) {
 		updatingMetadata = true;
 		try {
 			const updates: Record<string, any> = {};
 			let coverDownloaded = false;
+			let appliedCount = 0;
+			const failedEntities: string[] = [];
+			// Relations are appended to what the book already has, never replaced
+			let bookAuthors = data.book.authors.map(a => ({ id: a.id, name: a.name, role: a.role || 'Author' }));
+			let bookSeries = data.book.series.map(s => ({ id: s.id, title: s.title, bookNum: s.bookNum, bookNumEnd: s.bookNumEnd }));
 
 			for (const field of selectedFields) {
 				switch (field) {
 					case 'title':
-						if (result.title) updates.title = result.title;
+						if (result.title) { updates.title = result.title; appliedCount++; }
 						break;
 					case 'summary':
-						if (result.description) updates.summary = result.description;
+						if (result.description) { updates.summary = result.description; appliedCount++; }
 						break;
 					case 'coverUrl':
 						// Download the cover image - try coverUrl first, then thumbnailUrl as fallback
@@ -440,24 +496,25 @@
 								// Try next URL
 							}
 						}
+						if (urlsToTry.length > 0) appliedCount++;
 						break;
 					case 'isbn13':
-						if (result.isbn13) updates.isbn13 = result.isbn13;
+						if (result.isbn13) { updates.isbn13 = result.isbn13; appliedCount++; }
 						break;
 					case 'isbn10':
-						if (result.isbn10) updates.isbn10 = result.isbn10;
+						if (result.isbn10) { updates.isbn10 = result.isbn10; appliedCount++; }
 						break;
 					case 'publisher':
-						if (result.publisher) updates.publisher = result.publisher;
+						if (result.publisher) { updates.publisher = result.publisher; appliedCount++; }
 						break;
 					case 'publishYear':
-						if (result.publishYear) updates.publishYear = result.publishYear;
+						if (result.publishYear) { updates.publishYear = result.publishYear; appliedCount++; }
 						break;
 					case 'pageCount':
-						if (result.pageCount) updates.pageCount = result.pageCount;
+						if (result.pageCount) { updates.pageCount = result.pageCount; appliedCount++; }
 						break;
 					case 'language':
-						if (result.language) updates.language = result.language;
+						if (result.language) { updates.language = result.language; appliedCount++; }
 						break;
 					case 'rating':
 						// Store as provider rating, not user rating
@@ -467,6 +524,116 @@
 							if (result.ratingCount) {
 								updates.providerRatingCount = result.ratingCount;
 							}
+							appliedCount++;
+						}
+						break;
+					case 'authors':
+						if (result.authors?.length) {
+							let authorsAdded = false;
+							// Look up or create each author
+							for (const authorName of result.authors) {
+								const name = authorName.trim();
+								if (!name) continue;
+
+								// Check if the book already has this author
+								if (bookAuthors.some(a => a.name.toLowerCase() === name.toLowerCase())) continue;
+
+								// Check if author exists in available list
+								let existing = availableAuthors.find(a => a.name.toLowerCase() === name.toLowerCase());
+
+								if (!existing) {
+									// Create new author
+									existing = await createOrRefind(
+										'/api/authors',
+										{ name },
+										() => availableAuthors.find(a => a.name.toLowerCase() === name.toLowerCase()),
+										(created) => {
+											const entry = { id: created.id, name: created.name };
+											availableAuthors = [...availableAuthors, entry];
+											return entry;
+										},
+										() => availableAuthors.find(a => normAuthorName(a.name) === normAuthorName(name))
+									);
+								}
+								// The relookup can resolve to an author the book already has
+								if (existing && bookAuthors.some(a => a.id === existing!.id)) continue;
+
+								if (existing) {
+									bookAuthors = [...bookAuthors, { id: existing.id, name: existing.name, role: 'Author' }];
+									authorsAdded = true;
+								} else {
+									failedEntities.push(`Author '${name}'`);
+								}
+							}
+							if (authorsAdded) updates.authors = bookAuthors.map(a => ({ id: a.id, role: a.role }));
+							if (!failedEntities.some(f => f.startsWith('Author '))) appliedCount++;
+						}
+						break;
+					case 'seriesName':
+						if (result.seriesName) {
+							const seriesTitle = result.seriesName.trim();
+
+							// Check if the book is already in this series
+							if (!bookSeries.some(s => s.title.toLowerCase() === seriesTitle.toLowerCase())) {
+								// Check if series exists in available list
+								let existing = availableSeries.find(s => s.title.toLowerCase() === seriesTitle.toLowerCase());
+
+								if (!existing) {
+									// Create new series
+									existing = await createOrRefind(
+										'/api/series',
+										{ title: seriesTitle },
+										() => availableSeries.find(s => s.title.toLowerCase() === seriesTitle.toLowerCase()),
+										(created) => {
+											const entry = { id: created.id, title: created.title };
+											availableSeries = [...availableSeries, entry];
+											return entry;
+										}
+									);
+								}
+
+								if (existing) {
+									if (!bookSeries.some(s => s.id === existing!.id)) {
+										const bookNum = result.seriesNumber ? parseFloat(result.seriesNumber.toString()) : NaN;
+										bookSeries = [...bookSeries, { id: existing.id, title: existing.title, bookNum: isNaN(bookNum) ? null : bookNum, bookNumEnd: null }];
+										updates.series = bookSeries.map(s => ({ id: s.id, bookNum: s.bookNum, bookNumEnd: s.bookNumEnd }));
+									}
+								} else {
+									failedEntities.push(`Series '${seriesTitle}'`);
+								}
+							}
+							if (!failedEntities.some(f => f.startsWith('Series '))) appliedCount++;
+						}
+						break;
+					case 'genres':
+						if (result.genres?.length) {
+							// Use the first genre from metadata
+							const genreName = result.genres[0]?.trim();
+							if (genreName) {
+								// Check if genre exists
+								let existing = availableGenres.find(g => g.name.toLowerCase() === genreName.toLowerCase());
+
+								if (!existing) {
+									// Create new genre
+									existing = await createOrRefind(
+										'/api/genres',
+										{ name: genreName },
+										() => availableGenres.find(g => g.name.toLowerCase() === genreName.toLowerCase()),
+										(created) => {
+											const entry = { id: created.id, name: created.name };
+											availableGenres = [...availableGenres, entry];
+											return entry;
+										}
+									);
+								}
+
+								if (existing) {
+									updates.genreId = existing.id;
+								} else {
+									failedEntities.push(`Genre '${genreName}'`);
+								}
+							}
+							if (!failedEntities.some(f => f.startsWith('Genre '))) appliedCount++;
 						}
 						break;
 				}
@@ -479,16 +646,24 @@
 				updates.googleBooksId = result.providerId;
 			}
 
+			const coverMsg = coverDownloaded ? ' (cover downloaded)' : '';
+			const failedMsg = failedEntities.length > 0 ? ` - could not add: ${failedEntities.join(', ')}` : '';
+
 			// Only save if we have updates
-			if (Object.keys(updates).length > 0) {
+			if (Object.keys(updates).length === 0) {
+				if (failedEntities.length > 0) toasts.warning(`Updated 0 of ${selectedFields.length} fields${failedMsg}`);
+			} else {
 				const res = await fetch(`/api/books/${data.book.id}`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(updates)
 				});
 				if (res.ok) {
-					const coverMsg = coverDownloaded ? ' (cover downloaded)' : '';
-					toasts.success(`Updated ${selectedFields.length} fields from ${result.provider}${coverMsg}`);
+					if (failedEntities.length > 0) {
+						toasts.warning(`Updated ${appliedCount} of ${selectedFields.length} fields from ${result.provider}${coverMsg}${failedMsg}`);
+					} else {
+						toasts.success(`Updated ${appliedCount} fields from ${result.provider}${coverMsg}`);
+					}
 					showMetadataModal = false;
 					invalidateAll();
 				} else {
