@@ -1,6 +1,6 @@
 {
   "name": "bookshelf",
-  "version": "2.19.10",
+  "version": "2.19.11",
   "description": "Personal book library management application",
   "private": true,
   "type": "module",

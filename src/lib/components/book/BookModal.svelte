@@ -733,13 +733,6 @@
 
 	async function handleSave() {
 		if (!title.trim()) return;
-		// Number inputs bind numbers/null at runtime despite the string type
-		const numberless = selectedSeries.filter(s => !String(s.bookNum ?? '').trim());
-		if (numberless.length > 0) {
-			const names = numberless.map(s => `'${s.title}'`).join(', ');
-			toasts.error(`Series ${names} ${numberless.length === 1 ? 'needs a book number' : 'need book numbers'} before saving`);
-			return;
-		}
 		saving = true;
 		try {
 			await onSave({

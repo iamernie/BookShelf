@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.11] - 2026-10-27
+
+### Changed
+- A series without a book number can be saved again. Saving is no longer blocked; the series is linked to the book with no number. This undoes the save block added in 2.19.9 and applies to both the book modal and the edit page
+
 ## [2.19.10] - 2026-10-27
 
 ### Fixed
