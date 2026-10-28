@@ -149,14 +149,14 @@
 			const res = await fetch('/api/catalog/merge', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ type: 'author', targetId, sourceId })
+				body: JSON.stringify({ entityType: 'authors', primaryId: targetId, mergeIds: [sourceId] })
 			});
 			const data = await res.json();
 			if (data.success) {
 				message = { type: 'success', text: `Author merged successfully` };
 				await loadAuthorDuplicates();
 			} else {
-				message = { type: 'error', text: data.error || 'Merge failed' };
+				message = { type: 'error', text: data.error || data.message || 'Merge failed' };
 			}
 		} catch {
 			message = { type: 'error', text: 'Failed to merge authors' };
@@ -172,14 +172,14 @@
 			const res = await fetch('/api/catalog/merge', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ type: 'series', targetId, sourceId })
+				body: JSON.stringify({ entityType: 'series', primaryId: targetId, mergeIds: [sourceId] })
 			});
 			const data = await res.json();
 			if (data.success) {
 				message = { type: 'success', text: `Series merged successfully` };
 				await loadSeriesDuplicates();
 			} else {
-				message = { type: 'error', text: data.error || 'Merge failed' };
+				message = { type: 'error', text: data.error || data.message || 'Merge failed' };
 			}
 		} catch {
 			message = { type: 'error', text: 'Failed to merge series' };
@@ -202,7 +202,7 @@
 				message = { type: 'success', text: `Book merged successfully` };
 				await loadBookDuplicates();
 			} else {
-				message = { type: 'error', text: data.error || 'Merge failed' };
+				message = { type: 'error', text: data.error || data.message || 'Merge failed' };
 			}
 		} catch {
 			message = { type: 'error', text: 'Failed to merge books' };

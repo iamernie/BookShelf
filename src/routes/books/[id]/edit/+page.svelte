@@ -413,13 +413,24 @@
 		}
 	}
 
-	// Create an entity during metadata apply; if the create fails, refresh the lists once and look it up again
+	// Author names compare equal across case and punctuation spacing ("J. N. Chaney" == "J.N. Chaney")
+	function normAuthorName(name: string): string {
+		return name.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
+	}
+
+	// Create an entity during metadata apply. The pick lists can miss existing entities (e.g. bookless ones),
+	// so refresh and re-look-up before creating; if the create fails, refresh the lists once more and look it up again
 	async function createOrRefind<E>(
 		endpoint: string,
 		body: Record<string, string>,
 		find: () => E | undefined,
-		onCreated: (created: { id: number; name: string; title: string }) => E
+		onCreated: (created: { id: number; name: string; title: string }) => E,
+		preFind: () => E | undefined = find
 	): Promise<E | undefined> {
+		if (await refreshOptionLists()) {
+			const found = preFind();
+			if (found) return found;
+		}
 		try {
 			const res = await fetch(endpoint, {
 				method: 'POST',
@@ -526,8 +537,11 @@
 										const entry = { id: created.id, name: created.name };
 										availableAuthors = [...availableAuthors, entry];
 										return entry;
-									}
+									},
+									() => availableAuthors.find(a => normAuthorName(a.name) === normAuthorName(name))
 								);
+								// The normalized relookup can resolve to an author that is already selected
+								if (existing && selectedAuthors.some(a => a.id === existing!.id)) continue;
 							}
 
 							if (existing) {

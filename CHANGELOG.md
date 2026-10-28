@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.10] - 2026-10-27
+
+### Fixed
+- Merging duplicate authors or series from the admin Data Cleanup page always failed with "Merge failed". The page sent a different request than the merge endpoint accepts. Author and series merges now work. Book merges were not affected
+- The Data Cleanup page now shows the actual error message when a merge fails, not just "Merge failed"
+- Applying metadata no longer creates duplicate authors, series or genres. The editor's pick lists can miss an existing entry, for example an author with no books yet. Each time this happened, applying metadata created another copy. BookShelf now reloads the lists and looks again before creating anything. Author names also match when only the punctuation spacing differs, so "J. N. Chaney" and "J.N. Chaney" count as the same author
+
 ## [2.19.9] - 2026-10-27
 
 ### Fixed
