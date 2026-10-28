@@ -1,18 +1,16 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
-	validateWidgetToken,
 	areWidgetsEnabled,
 	getWidgetData,
 	type WidgetType,
 	type WidgetTheme
 } from '$lib/server/services/widgetService';
 
-const VALID_TYPES: WidgetType[] = ['currently-reading', 'recent-reads', 'stats', 'goal', 'next-up', 'upcoming-releases', 'all'];
+const VALID_TYPES: WidgetType[] = ['currently-reading', 'recent-reads', 'stats', 'goal', 'next-up', 'upcoming-releases'];
 
 export const GET: RequestHandler = async ({ params, url }) => {
 	const { type } = params;
-	const token = url.searchParams.get('token');
 	const theme = (url.searchParams.get('theme') || 'light') as WidgetTheme;
 	const limit = parseInt(url.searchParams.get('limit') || '5', 10);
 
@@ -24,11 +22,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	// Check if widgets are enabled
 	if (!(await areWidgetsEnabled())) {
 		throw error(403, 'Widgets are disabled');
-	}
-
-	// Validate token
-	if (!token || !(await validateWidgetToken(token))) {
-		throw error(401, 'Invalid or missing widget token');
 	}
 
 	try {

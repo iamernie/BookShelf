@@ -2,7 +2,6 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import {
-	validateWidgetToken,
 	areWidgetsEnabled,
 	getWidgetData,
 	type WidgetType,
@@ -22,7 +21,6 @@ function escapeHtml(str: string): string {
 
 export const GET: RequestHandler = async ({ url }) => {
 	const type = (url.searchParams.get('type') || 'currently-reading') as WidgetType;
-	const token = url.searchParams.get('token');
 	const theme = (url.searchParams.get('theme') || 'light') as WidgetTheme;
 	const limit = parseInt(url.searchParams.get('limit') || '5', 10);
 
@@ -34,11 +32,6 @@ export const GET: RequestHandler = async ({ url }) => {
 	// Check if widgets are enabled
 	if (!(await areWidgetsEnabled())) {
 		throw error(403, 'Widgets are disabled');
-	}
-
-	// Validate token
-	if (!token || !(await validateWidgetToken(token))) {
-		throw error(401, 'Invalid or missing widget token');
 	}
 
 	try {
@@ -298,7 +291,7 @@ function renderBookList(
 			.map(
 				(book) => `
 			<div class="book-item">
-				<img class="book-cover" src="${book.coverUrl || '/placeholder.png'}" alt="" onerror="this.src='/placeholder.png'">
+				<img class="book-cover" src="${escapeHtml(book.coverUrl || '/placeholder.png')}" alt="" onerror="this.src='/placeholder.png'">
 				<div class="book-info">
 					<div class="book-title">${escapeHtml(book.title)}</div>
 					${book.author ? `<div class="book-author">${escapeHtml(book.author)}</div>` : ''}

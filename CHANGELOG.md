@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-10-27
+
+### Security
+- Embedded widgets no longer include the API token. Widgets need no token at all now: they are display-only and available whenever widget access is turned on in Admin > Public Widgets. The token shown on that page is only for the v1 API. Embed codes copied before this release still work (the token in them is ignored), but you may want to regenerate the token, since old embed codes exposed it on your website
+- The book cover image address is now escaped in the widget embed page. Before, a crafted cover address could be used to run script in the embed page
+- The widget data endpoint no longer offers the "all" type, which returned a full dump of the widget data and had no widget behind it
+- The API token is now checked with a constant-time comparison
+- Widgets embedded on external sites now actually show up. A security header was blocking them in every iframe outside BookShelf; it is now skipped for the widget embed page only
+
 ## [2.19.11] - 2026-10-27
 
 ### Changed

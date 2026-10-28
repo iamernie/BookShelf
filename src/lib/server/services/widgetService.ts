@@ -121,13 +121,16 @@ export async function getWidgetToken(): Promise<string> {
 }
 
 /**
- * Validate widget token
+ * Validate widget token (constant-time comparison)
  */
 export async function validateWidgetToken(token: string): Promise<boolean> {
 	if (!token) return false;
 
 	const storedToken = await getWidgetToken();
-	return token === storedToken;
+	const provided = Buffer.from(token, 'utf8');
+	const stored = Buffer.from(storedToken, 'utf8');
+	if (provided.length !== stored.length) return false;
+	return crypto.timingSafeEqual(provided, stored);
 }
 
 /**

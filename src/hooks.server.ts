@@ -232,8 +232,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	logRequest(event.request.method, event.url.pathname, response.status, duration);
 
 	// Add security headers to response
+	// The widget embed sets its own X-Frame-Options so external sites can iframe it
+	const isWidgetEmbed = event.url.pathname === '/widgets/embed';
 	const responseWithHeaders = new Response(response.body, response);
 	for (const [header, value] of Object.entries(securityHeaders)) {
+		if (isWidgetEmbed && header === 'X-Frame-Options') continue;
 		responseWithHeaders.headers.set(header, value);
 	}
 

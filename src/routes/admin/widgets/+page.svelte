@@ -66,11 +66,11 @@
 
 	// Generated URLs
 	let embedUrl = $derived(
-		`${data.baseUrl}/widgets/embed?type=${selectedType}&token=${token}&theme=${selectedTheme}${widgetTypes.find((t) => t.id === selectedType)?.hasLimit ? `&limit=${selectedLimit}` : ''}`
+		`${data.baseUrl}/widgets/embed?type=${selectedType}&theme=${selectedTheme}${widgetTypes.find((t) => t.id === selectedType)?.hasLimit ? `&limit=${selectedLimit}` : ''}`
 	);
 
 	let apiUrl = $derived(
-		`${data.baseUrl}/widgets/api/${selectedType}?token=${token}&theme=${selectedTheme}${widgetTypes.find((t) => t.id === selectedType)?.hasLimit ? `&limit=${selectedLimit}` : ''}`
+		`${data.baseUrl}/widgets/api/${selectedType}?theme=${selectedTheme}${widgetTypes.find((t) => t.id === selectedType)?.hasLimit ? `&limit=${selectedLimit}` : ''}`
 	);
 
 	let iframeCode = $derived(
@@ -135,9 +135,11 @@
 	{#if enabled}
 		<!-- Token Management -->
 		<div class="card p-4 mb-6">
-			<h3 class="font-semibold mb-3" style="color: var(--text-primary);">Security Token</h3>
+			<h3 class="font-semibold mb-3" style="color: var(--text-primary);">API Token</h3>
 			<p class="text-sm mb-4" style="color: var(--text-muted);">
-				This token authenticates widget requests. Keep it private.
+				Widgets don't need a token: they are display-only and available whenever widget access is
+				enabled. This token authenticates the v1 API (used by external automations). Keep it
+				private.
 			</p>
 
 			<div class="flex items-center gap-3 mb-4">
@@ -361,8 +363,8 @@
 				Regenerate Token?
 			</h3>
 			<p class="mb-4" style="color: var(--text-muted);">
-				This will invalidate all existing widget embeds. You'll need to update the embed code on all
-				sites using your widgets.
+				This will invalidate the current API token. Any external tools using the v1 API will need the
+				new token. Widget embeds are not affected.
 			</p>
 			<div class="flex gap-3 justify-end">
 				<button type="button" class="btn-secondary" onclick={() => (showRegenerateConfirm = false)}>
