@@ -3,6 +3,7 @@ import { eq, like, sql, desc, asc, and, isNotNull, ne, inArray, or } from 'drizz
 import type { BookCardData } from '$lib/types';
 import type { Series, NewSeries } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
+import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
 /**
  * Generate SQL condition to filter books by user's library
@@ -541,14 +542,9 @@ export async function findDuplicateSeries(): Promise<
 	const groups = new Map<string, Array<{ id: number; title: string; bookCount: number }>>();
 
 	for (const s of allSeries) {
-		// Normalize: lowercase, remove extra spaces, common variations
-		const normalized = s.title
-			.toLowerCase()
-			.replace(/\s+/g, ' ')
-			.replace(/[:.,-]/g, '')
-			.replace(/^the\s+/i, '')
-			.replace(/\s+series$/i, '')
-			.trim();
+		const normalized = duplicateNameKey(s.title, (t) =>
+			t.replace(/^the /, '').replace(/ series$/, '')
+		);
 
 		if (!groups.has(normalized)) {
 			groups.set(normalized, []);
@@ -562,12 +558,13 @@ export async function findDuplicateSeries(): Promise<
 		series: { id: number; title: string; bookCount: number }[];
 	}> = [];
 
-	groups.forEach((seriesList, title) => {
+	groups.forEach((seriesList) => {
 		if (seriesList.length > 1) {
 			// Filter out series where all pairs are ignored
 			const nonIgnored = filterIgnoredPairs(seriesList, ignoredPairs);
 			if (nonIgnored.length > 1) {
-				duplicates.push({ title, series: nonIgnored });
+				// Label the group with a real title; the grouping key is not display text
+				duplicates.push({ title: nonIgnored[0].title, series: nonIgnored });
 			}
 		}
 	});

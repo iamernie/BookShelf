@@ -4,6 +4,7 @@ import type { Author, NewAuthor } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
 import type { BookCardData } from '$lib/types';
 import { dateInAppTz } from '$lib/server/utils/appTime';
+import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
 interface TagInfo {
 	id: number;
@@ -543,12 +544,7 @@ export async function findDuplicateAuthors(): Promise<
 	const groups = new Map<string, Array<{ id: number; name: string; bookCount: number }>>();
 
 	for (const author of allAuthors) {
-		// Normalize: lowercase, remove extra spaces, common variations
-		const normalized = author.name
-			.toLowerCase()
-			.replace(/\s+/g, ' ')
-			.replace(/\./g, '')
-			.trim();
+		const normalized = duplicateNameKey(author.name);
 
 		if (!groups.has(normalized)) {
 			groups.set(normalized, []);
@@ -562,12 +558,13 @@ export async function findDuplicateAuthors(): Promise<
 		authors: { id: number; name: string; bookCount: number }[];
 	}> = [];
 
-	groups.forEach((authorList, name) => {
+	groups.forEach((authorList) => {
 		if (authorList.length > 1) {
 			// Filter out authors where all pairs are ignored
 			const nonIgnoredAuthors = filterIgnoredPairs(authorList, ignoredPairs);
 			if (nonIgnoredAuthors.length > 1) {
-				duplicates.push({ name, authors: nonIgnoredAuthors });
+				// Label the group with a real name; the grouping key is not display text
+				duplicates.push({ name: nonIgnoredAuthors[0].name, authors: nonIgnoredAuthors });
 			}
 		}
 	});

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.21.2] - 2026-10-28
+
+### Fixed
+- The duplicate finder in Data Cleanup now recognizes author names that differ only by punctuation or spacing, like J.N. Chaney and J. N. Chaney. Series names get the same treatment
+
 ## [2.21.1] - 2026-10-28
 
 ### Fixed
