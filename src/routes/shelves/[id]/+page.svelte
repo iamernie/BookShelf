@@ -12,7 +12,7 @@
 
 	let showEditModal = $state(false);
 
-	// Transform raw books to BookCardData format
+	// Server load enriches rows with author/series/status/tags (order preserved)
 	let books = $derived(data.books.map(book => ({
 		id: book.id,
 		title: book.title,
@@ -22,10 +22,14 @@
 		ebookPath: book.ebookPath,
 		absItemId: book.absItemId,
 		releaseDate: book.releaseDate,
-		authorName: null, // TODO: join with authors
-		seriesName: null, // TODO: join with series
-		status: null, // TODO: join with statuses
-		summary: book.summary
+		authorName: book.authorName,
+		seriesName: book.seriesName,
+		summary: book.summary,
+		completedDate: book.completedDate,
+		status: book.status,
+		genre: book.genre,
+		format: book.format,
+		tags: book.tags
 	} as BookCardData)));
 
 	function handleBookClick(book: BookCardData) {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.21.1] - 2026-10-28
+
+### Fixed
+- Books on a shelf's detail page now show the author, series and status like the dashboard cards do
+
 ## [2.21.0] - 2026-10-28
 
 ### Changed

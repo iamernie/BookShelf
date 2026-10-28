@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getShelfById, getShelfBooks } from '$lib/server/services/magicShelfService';
+import { getBooksCardData } from '$lib/server/services/bookService';
 import { db, statuses, genres, formats, authors, series, tags, narrators } from '$lib/server/db';
 import { asc } from 'drizzle-orm';
 
@@ -35,12 +36,18 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		db.select({ id: narrators.id, name: narrators.name }).from(narrators).orderBy(asc(narrators.name))
 	]);
 
+	// getShelfBooks returns raw book rows; enrich this page with author/series/status/etc. (order preserved)
+	const rawBooks = result?.books || [];
+	const cardData = await getBooksCardData(rawBooks.map(b => b.id));
+	const cardMap = new Map(cardData.map(b => [b.id, b]));
+	const books = rawBooks.map(b => ({ ...b, ...cardMap.get(b.id) }));
+
 	return {
 		shelf: {
 			...shelf,
 			filterJson: JSON.parse(shelf.filterJson)
 		},
-		books: result?.books || [],
+		books,
 		pagination: {
 			page: result?.page || 1,
 			limit: result?.limit || 24,
