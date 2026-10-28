@@ -4,13 +4,11 @@ import { getBookById, updateBook, deleteBook } from '$lib/server/services/bookSe
 import { removeBookFromUserLibrary, getUserBook } from '$lib/server/services/userBookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { canAccessBook, canModifyBook, canDeleteBook } from '$lib/server/services/libraryShareService';
-import { getStatusByKey } from '$lib/server/services/statusService';
+import { applyStatusChange } from '$lib/server/services/statusService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
 import { db, books } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
-import { todayInAppTz } from '$lib/server/utils/appTime';
-import { notifyBookCompleted, checkAndNotifySeriesCompletion } from '$lib/server/services/notificationService';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
@@ -49,10 +47,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		.select({
 			id: books.id,
 			libraryType: books.libraryType,
-			ownerId: books.ownerId,
-			statusId: books.statusId,
-			startReadingDate: books.startReadingDate,
-			completedDate: books.completedDate
+			ownerId: books.ownerId
 		})
 		.from(books)
 		.where(eq(books.id, id))
@@ -128,8 +123,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.providerRatingSource !== undefined) updateData.providerRatingSource = data.providerRatingSource?.trim() || null;
 	if (data.providerRatingCount !== undefined) updateData.providerRatingCount = data.providerRatingCount ?? null;
 
-	// Foreign key fields
-	if (data.statusId !== undefined) updateData.statusId = data.statusId || null;
+	// Foreign key fields (statusId goes through applyStatusChange below)
+	const statusId: number | null | undefined = data.statusId !== undefined ? data.statusId || null : undefined;
 	if (data.genreId !== undefined) updateData.genreId = data.genreId || null;
 	if (data.formatId !== undefined) updateData.formatId = data.formatId || null;
 	if (data.narratorId !== undefined) updateData.narratorId = data.narratorId || null;
@@ -139,72 +134,36 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.startReadingDate !== undefined) updateData.startReadingDate = data.startReadingDate || null;
 	if (data.completedDate !== undefined) updateData.completedDate = data.completedDate || null;
 
-	// Track if this is a book completion (for notification)
-	let isBookCompletion = false;
-
-	// Auto-set dates when status changes (only if date not already set and not explicitly provided)
-	if (data.statusId !== undefined && data.statusId !== existingBook.statusId) {
-		const today = todayInAppTz(); // YYYY-MM-DD in the app timezone
-
-		// Get the status keys for CURRENT and READ
-		const [currentStatus, readStatus] = await Promise.all([
-			getStatusByKey('CURRENT'),
-			getStatusByKey('READ')
-		]);
-
-		// If changing to CURRENT and no startReadingDate is set
-		if (currentStatus && data.statusId === currentStatus.id) {
-			const existingStartDate = data.startReadingDate !== undefined
-				? data.startReadingDate
-				: existingBook.startReadingDate;
-			if (!existingStartDate) {
-				updateData.startReadingDate = today;
-			}
-		}
-
-		// If changing to READ and no completedDate is set
-		if (readStatus && data.statusId === readStatus.id) {
-			const existingCompletedDate = data.completedDate !== undefined
-				? data.completedDate
-				: existingBook.completedDate;
-			if (!existingCompletedDate) {
-				updateData.completedDate = today;
-			}
-			// Mark this as a completion for notification
-			isBookCompletion = true;
-		}
-	}
-
 	// Relation arrays (only include if explicitly provided)
 	if (data.authors !== undefined) updateData.authors = data.authors;
 	if (data.series !== undefined) updateData.series = data.series;
 	if (data.tagIds !== undefined) updateData.tagIds = data.tagIds;
 
 	// Require at least one field to update
-	if (Object.keys(updateData).length === 0) {
+	if (Object.keys(updateData).length === 0 && statusId === undefined) {
 		throw error(400, { message: 'No fields to update' });
 	}
 
-	const book = await updateBook(id, updateData);
+	let book = await updateBook(id, updateData);
 
 	if (!book) {
 		throw error(404, { message: 'Book not found' });
 	}
 
+	if (statusId !== undefined) {
+		// A date sent with the edit wins over stamping; an empty one leaves stamping on
+		const dates: { startReadingDate?: string; completedDate?: string } = {};
+		if (updateData.startReadingDate) dates.startReadingDate = updateData.startReadingDate as string;
+		if (updateData.completedDate) dates.completedDate = updateData.completedDate as string;
+		const { changed } = await applyStatusChange([id], statusId, { source: 'book_edit', userId: locals.user.id, dates });
+		if (changed.length > 0) {
+			const [refreshed] = await db.select().from(books).where(eq(books.id, id)).limit(1);
+			if (refreshed) book = refreshed;
+		}
+	}
+
 	// Keep the "Audiobook Shelf" tag in step with manual link/unlink
 	if (data.absItemId !== undefined) await applyAbsTagParity(id);
-
-	// Send book completed notification if applicable (fire and forget)
-	if (isBookCompletion && locals.user) {
-		notifyBookCompleted(locals.user.id, {
-			id: book.id,
-			title: book.title
-		}).catch(err => console.error('[notifications] Failed to send book completed notification:', err));
-
-		// Check if this completes any series
-		checkAndNotifySeriesCompletion(locals.user.id, book.id)
-			.catch(err => console.error('[notifications] Failed to check series completion:', err));
-	}
 
 	return json(book);
 };

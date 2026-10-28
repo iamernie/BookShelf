@@ -8,6 +8,7 @@ import type { RequestHandler } from './$types';
 import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
 import { updateBook, deleteBook, type CreateBookData } from '$lib/server/services/bookService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
+import { applyStatusChange } from '$lib/server/services/statusService';
 import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators } from '$lib/server/db';
 import { eq, sql } from 'drizzle-orm';
@@ -254,7 +255,6 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (body.publishYear !== undefined) updateData.publishYear = body.publishYear;
 		if (body.language !== undefined) updateData.language = body.language;
 		if (body.edition !== undefined) updateData.edition = body.edition;
-		if (statusId !== undefined) updateData.statusId = statusId;
 		if (genreId !== undefined) updateData.genreId = genreId;
 		if (formatId !== undefined) updateData.formatId = formatId;
 		if (narratorId !== undefined) updateData.narratorId = narratorId;
@@ -266,6 +266,14 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 
 		if (!updatedBook) {
 			return json({ error: 'Failed to update book' }, { status: 500 });
+		}
+
+		if (statusId !== undefined) {
+			// A date sent with the update wins over stamping; an empty one leaves stamping on
+			const dates: { startReadingDate?: string; completedDate?: string } = {};
+			if (body.startReadingDate) dates.startReadingDate = body.startReadingDate;
+			if (body.completedDate) dates.completedDate = body.completedDate;
+			await applyStatusChange([bookId], statusId ?? null, { source: 'api_v1', dates });
 		}
 
 		// Keep the "Audiobook Shelf" tag in step with manual link/unlink

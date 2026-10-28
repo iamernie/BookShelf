@@ -1,7 +1,6 @@
 import { db, books, bookAuthors, bookSeries, bookTags, authors, series, statuses, genres, formats, narrators, tags, userBooks, userBookTags, metadataSuggestions, readingSessions, bookdropQueue } from '$lib/server/db';
 import { eq, like, sql, desc, asc, and, or, inArray, isNull } from 'drizzle-orm';
 import type { Book, NewBook } from '$lib/server/db/schema';
-import { getStatusByKey, todayDateOnly } from './statusService';
 
 export interface BookWithRelations extends Book {
 	authors: { id: number; name: string; role: string | null; isPrimary: boolean | null }[];
@@ -379,21 +378,7 @@ export async function updateBook(id: number, data: Partial<CreateBookData>): Pro
 	const now = new Date().toISOString();
 	const { authors: bookAuthorsList, series: bookSeriesList, tagIds, ...bookData } = data;
 
-	// Stamp completedDate on a real transition into Done when no date exists yet
-	if (data.statusId != null && !data.completedDate) {
-		const readStatus = await getStatusByKey('READ');
-		if (readStatus && data.statusId === readStatus.id) {
-			const [existing] = await db
-				.select({ statusId: books.statusId, completedDate: books.completedDate })
-				.from(books)
-				.where(eq(books.id, id))
-				.limit(1);
-			if (existing && existing.statusId !== readStatus.id && !existing.completedDate) {
-				bookData.completedDate = todayDateOnly();
-			}
-		}
-	}
-
+	// Fields are written as given; status changes and date stamping belong to applyStatusChange
 	const [updated] = await db
 		.update(books)
 		.set({

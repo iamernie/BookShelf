@@ -26,10 +26,11 @@
  */
 
 import { db } from '$lib/server/db';
-import { books, authors, bookAuthors, bookTags, narrators, formats, statuses, tags, users } from '$lib/server/db/schema';
+import { books, authors, bookAuthors, bookTags, narrators, formats, statuses, tags } from '$lib/server/db/schema';
 import { and, asc, count, eq, gt, inArray, isNotNull, isNull, ne, notInArray, or, sql } from 'drizzle-orm';
 import { getSetting, getSettingAs, setSetting } from './settingsService';
 import { createBook } from './bookService';
+import { applyStatusChange, getDefaultOwnerId } from './statusService';
 import { createLogger } from './loggerService';
 import { dateInAppTz, startOfDayInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 
@@ -403,11 +404,6 @@ async function getUnreadStatusId(): Promise<number | null> {
 	const [byKey] = await db.select({ id: statuses.id }).from(statuses)
 		.where(eq(statuses.key, 'UNREAD')).limit(1);
 	return byKey?.id ?? null;
-}
-
-async function getDefaultOwnerId(): Promise<number | null> {
-	const [user] = await db.select({ id: users.id }).from(users).where(eq(users.role, 'admin')).limit(1);
-	return user?.id ?? null;
 }
 
 // ============================================
@@ -824,8 +820,6 @@ async function runStatusSync(config: AbsConfig, progressByItem: Map<string, AbsM
 			id: books.id,
 			absItemId: books.absItemId,
 			statusId: books.statusId,
-			startReadingDate: books.startReadingDate,
-			completedDate: books.completedDate,
 			absWritebackItemId: books.absWritebackItemId
 		})
 		.from(books)
@@ -841,30 +835,30 @@ async function runStatusSync(config: AbsConfig, progressByItem: Map<string, AbsM
 		if (doneId !== null && book.statusId === doneId) continue;
 
 		const progress = toAbsProgress(raw);
-		const now = new Date().toISOString();
-		let update: Partial<typeof books.$inferInsert> | null = null;
+		let targetId: number | null = null;
+		const stampDates: { startReadingDate?: string; completedDate?: string } = {};
+		if (raw.startedAt) stampDates.startReadingDate = toDateOnly(raw.startedAt);
 
 		if (progress.isFinished) {
 			if (doneId === null) continue;
 			// We finished this item ourselves and the user has since moved the book off Done
 			if (book.absWritebackItemId === book.absItemId) continue;
-			update = { statusId: doneId };
-			if (!book.startReadingDate && raw.startedAt) update.startReadingDate = toDateOnly(raw.startedAt);
-			if (!book.completedDate) update.completedDate = toDateOnly(raw.finishedAt);
+			targetId = doneId;
+			stampDates.completedDate = toDateOnly(raw.finishedAt);
 		} else if (progress.progress > 0) {
 			if (currentId === null || book.statusId === currentId) continue;
-			update = { statusId: currentId };
-			if (!book.startReadingDate) update.startReadingDate = toDateOnly(raw.startedAt);
+			targetId = currentId;
 		}
-		if (!update) continue;
+		if (targetId === null) continue;
 
 		try {
-			await db.update(books).set({ ...update, updatedAt: now }).where(eq(books.id, book.id));
+			const { changed } = await applyStatusChange([book.id], targetId, { source: 'abs_sync', stampDates });
+			if (changed.length === 0) continue;
 			flips++;
 			log.info('Updated book status from Audiobookshelf progress', {
 				bookId: book.id,
 				absItemId: book.absItemId,
-				status: update.statusId === doneId ? STATUS_DONE_NAME : STATUS_CURRENT_NAME,
+				status: targetId === doneId ? STATUS_DONE_NAME : STATUS_CURRENT_NAME,
 				progress: progress.progress
 			});
 		} catch (err) {

@@ -1,6 +1,7 @@
-import { db, statuses, books } from '$lib/server/db';
-import { eq, asc, sql } from 'drizzle-orm';
+import { db, statuses, books, users, userBooks } from '$lib/server/db';
+import { eq, asc, sql, and, inArray } from 'drizzle-orm';
 import { todayInAppTz } from '$lib/server/utils/appTime';
+import { notifyBookCompleted, checkAndNotifySeriesCompletion } from './notificationService';
 
 // Infer Status type from schema
 type StatusType = typeof statuses.$inferSelect;
@@ -98,7 +99,146 @@ export async function getStatusByKey(key: string): Promise<StatusType | null> {
 	return status || null;
 }
 
-// Today's date as YYYY-MM-DD in the app timezone, matching the other completion-date stampers
-export function todayDateOnly(): string {
-	return todayInAppTz();
+// Owner for books with no ownerId (and for callers with no acting user): the first admin
+export async function getDefaultOwnerId(): Promise<number | null> {
+	const [user] = await db.select({ id: users.id }).from(users).where(eq(users.role, 'admin')).orderBy(asc(users.id)).limit(1);
+	return user?.id ?? null;
+}
+
+// ============================================
+// Status changes: the one place a book's status moves
+// ============================================
+
+export type StatusChangeSource = 'book_edit' | 'bulk' | 'abs_sync' | 'api_v1';
+
+export interface ApplyStatusChangeOptions {
+	source: StatusChangeSource;
+	/** Acting user; when null, resolved per book via books.ownerId, falling back to the first admin */
+	userId?: number | null;
+	/** Explicit dates: written as given, never stamped over */
+	dates?: { startReadingDate?: string | null; completedDate?: string | null };
+	/** Dates stamped instead of today (ABS timestamps) */
+	stampDates?: { startReadingDate?: string; completedDate?: string };
+	/** Send completion notifications (default true) */
+	notify?: boolean;
+}
+
+export interface ApplyStatusChangeResult {
+	changed: number[];
+	unchanged: number[];
+	userBooksUpdated: number;
+	userBooksSkipped: number[];
+}
+
+const isEmptyDate = (value: string | null | undefined): boolean => value == null || value === '';
+
+/**
+ * Move books to a status. Books already in that status are left alone. Stamps
+ * startReadingDate on Current and completedDate on Done (only when empty; explicit
+ * dates win), writes books, mirrors the result onto the user's existing user_books row
+ * (never creates one), and notifies on completion with series checked once per series.
+ */
+export async function applyStatusChange(
+	bookIds: number[],
+	statusId: number | null,
+	opts: ApplyStatusChangeOptions
+): Promise<ApplyStatusChangeResult> {
+	const result: ApplyStatusChangeResult = { changed: [], unchanged: [], userBooksUpdated: 0, userBooksSkipped: [] };
+	const ids = [...new Set(bookIds.filter((id) => Number.isInteger(id)))];
+	if (ids.length === 0) return result;
+
+	const [currentStatus, readStatus] = await Promise.all([getStatusByKey('CURRENT'), getStatusByKey('READ')]);
+	const isCurrent = statusId !== null && statusId === currentStatus?.id;
+	const isRead = statusId !== null && statusId === readStatus?.id;
+
+	const rows = await db
+		.select({
+			id: books.id,
+			title: books.title,
+			ownerId: books.ownerId,
+			statusId: books.statusId,
+			startReadingDate: books.startReadingDate,
+			completedDate: books.completedDate
+		})
+		.from(books)
+		.where(inArray(books.id, ids));
+
+	const today = todayInAppTz();
+	const explicit = opts.dates ?? {};
+	let fallbackOwnerId: number | null | undefined;
+	const completions: { userId: number; id: number; title: string; completedDate: string | null }[] = [];
+
+	for (const row of rows) {
+		if (row.statusId === statusId) {
+			result.unchanged.push(row.id);
+			continue;
+		}
+
+		let startReadingDate = row.startReadingDate;
+		if (explicit.startReadingDate !== undefined) {
+			startReadingDate = explicit.startReadingDate;
+		} else if (isCurrent && isEmptyDate(startReadingDate)) {
+			startReadingDate = opts.stampDates?.startReadingDate ?? today;
+		} else if (isRead && isEmptyDate(startReadingDate) && opts.stampDates?.startReadingDate) {
+			startReadingDate = opts.stampDates.startReadingDate;
+		}
+
+		let completedDate = row.completedDate;
+		if (explicit.completedDate !== undefined) {
+			completedDate = explicit.completedDate;
+		} else if (isRead && isEmptyDate(completedDate)) {
+			completedDate = opts.stampDates?.completedDate ?? today;
+		}
+
+		const now = new Date().toISOString();
+		await db
+			.update(books)
+			.set({ statusId, startReadingDate, completedDate, updatedAt: now })
+			.where(eq(books.id, row.id));
+		result.changed.push(row.id);
+
+		let userId = opts.userId ?? row.ownerId ?? null;
+		if (userId === null) {
+			if (fallbackOwnerId === undefined) fallbackOwnerId = await getDefaultOwnerId();
+			userId = fallbackOwnerId;
+		}
+
+		// Mirror onto the user's reading record; a missing row means not in their library
+		const [userBook] = userId === null ? [] : await db
+			.select({ id: userBooks.id })
+			.from(userBooks)
+			.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, row.id)))
+			.limit(1);
+		if (userBook) {
+			await db
+				.update(userBooks)
+				.set({ statusId, startReadingDate, completedDate, updatedAt: now })
+				.where(eq(userBooks.id, userBook.id));
+			result.userBooksUpdated++;
+		} else {
+			result.userBooksSkipped.push(row.id);
+		}
+
+		if (isRead && userId !== null) completions.push({ userId, id: row.id, title: row.title, completedDate });
+	}
+
+	if (opts.notify !== false && completions.length > 0) {
+		// ABS backfills old finishes; only a finish dated today is news
+		const toNotify = opts.source === 'abs_sync'
+			? completions.filter((c) => c.completedDate === today)
+			: completions;
+
+		const seriesBooksByUser = new Map<number, number[]>();
+		for (const c of toNotify) {
+			notifyBookCompleted(c.userId, { id: c.id, title: c.title })
+				.catch(err => console.error('[notifications] Failed to send book completed notification:', err));
+			seriesBooksByUser.set(c.userId, [...(seriesBooksByUser.get(c.userId) ?? []), c.id]);
+		}
+		for (const [userId, completedIds] of seriesBooksByUser) {
+			checkAndNotifySeriesCompletion(userId, completedIds)
+				.catch(err => console.error('[notifications] Failed to check series completion:', err));
+		}
+	}
+
+	return result;
 }

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.20.1] - 2026-10-27
+
+### Fixed
+- One place now handles every book status change. Before, four different code paths (book edit, bulk status change, Audiobookshelf sync and the v1 API) stamped reading dates in different ways, and none of them updated your per-user reading record, so the Library header counts drifted from the dashboard. Every status change now updates both, with the same status and dates
+- Bulk status changes no longer re-stamp dates or send duplicate completion notifications for books that were already in that status
+- Series completion notifications are sent once per series, not once per book in the series
+- Audiobookshelf sync now updates your per-user reading record, and only sends a "book completed" notification for books finished today (older finishes it catches up on stay silent)
+- The v1 API now stamps the reading start date when a book moves to Current, and updates the per-user reading record too
+
 ## [2.20.0] - 2026-10-27
 
 ### Security

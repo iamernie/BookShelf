@@ -318,14 +318,15 @@ export async function notifyBackupCompleted(
 }
 
 /**
- * Check if completing a book completes any series and send notifications
- * Call this after marking a book as READ
+ * Check if completing books completes any series and send notifications
+ * Call this after marking books as READ; each series is checked once for the whole batch
  */
 export async function checkAndNotifySeriesCompletion(
 	userId: number,
-	bookId: number,
+	bookIds: number[],
 	baseUrl?: string
 ): Promise<void> {
+	if (bookIds.length === 0) return;
 	try {
 		// Get the READ status ID
 		const readStatus = await db
@@ -337,15 +338,16 @@ export async function checkAndNotifySeriesCompletion(
 		const readStatusId = readStatus[0]?.id;
 		if (!readStatusId) return;
 
-		// Get all series that contain this book
+		// Get every series that contains one of these books, each once
 		const bookSeriesLinks = await db
-			.select({
+			.selectDistinct({
 				seriesId: bookSeries.seriesId,
 				seriesTitle: series.title
 			})
 			.from(bookSeries)
 			.innerJoin(series, eq(bookSeries.seriesId, series.id))
-			.where(eq(bookSeries.bookId, bookId));
+			.where(inArray(bookSeries.bookId, bookIds));
+		const completedIds = new Set(bookIds);
 
 		for (const link of bookSeriesLinks) {
 			// Get all books in this series
@@ -361,9 +363,9 @@ export async function checkAndNotifySeriesCompletion(
 			const totalBooks = seriesBooks.length;
 			if (totalBooks === 0) continue;
 
-			// Count how many are read (include the one we just marked)
+			// Count how many are read (include the ones we just marked)
 			const readBooks = seriesBooks.filter(b =>
-				b.statusId === readStatusId || b.bookId === bookId
+				b.statusId === readStatusId || completedIds.has(b.bookId)
 			).length;
 
 			// If all books are now read, the series is complete!
