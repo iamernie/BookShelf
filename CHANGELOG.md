@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-10-28
+
+### Changed
+- The metadata Lookup now works the same everywhere: the edit page, the book page, the Add Book window and the Add to Library page all use one shared implementation instead of four separate copies. Fixes to Lookup now reach every screen at once
+
+### Fixed
+- The Add to Library page put the provider's rating (for example a Goodreads average) into your own personal rating. It now saves it as the provider rating, like the other screens, and your personal rating is left alone
+- The Add to Library page ignored the author, series and genre choices in Lookup. They are now applied: existing authors, series and genres are matched (including authors written with different punctuation, like "J. N. Chaney" and "J.N. Chaney"), missing ones are created, and new ones appear in the genre list
+- The Add to Library page's Lookup message now counts only the fields that were applied and names anything that could not be added, instead of always reporting every selected field as applied
+
 ## [2.20.2] - 2026-10-28
 
 ### Fixed

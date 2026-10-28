@@ -8,6 +8,7 @@
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
+	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
 
 	let { data } = $props();
 
@@ -39,6 +40,10 @@
 	let summary = $state('');
 	let coverUrl = $state('');
 	let rating = $state('');
+	// Provider rating from metadata lookup (never the personal rating)
+	let providerRating = $state('');
+	let providerRatingSource = $state('');
+	let providerRatingCount = $state('');
 
 	// Authors with roles
 	let authorSearch = $state('');
@@ -65,6 +70,7 @@
 
 	// Classification
 	let genreId = $state('');
+	let availableGenres = $state<{ id: number; name: string }[]>(data.options.genres);
 	let formatId = $state('');
 	let statusId = $state('');
 	let selectedTagIds = $state<number[]>([]);
@@ -319,50 +325,42 @@
 		if (metadata.language) language = metadata.language;
 	}
 
-	function applyMetadataResult(result: any, selectedFields: string[]) {
-		for (const field of selectedFields) {
-			switch (field) {
-				case 'title':
-					if (result.title) title = result.title;
-					break;
-				case 'summary':
-					if (result.description) summary = result.description;
-					break;
-				case 'coverUrl':
-					if (result.coverUrl) coverUrl = result.coverUrl;
-					break;
-				case 'isbn13':
-					if (result.isbn13) isbn13 = result.isbn13;
-					break;
-				case 'isbn10':
-					if (result.isbn10) isbn10 = result.isbn10;
-					break;
-				case 'publisher':
-					if (result.publisher) publisher = result.publisher;
-					break;
-				case 'publishYear':
-					if (result.publishYear) publishYear = result.publishYear.toString();
-					break;
-				case 'pageCount':
-					if (result.pageCount) pageCount = result.pageCount.toString();
-					break;
-				case 'language':
-					if (result.language) language = result.language;
-					break;
-				case 'rating':
-					if (result.rating) rating = result.rating.toString();
-					break;
-			}
+	// Create form: the cover URL is recorded and downloaded once the book exists
+	async function handleMetadataApply(result: MetadataResult, selectedFields: string[]) {
+		const outcome = await applyMetadataResult(result, selectedFields, {
+			authors: selectedAuthors,
+			series: selectedSeries,
+			lists: { authors: availableAuthors, series: availableSeries, genres: availableGenres, narrators: availableNarrators },
+			cover: { mode: 'url' }
+		});
+		availableAuthors = outcome.lists.authors;
+		availableSeries = outcome.lists.series;
+		availableGenres = outcome.lists.genres;
+		if (outcome.lists.narrators) availableNarrators = outcome.lists.narrators;
+
+		const f = outcome.fields;
+		if (f.title !== undefined) title = f.title;
+		if (f.summary !== undefined) summary = f.summary;
+		if (f.originalCoverUrl !== undefined) coverUrl = f.originalCoverUrl;
+		if (f.isbn13 !== undefined) isbn13 = f.isbn13;
+		if (f.isbn10 !== undefined) isbn10 = f.isbn10;
+		if (f.publisher !== undefined) publisher = f.publisher;
+		if (f.publishYear !== undefined) publishYear = f.publishYear.toString();
+		if (f.pageCount !== undefined) pageCount = f.pageCount.toString();
+		if (f.language !== undefined) language = f.language;
+		if (f.providerRating !== undefined) providerRating = f.providerRating.toString();
+		if (f.providerRatingSource !== undefined) providerRatingSource = f.providerRatingSource;
+		if (f.providerRatingCount !== undefined) providerRatingCount = f.providerRatingCount.toString();
+		if (f.genre) genreId = f.genre.id.toString();
+		if (f.goodreadsId !== undefined) goodreadsId = f.goodreadsId;
+		if (f.googleBooksId !== undefined) googleBooksId = f.googleBooksId;
+		if (outcome.addedAuthors.length) selectedAuthors = [...selectedAuthors, ...outcome.addedAuthors];
+		if (outcome.addedSeries.length) {
+			selectedSeries = [...selectedSeries, ...outcome.addedSeries.map(s => ({ ...s, bookNumEnd: '' }))];
 		}
 
-		// Store provider IDs
-		if (result.provider === 'goodreads' && result.providerId) {
-			goodreadsId = result.providerId;
-		} else if (result.provider === 'googlebooks' && result.providerId) {
-			googleBooksId = result.providerId;
-		}
-
-		toasts.success(`Applied ${selectedFields.length} fields from ${result.provider}`);
+		const toast = metadataApplyToast(outcome);
+		toasts[toast.level](toast.message);
 	}
 
 	function skipFileUpload() {
@@ -382,6 +380,9 @@
 		summary = '';
 		coverUrl = '';
 		rating = '';
+		providerRating = '';
+		providerRatingSource = '';
+		providerRatingCount = '';
 		selectedAuthors = [];
 		selectedSeries = [];
 		selectedNarrator = null;
@@ -586,6 +587,9 @@
 				title: title.trim(),
 				summary: summary.trim() || null,
 				rating: rating ? parseFloat(rating) : null,
+				providerRating: providerRating ? parseFloat(providerRating) : null,
+				providerRatingSource: providerRatingSource || null,
+				providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
 				coverImageUrl: null,
 				originalCoverUrl: coverUrl.trim() || null,
 				genreId: genreId ? parseInt(genreId) : null,
@@ -1439,7 +1443,7 @@
 								style="background: var(--bg-primary); border-color: var(--border-color); color: var(--text-primary);"
 							>
 								<option value="">Select...</option>
-								{#each data.options.genres as genre}
+								{#each availableGenres as genre}
 									<option value={genre.id.toString()}>{genre.name}</option>
 								{/each}
 							</select>
@@ -1634,5 +1638,5 @@
 	initialAuthor={selectedAuthors[0]?.name || ''}
 	initialIsbn={isbn13 || isbn10 || ''}
 	onClose={() => showMetadataModal = false}
-	onApply={applyMetadataResult}
+	onApply={handleMetadataApply}
 />

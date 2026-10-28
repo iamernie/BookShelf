@@ -28,6 +28,7 @@
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { toInputDate } from '$lib/utils/date';
+	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
 	import LucideIcon from '$lib/components/ui/LucideIcon.svelte';
@@ -397,244 +398,43 @@
 		if (data.coverUrl && !originalCoverUrl) originalCoverUrl = data.coverUrl;
 	}
 
-	// Re-read the picker lists (e.g. an entity created elsewhere after this form loaded)
-	async function refreshOptionLists(): Promise<boolean> {
-		try {
-			const res = await fetch('/api/books/options');
-			if (!res.ok) return false;
-			const fresh = await res.json();
-			availableAuthors = fresh.authors;
-			availableSeries = fresh.series;
-			availableGenres = fresh.genres;
-			availableNarrators = fresh.narrators;
-			return true;
-		} catch {
-			return false;
-		}
-	}
+	async function handleMetadataApply(result: MetadataResult, selectedFields: string[]) {
+		const outcome = await applyMetadataResult(result, selectedFields, {
+			authors: selectedAuthors,
+			series: selectedSeries,
+			lists: { authors: availableAuthors, series: availableSeries, genres: availableGenres, narrators: availableNarrators },
+			cover: { mode: 'download', bookId: book.id },
+			onCoverDownloading: (active) => { downloadingCover = active; }
+		});
+		availableAuthors = outcome.lists.authors;
+		availableSeries = outcome.lists.series;
+		availableGenres = outcome.lists.genres;
+		if (outcome.lists.narrators) availableNarrators = outcome.lists.narrators;
 
-	// Author names compare equal across case and punctuation spacing ("J. N. Chaney" == "J.N. Chaney")
-	function normAuthorName(name: string): string {
-		return name.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
-	}
-
-	// Create an entity during metadata apply. The pick lists can miss existing entities (e.g. bookless ones),
-	// so refresh and re-look-up before creating; if the create fails, refresh the lists once more and look it up again
-	async function createOrRefind<E>(
-		endpoint: string,
-		body: Record<string, string>,
-		find: () => E | undefined,
-		onCreated: (created: { id: number; name: string; title: string }) => E,
-		preFind: () => E | undefined = find
-	): Promise<E | undefined> {
-		if (await refreshOptionLists()) {
-			const found = preFind();
-			if (found) return found;
-		}
-		try {
-			const res = await fetch(endpoint, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(body)
-			});
-			if (res.ok) return onCreated(await res.json());
-		} catch (e) {
-			console.error(`Failed to create via ${endpoint}:`, e);
-		}
-		if (await refreshOptionLists()) return find();
-		return undefined;
-	}
-
-	async function applyMetadataResult(result: any, selectedFields: string[]) {
-		let appliedCount = 0;
-		const failedEntities: string[] = [];
-		let coverDownloaded = false;
-
-		for (const field of selectedFields) {
-			switch (field) {
-				case 'title':
-					if (result.title) { title = result.title; appliedCount++; }
-					break;
-				case 'summary':
-					if (result.description) { summary = result.description; appliedCount++; }
-					break;
-				case 'coverUrl':
-					// Automatically download the cover image - try coverUrl first, then thumbnailUrl
-					const urlsToTry = [result.coverUrl, result.thumbnailUrl].filter(Boolean);
-					if (urlsToTry.length > 0) {
-						downloadingCover = true;
-						for (const imageUrl of urlsToTry) {
-							if (coverDownloaded) break;
-							originalCoverUrl = imageUrl;
-							try {
-								const res = await fetch('/api/covers/download', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ url: imageUrl, bookId: book.id })
-								});
-								if (res.ok) {
-									const data = await res.json();
-									coverImageUrl = data.coverPath;
-									coverDownloaded = true;
-								}
-							} catch {
-								// Try next URL
-							}
-						}
-						downloadingCover = false;
-						appliedCount++;
-					}
-					break;
-				case 'isbn13':
-					if (result.isbn13) { isbn13 = result.isbn13; appliedCount++; }
-					break;
-				case 'isbn10':
-					if (result.isbn10) { isbn10 = result.isbn10; appliedCount++; }
-					break;
-				case 'publisher':
-					if (result.publisher) { publisher = result.publisher; appliedCount++; }
-					break;
-				case 'publishYear':
-					if (result.publishYear) { publishYear = result.publishYear.toString(); appliedCount++; }
-					break;
-				case 'pageCount':
-					if (result.pageCount) { pageCount = result.pageCount.toString(); appliedCount++; }
-					break;
-				case 'language':
-					if (result.language) { language = result.language; appliedCount++; }
-					break;
-				case 'rating':
-					// Store as provider rating, not user rating
-					if (result.rating) {
-						providerRating = result.rating.toString();
-						providerRatingSource = result.provider;
-						if (result.ratingCount) {
-							providerRatingCount = result.ratingCount.toString();
-						}
-						appliedCount++;
-					}
-					break;
-				case 'authors':
-					if (result.authors?.length) {
-						// Look up or create each author
-						for (const authorName of result.authors) {
-							const name = authorName.trim();
-							if (!name) continue;
-
-							// Check if author already selected
-							if (selectedAuthors.some(a => a.name.toLowerCase() === name.toLowerCase())) continue;
-
-							// Check if author exists in available list
-							let existing = availableAuthors.find(a => a.name.toLowerCase() === name.toLowerCase());
-
-							if (!existing) {
-								// Create new author
-								existing = await createOrRefind(
-									'/api/authors',
-									{ name },
-									() => availableAuthors.find(a => a.name.toLowerCase() === name.toLowerCase()),
-									(created) => {
-										const entry = { id: created.id, name: created.name };
-										availableAuthors = [...availableAuthors, entry];
-										return entry;
-									},
-									() => availableAuthors.find(a => normAuthorName(a.name) === normAuthorName(name))
-								);
-								// The normalized relookup can resolve to an author that is already selected
-								if (existing && selectedAuthors.some(a => a.id === existing!.id)) continue;
-							}
-
-							if (existing) {
-								selectedAuthors = [...selectedAuthors, { id: existing.id, name: existing.name, role: 'Author' }];
-							} else {
-								failedEntities.push(`Author '${name}'`);
-							}
-						}
-						if (!failedEntities.some(f => f.startsWith('Author '))) appliedCount++;
-					}
-					break;
-				case 'seriesName':
-					if (result.seriesName) {
-						const seriesTitle = result.seriesName.trim();
-
-						// Check if series already selected
-						if (!selectedSeries.some(s => s.title.toLowerCase() === seriesTitle.toLowerCase())) {
-							// Check if series exists in available list
-							let existing = availableSeries.find((s: any) => s.title.toLowerCase() === seriesTitle.toLowerCase());
-
-							if (!existing) {
-								// Create new series
-								existing = await createOrRefind(
-									'/api/series',
-									{ title: seriesTitle },
-									() => availableSeries.find((s: any) => s.title.toLowerCase() === seriesTitle.toLowerCase()),
-									(created) => {
-										const entry = { id: created.id, title: created.title };
-										availableSeries = [...availableSeries, entry];
-										return entry;
-									}
-								);
-							}
-
-							if (existing) {
-								const bookNum = result.seriesNumber?.toString() || '';
-								selectedSeries = [...selectedSeries, { id: existing.id, title: existing.title, bookNum, bookNumEnd: '', isOmnibus: false }];
-							} else {
-								failedEntities.push(`Series '${seriesTitle}'`);
-							}
-						}
-						if (!failedEntities.some(f => f.startsWith('Series '))) appliedCount++;
-					}
-					break;
-				case 'genres':
-					if (result.genres?.length) {
-						// Use the first genre from metadata
-						const genreName = result.genres[0]?.trim();
-						if (genreName) {
-							// Check if genre exists
-							let existing = availableGenres.find(g => g.name.toLowerCase() === genreName.toLowerCase());
-
-							if (!existing) {
-								// Create new genre
-								existing = await createOrRefind(
-									'/api/genres',
-									{ name: genreName },
-									() => availableGenres.find(g => g.name.toLowerCase() === genreName.toLowerCase()),
-									(created) => {
-										const entry = { id: created.id, name: created.name };
-										availableGenres = [...availableGenres, entry];
-										return entry;
-									}
-								);
-							}
-
-							if (existing) {
-								genreId = existing.id.toString();
-							} else {
-								failedEntities.push(`Genre '${genreName}'`);
-							}
-						}
-						if (!failedEntities.some(f => f.startsWith('Genre '))) appliedCount++;
-					}
-					break;
-			}
+		const f = outcome.fields;
+		if (f.title !== undefined) title = f.title;
+		if (f.summary !== undefined) summary = f.summary;
+		if (f.originalCoverUrl !== undefined) originalCoverUrl = f.originalCoverUrl;
+		if (f.coverImageUrl !== undefined) coverImageUrl = f.coverImageUrl;
+		if (f.isbn13 !== undefined) isbn13 = f.isbn13;
+		if (f.isbn10 !== undefined) isbn10 = f.isbn10;
+		if (f.publisher !== undefined) publisher = f.publisher;
+		if (f.publishYear !== undefined) publishYear = f.publishYear.toString();
+		if (f.pageCount !== undefined) pageCount = f.pageCount.toString();
+		if (f.language !== undefined) language = f.language;
+		if (f.providerRating !== undefined) providerRating = f.providerRating.toString();
+		if (f.providerRatingSource !== undefined) providerRatingSource = f.providerRatingSource;
+		if (f.providerRatingCount !== undefined) providerRatingCount = f.providerRatingCount.toString();
+		if (f.genre) genreId = f.genre.id.toString();
+		if (f.goodreadsId !== undefined) goodreadsId = f.goodreadsId;
+		if (f.googleBooksId !== undefined) googleBooksId = f.googleBooksId;
+		if (outcome.addedAuthors.length) selectedAuthors = [...selectedAuthors, ...outcome.addedAuthors];
+		if (outcome.addedSeries.length) {
+			selectedSeries = [...selectedSeries, ...outcome.addedSeries.map(s => ({ ...s, bookNumEnd: '', isOmnibus: false }))];
 		}
 
-		// Store provider IDs
-		if (result.provider === 'goodreads' && result.providerId) {
-			goodreadsId = result.providerId;
-		} else if (result.provider === 'googlebooks' && result.providerId) {
-			googleBooksId = result.providerId;
-		}
-
-		const coverMsg = coverDownloaded ? ' (cover downloaded)' : '';
-		const failedMsg = failedEntities.length > 0 ? ` - could not add: ${failedEntities.join(', ')}` : '';
-		const message = `Applied ${appliedCount} of ${selectedFields.length} fields from ${result.provider}${coverMsg}${failedMsg}`;
-		if (appliedCount < selectedFields.length) {
-			toasts.warning(message);
-		} else {
-			toasts.success(message);
-		}
+		const toast = metadataApplyToast(outcome);
+		toasts[toast.level](toast.message);
 	}
 
 	async function handleEbookUpload(file: File) {
@@ -1780,7 +1580,7 @@
 	initialAuthor={selectedAuthors[0]?.name || ''}
 	initialIsbn={isbn13 || isbn10 || ''}
 	onClose={() => showMetadataModal = false}
-	onApply={applyMetadataResult}
+	onApply={handleMetadataApply}
 />
 
 <!-- Add Custom Media Source Modal -->
