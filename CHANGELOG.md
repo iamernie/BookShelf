@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.23.1] - 2026-10-28
+
+### Fixed
+- Upgrading with the Audiobookshelf sync interval set could fail to migrate the sync settings on databases created before this change; the migration now works on all schemas.
+
 ## [2.23.0] - 2026-10-28
 
 ### Upgrading: turn sync back on

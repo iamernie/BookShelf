@@ -1696,7 +1696,7 @@ function runMigrations() {
 			(sqlite.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string | null } | undefined)?.value ?? null;
 		const putSetting = (key: string, value: string, type: string) =>
 			sqlite.prepare(
-				`INSERT INTO settings (key, value, type, category, updatedAt) VALUES (?, ?, ?, 'integrations', datetime('now'))
+				`INSERT INTO settings (key, value, type, category, createdAt, updatedAt) VALUES (?, ?, ?, 'integrations', datetime('now'), datetime('now'))
 				 ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE settings.value IS NULL OR settings.value = ''`
 			).run(key, value, type);
 
