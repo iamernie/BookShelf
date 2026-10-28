@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.21.3] - 2026-10-28
+
+### Fixed
+- Adding a book while viewing the public library now really adds it to the public library. Before, it always ended up in your personal library
+- New-book notifications now include the author's name. Before, the name was always missing
+- Updating a book through the v1 API now saves the provider rating, rating source and rating count. Before, those three fields were silently ignored even though the API returns them
+
+### Security
+- Uploading or removing a book's ebook file now checks that you are allowed to edit that book, using the same rules as editing the book itself. Public library books need a librarian or admin
+- Bulk status changes now check each book the same way. Books you are not allowed to edit are skipped and listed in the response instead of being changed
+- Only librarians and admins can add books to the public library
+
 ## [2.21.2] - 2026-10-28
 
 ### Fixed

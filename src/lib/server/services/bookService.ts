@@ -300,8 +300,8 @@ export async function createBook(data: CreateBookData): Promise<Book> {
 	const now = new Date().toISOString();
 	const { authors: bookAuthorsList, series: bookSeriesList, tagIds, ...bookData } = data;
 
-	// Ensure ownerId is set - books must have an owner
-	if (!bookData.ownerId) {
+	// Ensure ownerId is set - personal books must have an owner (public library books have none)
+	if (!bookData.ownerId && bookData.libraryType !== 'public') {
 		throw new Error('ownerId is required to create a book');
 	}
 
@@ -357,19 +357,21 @@ export async function createBook(data: CreateBookData): Promise<Book> {
 		);
 	}
 
-	// Add book to owner's personal library (user_books table)
-	await db.insert(userBooks).values({
-		userId: bookData.ownerId,
-		bookId: newBook.id,
-		statusId: bookData.statusId || null,
-		rating: bookData.rating || null,
-		startReadingDate: bookData.startReadingDate || null,
-		completedDate: bookData.completedDate || null,
-		comments: bookData.comments || null,
-		addedAt: now,
-		createdAt: now,
-		updatedAt: now
-	});
+	// Add book to owner's personal library (user_books table); public library books have no owner
+	if (bookData.ownerId) {
+		await db.insert(userBooks).values({
+			userId: bookData.ownerId,
+			bookId: newBook.id,
+			statusId: bookData.statusId || null,
+			rating: bookData.rating || null,
+			startReadingDate: bookData.startReadingDate || null,
+			completedDate: bookData.completedDate || null,
+			comments: bookData.comments || null,
+			addedAt: now,
+			createdAt: now,
+			updatedAt: now
+		});
+	}
 
 	return newBook;
 }

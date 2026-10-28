@@ -251,6 +251,9 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (body.absItemId !== undefined) updateData.absItemId = typeof body.absItemId === 'string' ? body.absItemId.trim() || null : null;
 		if (body.goodreadsId !== undefined) updateData.goodreadsId = body.goodreadsId;
 		if (body.googleBooksId !== undefined) updateData.googleBooksId = body.googleBooksId;
+		if (body.providerRating !== undefined) updateData.providerRating = body.providerRating;
+		if (body.providerRatingSource !== undefined) updateData.providerRatingSource = body.providerRatingSource;
+		if (body.providerRatingCount !== undefined) updateData.providerRatingCount = body.providerRatingCount;
 		if (body.publisher !== undefined) updateData.publisher = body.publisher;
 		if (body.publishYear !== undefined) updateData.publishYear = body.publishYear;
 		if (body.language !== undefined) updateData.language = body.language;

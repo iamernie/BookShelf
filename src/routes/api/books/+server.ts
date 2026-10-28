@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { getBooks, createBook, getStatuses, getGenres, getFormats, getNarrators, getTags, getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 import { notifyBookAdded } from '$lib/server/services/notificationService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
+import { getAuthorById } from '$lib/server/services/authorService';
+import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
@@ -32,6 +34,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	if (!data.title?.trim()) {
 		throw error(400, { message: 'Title is required' });
+	}
+
+	// Adds default to the personal library; public library adds are librarian/admin only
+	const isPublic = data.libraryType === 'public';
+	if (isPublic && !canManagePublicLibrary(locals.user)) {
+		throw error(403, { message: 'Only librarians and admins can add public library books' });
 	}
 
 	// If there's an originalCoverUrl but no coverImageUrl, try to download the cover
@@ -79,14 +87,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		authors: data.authors || [],
 		series: data.series || [],
 		tagIds: data.tagIds || [],
-		ownerId: locals.user.id // Set the book owner to the current user
+		libraryType: isPublic ? 'public' : 'personal',
+		// Personal books are owned by the current user; public library books have no owner
+		ownerId: isPublic ? undefined : locals.user.id
 	});
+
+	// Editors send authors as { id, role }, so resolve the primary author's name for the notification
+	const authorList: { id: number; isPrimary?: boolean }[] = Array.isArray(data.authors) ? data.authors : [];
+	const primaryAuthorId = (authorList.find((a) => a.isPrimary) ?? authorList[0])?.id;
+	const primaryAuthor = primaryAuthorId ? await getAuthorById(primaryAuthorId) : null;
 
 	// Send notification for new book (fire and forget)
 	notifyBookAdded(locals.user.id, {
 		id: book.id,
 		title: book.title,
-		author: data.authors?.[0]?.name
+		author: primaryAuthor?.name
 	}).catch(err => console.error('[notifications] Failed to send book added notification:', err));
 
 	return json(book, { status: 201 });

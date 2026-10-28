@@ -9,9 +9,15 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { books, formats } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { canManagePublicLibrary } from '$lib/server/services/permissionService';
+import { canModifyBook } from '$lib/server/services/libraryShareService';
 import { saveEbook, deleteEbook } from '$lib/server/services/ebookService';
 
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ params, request, locals }) => {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+
 	const bookId = parseInt(params.id);
 
 	if (isNaN(bookId)) {
@@ -23,6 +29,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 	if (!book) {
 		throw error(404, 'Book not found');
+	}
+
+	// Same permission model as PUT /api/books/[id]
+	if (book.libraryType === 'public') {
+		if (!canManagePublicLibrary(locals.user)) {
+			throw error(403, { message: 'Only librarians and admins can edit public library books' });
+		}
+	} else if (!(await canModifyBook(locals.user.id, bookId))) {
+		throw error(403, { message: 'You do not have permission to modify this book' });
 	}
 
 	// Parse multipart form data
