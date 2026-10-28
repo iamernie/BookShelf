@@ -5,14 +5,14 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
+import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
 import { db, statuses } from '$lib/server/db';
 import { asc } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const token = url.searchParams.get('token');
 
-	if (!(await areWidgetsEnabled())) {
+	if (!(await isApiEnabled())) {
 		return json({ error: 'API is disabled' }, { status: 403 });
 	}
 

@@ -12,20 +12,21 @@ const VALID_TYPES: WidgetType[] = ['currently-reading', 'recent-reads', 'stats',
 export const GET: RequestHandler = async ({ params, url }) => {
 	const { type } = params;
 	const theme = (url.searchParams.get('theme') || 'light') as WidgetTheme;
-	const limit = parseInt(url.searchParams.get('limit') || '5', 10);
+	// Clamp to 1..20; non-numeric falls back to 5 (LIMIT -1 would be unlimited in SQLite)
+	const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit') || '', 10) || 5, 20));
+
+	// Check enabled first so a disabled install doesn't reveal which widget types exist
+	if (!(await areWidgetsEnabled())) {
+		throw error(404, 'Not found');
+	}
 
 	// Validate type
 	if (!VALID_TYPES.includes(type as WidgetType)) {
 		throw error(400, `Invalid widget type. Must be one of: ${VALID_TYPES.join(', ')}`);
 	}
 
-	// Check if widgets are enabled
-	if (!(await areWidgetsEnabled())) {
-		throw error(403, 'Widgets are disabled');
-	}
-
 	try {
-		const data = await getWidgetData(type as WidgetType, Math.min(limit, 20));
+		const data = await getWidgetData(type as WidgetType, limit);
 
 		return json({
 			type,

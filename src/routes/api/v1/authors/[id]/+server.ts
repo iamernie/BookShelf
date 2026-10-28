@@ -5,14 +5,14 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
+import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
 import { updateAuthor, deleteAuthor } from '$lib/server/services/authorService';
 import { db, authors, books, bookAuthors, series, bookSeries, statuses } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
-	if (!(await areWidgetsEnabled())) {
+	if (!(await isApiEnabled())) {
 		return { valid: false, error: 'API is disabled', status: 403 };
 	}
 	if (!token || !(await validateWidgetToken(token))) {

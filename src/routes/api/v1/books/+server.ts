@@ -5,7 +5,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
+import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
 import { createBook, type CreateBookData } from '$lib/server/services/bookService';
 import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators, users } from '$lib/server/db';
@@ -13,7 +13,7 @@ import { eq, sql, desc, and, inArray, isNull } from 'drizzle-orm';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
-	if (!(await areWidgetsEnabled())) {
+	if (!(await isApiEnabled())) {
 		return { valid: false, error: 'API is disabled', status: 403 };
 	}
 	if (!token || !(await validateWidgetToken(token))) {

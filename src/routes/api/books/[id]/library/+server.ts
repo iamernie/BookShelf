@@ -14,6 +14,7 @@ import {
 	updateUserBook,
 	type UpdateUserBookInput
 } from '$lib/server/services/userBookService';
+import { canAccessBook } from '$lib/server/services/libraryShareService';
 // Permission service used for full User type - for simplified locals.user, check role directly
 import type { LibraryType } from '$lib/server/db/schema';
 
@@ -69,13 +70,19 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// Check if book exists
 	const [book] = await db
-		.select({ id: books.id })
+		.select({ id: books.id, libraryType: books.libraryType })
 		.from(books)
 		.where(eq(books.id, bookId))
 		.limit(1);
 
 	if (!book) {
 		throw error(404, 'Book not found');
+	}
+
+	// Public books can be added by anyone; personal books need ownership or an active share,
+	// otherwise the user_books row created below would itself grant access
+	if (book.libraryType !== 'public' && !(await canAccessBook(locals.user.id, bookId))) {
+		throw error(403, { message: 'You do not have access to this book' });
 	}
 
 	const body = await request.json().catch(() => ({}));
@@ -96,6 +103,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	});
 };
 
+const NUMBER_FIELDS = ['rating', 'readingProgress', 'dnfPage', 'dnfPercent'] as const;
+const STRING_FIELDS = [
+	'comments',
+	'startReadingDate',
+	'completedDate',
+	'readingPosition',
+	'dnfReason',
+	'dnfDate'
+] as const;
+
 /**
  * PUT /api/books/[id]/library
  * Update user's personal data for a book
@@ -110,9 +127,21 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, 'Invalid book ID');
 	}
 
-	const body = (await request.json()) as UpdateUserBookInput;
+	const body: Record<string, unknown> = await request.json().catch(() => ({}));
 
-	const userBook = await updateUserBook(locals.user.id, bookId, body);
+	// Only these personal fields are editable here; never pass the raw body through
+	const data: UpdateUserBookInput = {};
+	for (const key of NUMBER_FIELDS) {
+		const value = body[key];
+		if (value === null || (typeof value === 'number' && Number.isFinite(value))) data[key] = value;
+	}
+	for (const key of STRING_FIELDS) {
+		const value = body[key];
+		if (value === null || typeof value === 'string') data[key] = value;
+	}
+
+	// Scoped to the caller's own row (userId + bookId); no row is created here
+	const userBook = await updateUserBook(locals.user.id, bookId, data);
 
 	if (!userBook) {
 		throw error(404, 'Book not in your library');

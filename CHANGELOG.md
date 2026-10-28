@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.21.4] - 2026-10-28
+
+### Security
+- Public widgets and the v1 API now have separate on/off switches on the admin Widgets page. Widgets are now off by default: they only work after an admin turns them on. If widgets are off, widget URLs return "Not found". If an admin had explicitly switched widgets on before, they stay on, so check the Widgets page and switch them off if you don't use them
+- The v1 API (token-based access for scripts) keeps working exactly as before and stays on by default. It has its own switch now, so turning widgets off no longer turns the API off. If you had switched the old shared toggle off, the API stays off until you turn it on
+- Widget URLs can no longer return your whole library. The number of books is always between 1 and 20, and anything that isn't a number falls back to 5
+- Adding a book to your library now checks that you can see it. Public books can still be added by anyone; personal books need to be yours or shared with you
+- Updating your personal book data (rating, notes, dates, progress, DNF details) only changes those fields. Before, the request could overwrite any column on the row
+
 ## [2.21.3] - 2026-10-28
 
 ### Fixed

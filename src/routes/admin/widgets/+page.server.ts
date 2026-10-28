@@ -4,6 +4,8 @@ import {
 	getWidgetToken,
 	areWidgetsEnabled,
 	setWidgetsEnabled,
+	isApiEnabled,
+	setApiEnabled,
 	regenerateWidgetToken
 } from '$lib/server/services/widgetService';
 
@@ -14,11 +16,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const token = await getWidgetToken();
 	const enabled = await areWidgetsEnabled();
+	const apiEnabled = await isApiEnabled();
 	const baseUrl = `${url.protocol}//${url.host}`;
 
 	return {
 		token,
 		enabled,
+		apiEnabled,
 		baseUrl
 	};
 };
@@ -35,6 +39,19 @@ export const actions: Actions = {
 		await setWidgetsEnabled(enabled);
 
 		return { success: true, enabled };
+	},
+
+	toggleApiEnabled: async ({ locals, request }) => {
+		if (locals.user?.role !== 'admin') {
+			throw error(403, 'Admin access required');
+		}
+
+		const data = await request.formData();
+		const apiEnabled = data.get('enabled') === 'true';
+
+		await setApiEnabled(apiEnabled);
+
+		return { success: true, apiEnabled };
 	},
 
 	regenerateToken: async ({ locals }) => {

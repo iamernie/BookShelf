@@ -5,13 +5,13 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { validateWidgetToken, areWidgetsEnabled } from '$lib/server/services/widgetService';
+import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const token = url.searchParams.get('token');
 
 	// Check if API is enabled (uses same setting as widgets)
-	if (!(await areWidgetsEnabled())) {
+	if (!(await isApiEnabled())) {
 		return json({ error: 'API is disabled' }, { status: 403 });
 	}
 

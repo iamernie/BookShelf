@@ -20,6 +20,7 @@
 	// State
 	let token = $state(data.token);
 	let enabled = $state(data.enabled);
+	let apiEnabled = $state(data.apiEnabled);
 	let showToken = $state(false);
 	let copied = $state<string | null>(null);
 	let regenerating = $state(false);
@@ -103,7 +104,8 @@
 			<div>
 				<h3 class="font-semibold" style="color: var(--text-primary);">Widget Access</h3>
 				<p class="text-sm" style="color: var(--text-muted);">
-					{enabled ? 'Public widgets are enabled' : 'Public widgets are disabled'}
+					{enabled ? 'Public widgets are enabled' : 'Public widgets are disabled'}. Widgets are
+					display URLs anyone can open without logging in. Off by default.
 				</p>
 			</div>
 			<form
@@ -132,14 +134,49 @@
 		</div>
 	</div>
 
-	{#if enabled}
+	<!-- API Enable/Disable Toggle -->
+	<div class="card p-4 mb-6">
+		<div class="flex items-center justify-between">
+			<div>
+				<h3 class="font-semibold" style="color: var(--text-primary);">API Access</h3>
+				<p class="text-sm" style="color: var(--text-muted);">
+					{apiEnabled ? 'The v1 API is enabled' : 'The v1 API is disabled'}. Lets scripts and
+					automations read and edit your library over /api/v1 using the API token. On by default.
+				</p>
+			</div>
+			<form
+				method="POST"
+				action="?/toggleApiEnabled"
+				use:enhance={() => {
+					return async ({ result }) => {
+						if (result.type === 'success' && result.data) {
+							apiEnabled = result.data.apiEnabled as boolean;
+						}
+					};
+				}}
+			>
+				<input type="hidden" name="enabled" value={apiEnabled ? 'false' : 'true'} />
+				<button
+					type="submit"
+					class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+					style="background-color: {apiEnabled ? 'var(--accent)' : 'var(--bg-tertiary)'};"
+				>
+					<span
+						class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+						style="transform: translateX({apiEnabled ? '24px' : '4px'});"
+					></span>
+				</button>
+			</form>
+		</div>
+	</div>
+
+	{#if apiEnabled}
 		<!-- Token Management -->
 		<div class="card p-4 mb-6">
 			<h3 class="font-semibold mb-3" style="color: var(--text-primary);">API Token</h3>
 			<p class="text-sm mb-4" style="color: var(--text-muted);">
-				Widgets don't need a token: they are display-only and available whenever widget access is
-				enabled. This token authenticates the v1 API (used by external automations). Keep it
-				private.
+				This token authenticates the v1 API (used by external automations). Widgets don't need a
+				token. Keep it private.
 			</p>
 
 			<div class="flex items-center gap-3 mb-4">
@@ -186,7 +223,9 @@
 				</button>
 			</div>
 		</div>
+	{/if}
 
+	{#if enabled}
 		<!-- Widget Type Selection -->
 		<div class="card p-4 mb-6">
 			<h3 class="font-semibold mb-4" style="color: var(--text-primary);">Widget Type</h3>

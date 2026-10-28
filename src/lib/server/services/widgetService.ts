@@ -5,7 +5,7 @@
 
 import { db } from '$lib/server/db';
 import { books, authors, series, bookAuthors, readingGoals, settings, statuses } from '$lib/server/db/schema';
-import { eq, sql, desc, asc, and, isNotNull, gte } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, isNotNull, gte, inArray } from 'drizzle-orm';
 import { currentYearInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 import crypto from 'crypto';
 import { createLogger } from './loggerService';
@@ -149,7 +149,7 @@ export async function regenerateWidgetToken(): Promise<string> {
 }
 
 /**
- * Check if widgets are enabled
+ * Check if public widgets are enabled. Default OFF: only an explicit 'true' enables them.
  */
 export async function areWidgetsEnabled(): Promise<boolean> {
 	const result = await db
@@ -158,7 +158,50 @@ export async function areWidgetsEnabled(): Promise<boolean> {
 		.where(eq(settings.key, 'widgets_enabled'))
 		.limit(1);
 
-	return result[0]?.value !== 'false';
+	return result[0]?.value === 'true';
+}
+
+/**
+ * Check if the tokened v1 REST API is enabled. Default ON: only an explicit 'false' disables it.
+ * Until api_enabled has been saved, an install that had turned the old shared toggle
+ * (widgets_enabled = 'false') off keeps the API off, so nothing is silently re-enabled.
+ */
+export async function isApiEnabled(): Promise<boolean> {
+	const result = await db
+		.select()
+		.from(settings)
+		.where(inArray(settings.key, ['api_enabled', 'widgets_enabled']));
+
+	const api = result.find((r) => r.key === 'api_enabled');
+	if (api) return api.value !== 'false';
+	return result.find((r) => r.key === 'widgets_enabled')?.value !== 'false';
+}
+
+/**
+ * Toggle the v1 REST API enabled/disabled
+ */
+export async function setApiEnabled(enabled: boolean): Promise<void> {
+	const value = enabled ? 'true' : 'false';
+
+	await db
+		.insert(settings)
+		.values({
+			key: 'api_enabled',
+			value,
+			type: 'boolean',
+			category: 'widgets',
+			label: 'Enable v1 API',
+			description: 'Allow tokened access to the /api/v1 REST endpoints',
+			isSystem: true,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString()
+		})
+		.onConflictDoUpdate({
+			target: settings.key,
+			set: { value, updatedAt: new Date().toISOString() }
+		});
+
+	log.info(`v1 API ${enabled ? 'enabled' : 'disabled'}`);
 }
 
 /**
