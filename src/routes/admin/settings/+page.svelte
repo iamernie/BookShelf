@@ -97,13 +97,22 @@
 	let absApiKeyInput = $state('');
 	let showAbsApiKey = $state(false);
 	let absApiKeySet = $state(data.absStatus.apiKeySet);
-	let absSyncStatus = $state(data.absStatus.sync);
-	const lastResult = $derived(absSyncStatus.lastResult);
+	let absSync = $state(data.absStatus.sync);
 	let testingAbs = $state(false);
 	let absTestResult = $state<{ success: boolean; message: string } | null>(null);
 	let syncingAbs = $state(false);
+	let absPreviewOnly = $state(false);
 	let absSyncResult = $state<{ success: boolean; message: string } | null>(null);
-	const absSyncHours = $derived(editedSettings['integration.abs_sync_interval_hours'] || '6');
+	const absRunning = $derived(syncingAbs || !!absSync.running);
+	const absIntervalOptions = [
+		{ value: '0', label: 'Off (Sync Now only)' },
+		{ value: '15', label: 'Every 15 minutes' },
+		{ value: '30', label: 'Every 30 minutes' },
+		{ value: '60', label: 'Every hour' },
+		{ value: '360', label: 'Every 6 hours' },
+		{ value: '720', label: 'Every 12 hours' },
+		{ value: '1440', label: 'Every 24 hours' }
+	];
 
 	// Audiobookshelf manual linking
 	let absLinkStats = $state<{ linkedCount: number; unlinkedCount: number; unlinked: { id: number; title: string; author: string | null }[] } | null>(null);
@@ -126,27 +135,38 @@
 		if (activeTab === 'integrations' && data.isAdmin && absLinkStats === null && !absLinkStatsError) loadAbsLinkStats();
 	});
 
-	function formatSyncDuration(ms: number): string {
+	function formatSyncDuration(ms: number | null): string {
+		if (ms === null) return '';
 		if (ms < 1000) return `${ms} ms`;
 		const seconds = ms / 1000;
 		if (seconds < 60) return `${seconds.toFixed(1)} s`;
 		return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
 	}
 
-	// Next scheduled run: lastSync + interval; overdue or never synced means the next scheduler check picks it up
+	// Saved schedule; the selector may hold an unsaved change
 	const absNextRunLabel = $derived.by(() => {
-		if (editedSettings['integration.abs_enabled'] !== 'true') return 'Not scheduled (integration disabled)';
-		const checkNote = `within ${absSyncStatus.schedulerCheckMinutes} minutes (next scheduler check)`;
-		if (!absSyncStatus.nextRunAt) return `Due now - ${checkNote}`;
-		const next = new Date(absSyncStatus.nextRunAt);
-		if (next.getTime() <= Date.now()) return `Due now - ${checkNote}`;
-		return `~${next.toLocaleString()} (every ${absSyncStatus.intervalHours} h)`;
+		if (!absSync.enabled) return 'Not scheduled (sync is off)';
+		if (absSync.schedule.nextRunAt === null) return 'Not scheduled (Sync Now only)';
+		const next = new Date(absSync.schedule.nextRunAt);
+		if (next.getTime() <= Date.now()) return 'Due now (within a minute)';
+		return `≈ ${next.toLocaleString()}`;
 	});
 
-	function clampAbsSyncHours(value: string): string {
-		const n = parseInt(value, 10);
-		return String(Number.isNaN(n) ? 6 : Math.min(48, Math.max(1, n)));
+	async function refreshAbsSync() {
+		try {
+			const res = await fetch('/api/admin/abs/sync');
+			if (res.ok) absSync = await res.json();
+		} catch {
+			// Keep the last known state
+		}
 	}
+
+	// Poll while a run is in flight
+	$effect(() => {
+		if (!absSync.running) return;
+		const timer = setInterval(refreshAbsSync, 5000);
+		return () => clearInterval(timer);
+	});
 
 	// ntfy test state
 	let testingNtfy = $state(false);
@@ -300,6 +320,7 @@
 				absApiKeyInput = '';
 			}
 			saveSuccess = true;
+			void refreshAbsSync();
 			setTimeout(() => saveSuccess = false, 3000);
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Failed to save settings';
@@ -474,21 +495,22 @@
 		absSyncResult = null;
 
 		try {
-			const res = await fetch('/api/v1/admin/abs/sync', { method: 'POST' });
+			const res = await fetch('/api/admin/abs/sync', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ mode: absPreviewOnly ? 'preview' : 'apply' })
+			});
 			const result = await res.json();
-			if (result.ok) {
-				absSyncResult = {
-					success: true,
-					message: `Sync complete: ${result.linked} linked, ${result.created} created${result.statusFlips ? `, ${result.statusFlips} status updates` : ''}${result.writeBacks ? `, ${result.writeBacks} marked finished on Audiobookshelf` : ''}${result.writeBackMissing ? `, ${result.writeBackMissing} missing items` : ''}${result.errors ? `, ${result.errors} errors (see logs)` : ''}`
-				};
+			if (res.status === 202) {
+				absSyncResult = { success: true, message: `${absPreviewOnly ? 'Preview' : 'Sync'} #${result.runId} started` };
 			} else {
-				absSyncResult = { success: false, message: result.error || result.message || 'Sync failed' };
+				absSyncResult = { success: false, message: result.message || 'Sync failed to start' };
 			}
-			if (result.status) absSyncStatus = result.status;
 		} catch {
-			absSyncResult = { success: false, message: 'Failed to run sync' };
+			absSyncResult = { success: false, message: 'Failed to start sync' };
 		} finally {
 			syncingAbs = false;
+			await refreshAbsSync();
 		}
 	}
 
@@ -1013,7 +1035,7 @@
 					<div class="p-4 flex items-start gap-4">
 						<div class="flex-1">
 							<label class="font-medium" style="color: var(--text-primary);">Enable Audiobookshelf</label>
-							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Sync every {absSyncHours} hours and show the Listen button on linked books</p>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Link books to Audiobookshelf items and show the Listen button on linked books</p>
 						</div>
 						<div class="w-72">
 							<button
@@ -1097,37 +1119,77 @@
 						</div>
 					</div>
 
-					<!-- Sync Interval -->
+					<!-- Item sync toggle -->
 					<div class="p-4 flex items-start gap-4">
 						<div class="flex-1">
-							<label for="integration.abs_sync_interval_hours" class="font-medium" style="color: var(--text-primary);">Sync every N hours</label>
-							<p class="text-sm mt-0.5" style="color: var(--text-muted);">How often the automatic sync runs (1-48 hours). Takes effect without a restart.</p>
+							<label class="font-medium" style="color: var(--text-primary);">Sync library items</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Link Audiobookshelf items to books, add new audiobooks, and fill blank Audiobookshelf series. Gates both Sync Now and scheduled runs.</p>
 						</div>
 						<div class="w-72">
-							<input
-								type="number"
-								id="integration.abs_sync_interval_hours"
-								min="1"
-								max="48"
-								step="1"
-								value={editedSettings['integration.abs_sync_interval_hours'] ?? '6'}
-								onchange={(e) => {
-									const input = e.target as HTMLInputElement;
-									input.value = clampAbsSyncHours(input.value);
-									updateSetting('integration.abs_sync_interval_hours', input.value);
-								}}
+							<button
+								type="button"
+								class="toggle-switch {editedSettings['integration.abs_sync_enabled'] === 'true' ? 'active' : ''}"
+								onclick={() => updateSetting('integration.abs_sync_enabled', editedSettings['integration.abs_sync_enabled'] === 'true' ? 'false' : 'true')}
+								disabled={!data.isAdmin}
+								role="switch"
+								aria-checked={editedSettings['integration.abs_sync_enabled'] === 'true'}
+								aria-label="Sync library items"
+							>
+								<span class="toggle-knob"></span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Sync owner -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label for="integration.abs_owner_user_id" class="font-medium" style="color: var(--text-primary);">Sync owner</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Books created by sync are owned by this user. Matching and status sync only touch this user's books and public books.</p>
+						</div>
+						<div class="w-72">
+							<select
+								id="integration.abs_owner_user_id"
+								value={editedSettings['integration.abs_owner_user_id'] ?? ''}
+								onchange={(e) => updateSetting('integration.abs_owner_user_id', (e.target as HTMLSelectElement).value)}
 								disabled={!data.isAdmin}
 								class="w-full px-3 py-2 rounded-lg text-sm"
 								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
-							/>
+							>
+								<option value="">Not set</option>
+								{#each data.absStatus.ownerChoices as user (user.id)}
+									<option value={String(user.id)}>{user.username} ({user.role})</option>
+								{/each}
+							</select>
+						</div>
+					</div>
+
+					<!-- Sync interval -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label for="integration.abs_sync_interval_minutes" class="font-medium" style="color: var(--text-primary);">Sync schedule</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">How often BookShelf runs the sync by itself. A Sync Now run pushes the next scheduled run back. Takes effect without a restart.</p>
+						</div>
+						<div class="w-72">
+							<select
+								id="integration.abs_sync_interval_minutes"
+								value={editedSettings['integration.abs_sync_interval_minutes'] ?? '360'}
+								onchange={(e) => updateSetting('integration.abs_sync_interval_minutes', (e.target as HTMLSelectElement).value)}
+								disabled={!data.isAdmin}
+								class="w-full px-3 py-2 rounded-lg text-sm"
+								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							>
+								{#each absIntervalOptions as option (option.value)}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
 						</div>
 					</div>
 
 					<!-- Status Sync Toggle -->
 					<div class="p-4 flex items-start gap-4">
 						<div class="flex-1">
-							<label class="font-medium" style="color: var(--text-primary);">Sync listening status</label>
-							<p class="text-sm mt-0.5" style="color: var(--text-muted);">Books move Current while listening and Done when finished, based on Audiobookshelf progress</p>
+							<label class="font-medium" style="color: var(--text-primary);">Sync listening status (Audiobookshelf → BookShelf only)</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">During each sync, books move to Currently Reading while listening and Done when finished, based on the API key user's Audiobookshelf progress. Nothing is written to Audiobookshelf.</p>
 						</div>
 						<div class="w-72">
 							<button
@@ -1144,27 +1206,21 @@
 						</div>
 					</div>
 
-					<!-- Write-back Toggle -->
+					<!-- People pushback -->
 					<div class="p-4 flex items-start gap-4">
 						<div class="flex-1">
-							<label class="font-medium" style="color: var(--text-primary);">Mark finished on Audiobookshelf</label>
-							<p class="text-sm mt-0.5" style="color: var(--text-muted);">When a linked book is Done in BookShelf, mark its Audiobookshelf item finished (never un-finishes)</p>
-							<p class="text-sm mt-1" style="color: var(--text-muted);">Uses the API key's Audiobookshelf user. The first sync after enabling marks every Done audiobook finished.</p>
-							{#if absSyncStatus.writeBackPending > 0}
-								<p class="text-sm mt-1" style="color: #f59e0b;">
-									Up to {absSyncStatus.writeBackPending} {absSyncStatus.writeBackPending === 1 ? 'book' : 'books'} will be marked finished on the next sync
-								</p>
-							{/if}
+							<label class="font-medium" style="color: var(--text-primary);">Fill blank authors and narrators</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">When an Audiobookshelf item has no author or narrator, send the linked book's. Existing Audiobookshelf values are never overwritten.</p>
 						</div>
 						<div class="w-72">
 							<button
 								type="button"
-								class="toggle-switch {editedSettings['integration.abs_sync_writeback'] === 'true' ? 'active' : ''}"
-								onclick={() => updateSetting('integration.abs_sync_writeback', editedSettings['integration.abs_sync_writeback'] === 'true' ? 'false' : 'true')}
+								class="toggle-switch {editedSettings['integration.abs_sync_pushback_people'] === 'true' ? 'active' : ''}"
+								onclick={() => updateSetting('integration.abs_sync_pushback_people', editedSettings['integration.abs_sync_pushback_people'] === 'true' ? 'false' : 'true')}
 								disabled={!data.isAdmin}
 								role="switch"
-								aria-checked={editedSettings['integration.abs_sync_writeback'] === 'true'}
-								aria-label="Mark finished on Audiobookshelf"
+								aria-checked={editedSettings['integration.abs_sync_pushback_people'] === 'true'}
+								aria-label="Fill blank authors and narrators"
 							>
 								<span class="toggle-knob"></span>
 							</button>
@@ -1195,10 +1251,10 @@
 							class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
 							style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
 							onclick={runAbsSyncNow}
-							disabled={syncingAbs || !data.isAdmin}
+							disabled={absRunning || !data.isAdmin}
 							title="Uses the saved settings - save changes first"
 						>
-							{#if syncingAbs}
+							{#if absRunning}
 								<Loader2 class="w-4 h-4 animate-spin" />
 								Syncing...
 							{:else}
@@ -1206,46 +1262,58 @@
 								Sync Now
 							{/if}
 						</button>
+						<label class="flex items-center gap-2 text-sm" style="color: var(--text-primary);" title="Changes no books and sends nothing to Audiobookshelf, but fills the attention queue">
+							<input type="checkbox" bind:checked={absPreviewOnly} disabled={absRunning || !data.isAdmin} />
+							Preview only
+						</label>
+						<a href="/admin/abs" class="text-sm font-medium ml-auto" style="color: var(--accent);">Manage sync →</a>
 					</div>
+					{#if absPreviewOnly}
+						<p class="mt-2 text-xs" style="color: var(--text-muted);">A preview changes no books and sends nothing to Audiobookshelf, but it does fill the attention queue.</p>
+					{/if}
 
 					<!-- Sync status -->
 					<dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-						<dt style="color: var(--text-muted);">Last successful sync</dt>
-						<dd style="color: var(--text-primary);">
-							{absSyncStatus.lastSync ? new Date(absSyncStatus.lastSync).toLocaleString() : 'Never'}
-						</dd>
-
 						<dt style="color: var(--text-muted);">Last run</dt>
 						<dd>
-							{#if !lastResult}
+							{#if absSync.running}
+								<span class="flex items-center gap-1.5" style="color: var(--text-primary);">
+									<Loader2 class="w-4 h-4 animate-spin shrink-0" />
+									Running #{absSync.running.id} ({absSync.running.mode}) since {new Date(absSync.running.startedAt).toLocaleTimeString()}
+								</span>
+							{:else if !absSync.lastRun}
 								<span style="color: var(--text-muted);">No run recorded yet</span>
-							{:else if !lastResult.ok}
-								<span class="flex items-start gap-1.5" style="color: #ef4444;">
-									<AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />
-									<span>Failed {new Date(lastResult.finishedAt).toLocaleString()}: {lastResult.error || 'Unknown error'}</span>
-								</span>
-							{:else if lastResult.errors > 0}
-								<span class="flex items-start gap-1.5" style="color: #f59e0b;">
-									<AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />
-									<span>Completed with {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} {new Date(lastResult.finishedAt).toLocaleString()} (see logs)</span>
-								</span>
 							{:else}
-								<span class="flex items-center gap-1.5" style="color: #22c55e;">
-									<Check class="w-4 h-4 shrink-0" />
-									Succeeded {new Date(lastResult.finishedAt).toLocaleString()}
+								{@const run = absSync.lastRun}
+								<span class="flex items-start gap-1.5" style="color: {run.status === 'succeeded' ? '#22c55e' : run.status === 'partial' ? '#f59e0b' : '#ef4444'};">
+									{#if run.status === 'succeeded'}<Check class="w-4 h-4 mt-0.5 shrink-0" />{:else}<AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />{/if}
+									<span>
+										#{run.id} {run.mode === 'preview' ? 'preview' : run.triggerType} {run.status} {new Date(run.startedAt).toLocaleString()}{#if run.error}: {run.error}{/if}
+										<span style="color: var(--text-muted);">
+											· {run.linked} linked · {run.created} created · {run.pushed} pushed · {run.queued} queued · {run.statusFlips} status · {run.failed} failed{#if run.durationMs !== null} · {formatSyncDuration(run.durationMs)}{/if}
+										</span>
+									</span>
 								</span>
 							{/if}
 						</dd>
 
-						{#if lastResult}
-							<dt style="color: var(--text-muted);">Last result</dt>
-							<dd style="color: var(--text-primary);">
-								{lastResult.linked} linked · {lastResult.created} created{#if lastResult.statusFlips !== undefined} · {lastResult.statusFlips} {lastResult.statusFlips === 1 ? 'status update' : 'status updates'}{/if}{#if lastResult.writeBacks !== undefined} · {lastResult.writeBacks} marked finished{/if}{#if lastResult.writeBackMissing} · {lastResult.writeBackMissing} {lastResult.writeBackMissing === 1 ? 'missing item' : 'missing items'}{/if} · {lastResult.errors} {lastResult.errors === 1 ? 'error' : 'errors'} · {formatSyncDuration(lastResult.durationMs)}
-							</dd>
-						{/if}
-
 						<dt style="color: var(--text-muted);">Next scheduled run</dt>
 						<dd style="color: var(--text-primary);">{absNextRunLabel}</dd>
+
+						{#if absSync.attentionOpen > 0 || absSync.staleLinks > 0 || absSync.consecutiveScheduledFailures >= 2}
+							<dt style="color: var(--text-muted);">Needs a look</dt>
+							<dd class="flex flex-wrap gap-2">
+								{#if absSync.attentionOpen > 0}
+									<a href="/admin/abs" class="px-2 py-0.5 rounded-full text-xs font-medium" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">{absSync.attentionOpen} need attention</a>
+								{/if}
+								{#if absSync.staleLinks > 0}
+									<a href="/admin/abs" class="px-2 py-0.5 rounded-full text-xs font-medium" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">{absSync.staleLinks} stale {absSync.staleLinks === 1 ? 'link' : 'links'}</a>
+								{/if}
+								{#if absSync.consecutiveScheduledFailures >= 2}
+									<a href="/admin/abs" class="px-2 py-0.5 rounded-full text-xs font-medium" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">{absSync.consecutiveScheduledFailures} scheduled runs failed in a row</a>
+								{/if}
+							</dd>
+						{/if}
 					</dl>
 					{#if absTestResult}
 						<p class="mt-2 text-sm" style="color: {absTestResult.success ? '#22c55e' : '#ef4444'};">
@@ -1340,10 +1408,12 @@
 			<div class="p-4 rounded-lg" style="background: var(--bg-secondary);">
 				<h3 class="font-medium mb-2" style="color: var(--text-primary);">About Audiobookshelf Sync</h3>
 				<p class="text-sm" style="color: var(--text-muted);">
-					When enabled, BookShelf syncs with the audiobook library on your
+					Each sync reads the whole audiobook library on your
 					<a href="https://www.audiobookshelf.org" target="_blank" rel="noopener" class="underline" style="color: var(--accent);">Audiobookshelf</a>
-					server every {absSyncHours} hours. Books added in the last 14 days are linked by ASIN (or by a single exact title match),
-					and audiobooks that are not yet in BookShelf are added with the Audio format and Unread status.
+					server. Items are linked to books by ASIN, ISBN, then title (titles only match audio-format books); when several books could match,
+					the item waits in the attention queue on the Audiobookshelf Sync page instead of being guessed. Items with no book are added,
+					owned by the sync owner and tagged Auto-Added. Blank Audiobookshelf series (and, if enabled, authors and narrators) are filled
+					from the linked book; existing Audiobookshelf values are never changed, and listening status is never written to Audiobookshelf.
 					Save your changes before using Sync Now.
 				</p>
 			</div>

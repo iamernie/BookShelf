@@ -121,16 +121,20 @@ Open **http://localhost:3000** and the setup wizard will guide you through creat
 
 ### Audiobookshelf Integration
 
-Connect BookShelf to an [Audiobookshelf](https://www.audiobookshelf.org) server from **Admin → Settings → Integrations**: turn on **Enable Audiobookshelf**, enter the server URL and an API key, click **Test Connection**, then **Save Changes**. While it's enabled, BookShelf syncs every 6 hours by default (adjustable from 1 to 48 hours with **Sync every N hours**), or on demand with **Sync Now**:
+Connect BookShelf to an [Audiobookshelf](https://www.audiobookshelf.org) server from **Admin → Settings → Integrations**: turn on **Enable Audiobookshelf**, enter the server URL and an API key, click **Test Connection**, then **Save Changes**. That gives you linking and the Listen button. To have BookShelf keep its library in step with Audiobookshelf, also turn on **Sync library items**, pick a **Sync owner** (an admin or librarian who owns the books the sync adds) and a **Sync schedule** (every 15 or 30 minutes, every 1, 6, 12 or 24 hours, or Off for **Sync Now** only).
 
-- Books added in the last 14 days are linked to their Audiobookshelf item by ASIN, or by title when there is exactly one exact match
-- Audiobooks not yet in BookShelf are added (author, narrator, an audio format such as Audio or Audible Audio, Unread status) and linked
-- Linked books get a **Listen on Audiobookshelf** button on their book page
-- Admins can link, re-link, or unlink a book by hand from its book page header or the **Media** tab of the book page or edit page (**Find on Audiobookshelf**, **Change link**, **Unlink**), and the Integrations tab lists every audiobook that isn't linked yet with a **Find match** button
-- For linked books, the **Media** tab shows the audiobook's details from Audiobookshelf: narrator, duration, chapters, files, publication info, and description, plus your listening progress (percent, position, Finished badge) once you've started it
-- Optional **Sync listening status** (off by default): each sync moves linked books to **Current** while you're listening and **Done** when Audiobookshelf marks them finished. It only moves forward (a Done book is never changed), never touches books you haven't started, and skips a step if your library has no status with that name
-- Optional **Mark finished on Audiobookshelf** (off by default): each sync marks the Audiobookshelf item finished for every linked **Done** book, using the book's completed date. It only ever marks finished (never un-finishes or moves your listening position), writes each linked item once (so re-listening in Audiobookshelf isn't undone), and skips items linked to more than one book. It writes as the API key's Audiobookshelf user, and the first sync after enabling marks every Done audiobook finished; the toggle shows how many books are pending
-- The Integrations tab shows the sync status: last successful sync, the last run's outcome (linked, created, status updates, marked finished, missing items, errors, duration, or the failure message), and when the next scheduled run is due
+Each sync reads the whole audiobook library:
+
+- **Matching:** an Audiobookshelf item is linked to an existing book by ASIN, then ISBN, then title. Titles are compared without punctuation, spacing or an "(Unabridged)" suffix, and also by the part before a subtitle ("Into the War: Book 1") or without a trailing book number ("Soldier 1"); those two need the author to agree too. Title matches only link audio-format books. Only the sync owner's books, books in their library and public-library books are considered
+- **Never guesses:** when several books could be the item, or the match is only partial, the item waits in the **Needs attention** list on **Admin → Audiobookshelf Sync**, with **Link to this**, **Create new** and **Ignore item** buttons. An item already linked to a book is never added again, whatever its title says
+- **New audiobooks:** items with no book are added, linked, owned by the sync owner, with each author as a separate author (the first is primary), the narrator, an audio format and the **Audiobook Shelf** and **Auto-Added** tags. The owner gets a "Book Added" notification for each (or one summary when a run adds more than 10)
+- **Filling blanks in Audiobookshelf:** when a linked item has no series, BookShelf sends the book's series and number. With **Fill blank authors and narrators** (on by default) it does the same for an empty author or narrator. Values already in Audiobookshelf are never changed
+- **Stale links:** when a linked item is gone (Audiobookshelf answers "not found"), the book shows a **Stale** badge with a **Re-check** button. Nothing is unlinked automatically
+- **Listening status** (optional, **Sync listening status**): linked books move to Currently Reading while you're listening and Done when Audiobookshelf marks them finished. It only moves forward and only reads from Audiobookshelf; nothing is ever written back
+- **Preview:** a Preview run changes no books and sends nothing to Audiobookshelf, but fills the Needs attention list and shows what a real run would do
+- **Admin → Audiobookshelf Sync** lists every run (manual or scheduled, with what it linked, created, pushed, queued and any errors) and the attention list. After three scheduled runs fail in a row, the admin ntfy topic gets one alert and the schedule backs off (up to once a day) until a run succeeds
+
+Linked books get a **Listen on Audiobookshelf** button, and their **Media** tab shows the audiobook's details and your listening progress. Admins can link, re-link or unlink a book by hand from its book page (**Find on Audiobookshelf**, **Change link**, **Unlink**); an item can only be linked to one book. The Integrations tab lists every audiobook that isn't linked yet with a **Find match** button.
 
 ### Volumes
 

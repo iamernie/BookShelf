@@ -1497,6 +1497,7 @@
 											<AbsLinkSection
 												bookId={book.id}
 												{absItemId}
+												absLinkStaleAt={book.absLinkStaleAt ?? null}
 												absBaseUrl={data.absBaseUrl ?? ''}
 												initialQuery={title}
 												onChange={(id) => absItemId = id}

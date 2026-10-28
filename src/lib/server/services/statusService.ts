@@ -121,6 +121,11 @@ export interface ApplyStatusChangeOptions {
 	stampDates?: { startReadingDate?: string; completedDate?: string };
 	/** Send completion notifications (default true) */
 	notify?: boolean;
+	/**
+	 * Only move the acting user's own reading record (user_books), never books.statusId.
+	 * For books the user doesn't own (public books in their library); requires userId.
+	 */
+	userBooksOnly?: boolean;
 }
 
 export interface ApplyStatusChangeResult {
@@ -150,6 +155,11 @@ export async function applyStatusChange(
 	const [currentStatus, readStatus] = await Promise.all([getStatusByKey('CURRENT'), getStatusByKey('READ')]);
 	const isCurrent = statusId !== null && statusId === currentStatus?.id;
 	const isRead = statusId !== null && statusId === readStatus?.id;
+
+	if (opts.userBooksOnly) {
+		if (opts.userId == null) throw new Error('applyStatusChange: userBooksOnly needs a userId');
+		return applyUserBookStatusChange(ids, statusId, opts.userId, { isCurrent, isRead }, opts, result);
+	}
 
 	const rows = await db
 		.select({
@@ -236,6 +246,73 @@ export async function applyStatusChange(
 		}
 		for (const [userId, completedIds] of seriesBooksByUser) {
 			checkAndNotifySeriesCompletion(userId, completedIds)
+				.catch(err => console.error('[notifications] Failed to check series completion:', err));
+		}
+	}
+
+	return result;
+}
+
+// The userBooksOnly branch of applyStatusChange: same stamping rules, on the user's own row only
+async function applyUserBookStatusChange(
+	ids: number[],
+	statusId: number | null,
+	userId: number,
+	kind: { isCurrent: boolean; isRead: boolean },
+	opts: ApplyStatusChangeOptions,
+	result: ApplyStatusChangeResult
+): Promise<ApplyStatusChangeResult> {
+	const rows = await db
+		.select({
+			id: userBooks.id,
+			bookId: userBooks.bookId,
+			title: books.title,
+			statusId: userBooks.statusId,
+			startReadingDate: userBooks.startReadingDate,
+			completedDate: userBooks.completedDate
+		})
+		.from(userBooks)
+		.innerJoin(books, eq(userBooks.bookId, books.id))
+		.where(and(eq(userBooks.userId, userId), inArray(userBooks.bookId, ids)));
+
+	const today = todayInAppTz();
+	const explicit = opts.dates ?? {};
+	const completions: { id: number; title: string; completedDate: string | null }[] = [];
+	const found = new Set(rows.map((r) => r.bookId));
+	for (const id of ids) if (!found.has(id)) result.userBooksSkipped.push(id);
+
+	for (const row of rows) {
+		if (row.statusId === statusId) {
+			result.unchanged.push(row.bookId);
+			continue;
+		}
+
+		let startReadingDate = row.startReadingDate;
+		if (explicit.startReadingDate !== undefined) startReadingDate = explicit.startReadingDate;
+		else if (kind.isCurrent && isEmptyDate(startReadingDate)) startReadingDate = opts.stampDates?.startReadingDate ?? today;
+		else if (kind.isRead && isEmptyDate(startReadingDate) && opts.stampDates?.startReadingDate) startReadingDate = opts.stampDates.startReadingDate;
+
+		let completedDate = row.completedDate;
+		if (explicit.completedDate !== undefined) completedDate = explicit.completedDate;
+		else if (kind.isRead && isEmptyDate(completedDate)) completedDate = opts.stampDates?.completedDate ?? today;
+
+		await db
+			.update(userBooks)
+			.set({ statusId, startReadingDate, completedDate, updatedAt: new Date().toISOString() })
+			.where(eq(userBooks.id, row.id));
+		result.changed.push(row.bookId);
+		result.userBooksUpdated++;
+		if (kind.isRead) completions.push({ id: row.bookId, title: row.title, completedDate });
+	}
+
+	if (opts.notify !== false && completions.length > 0) {
+		const toNotify = opts.source === 'abs_sync' ? completions.filter((c) => c.completedDate === today) : completions;
+		for (const c of toNotify) {
+			notifyBookCompleted(userId, { id: c.id, title: c.title })
+				.catch(err => console.error('[notifications] Failed to send book completed notification:', err));
+		}
+		if (toNotify.length > 0) {
+			checkAndNotifySeriesCompletion(userId, toNotify.map((c) => c.id))
 				.catch(err => console.error('[notifications] Failed to check series completion:', err));
 		}
 	}

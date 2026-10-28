@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Loader2, Search, Unlink } from 'lucide-svelte';
+	import { Loader2, Search, Unlink, AlertTriangle, RefreshCw } from 'lucide-svelte';
 	import AbsLinkModal from './AbsLinkModal.svelte';
 	import AbsItemDetails from './AbsItemDetails.svelte';
 	import { toasts } from '$lib/stores/toast';
@@ -10,14 +10,42 @@
 		absBaseUrl: string;
 		/** Pre-filled search for Find / Change link */
 		initialQuery?: string;
+		/** When the sync last found the linked item gone (404); null = not stale */
+		absLinkStaleAt?: string | null;
 		/** Called after a link, relink or unlink is saved (changes apply immediately) */
 		onChange: (absItemId: string | null) => void;
 	}
 
-	let { bookId, absItemId, absBaseUrl, initialQuery = '', onChange }: Props = $props();
+	let { bookId, absItemId, absBaseUrl, initialQuery = '', absLinkStaleAt = null, onChange }: Props = $props();
 
 	let showLinkModal = $state(false);
 	let unlinking = $state(false);
+	let rechecking = $state(false);
+	// Local copy so Re-check can update the badge without a reload
+	let staleSince = $state<string | null>(null);
+	$effect(() => {
+		staleSince = absLinkStaleAt;
+	});
+
+	async function recheck() {
+		rechecking = true;
+		try {
+			const res = await fetch(`/api/admin/abs/links/${bookId}/verify`, { method: 'POST' });
+			const body = await res.json();
+			if (!res.ok) throw new Error(body.message || 'Re-check failed');
+			if (body.found) {
+				staleSince = null;
+				toasts.success('Found on Audiobookshelf');
+			} else {
+				staleSince = staleSince ?? new Date().toISOString();
+				toasts.error('Not found on Audiobookshelf');
+			}
+		} catch (e) {
+			toasts.error(e instanceof Error ? e.message : 'Re-check failed');
+		} finally {
+			rechecking = false;
+		}
+	}
 
 	async function unlink() {
 		unlinking = true;
@@ -43,6 +71,12 @@
 		{#if absItemId}
 			<p class="font-medium text-sm" style="color: var(--text-primary);">Linked</p>
 			<p class="text-xs font-mono" style="color: var(--text-muted);" title={absItemId}>{absItemId.slice(0, 8)}</p>
+			{#if staleSince}
+				<p class="text-xs mt-1 inline-flex items-center gap-1" style="color: #ef4444;">
+					<AlertTriangle class="w-3.5 h-3.5" />
+					Stale: not found on Audiobookshelf since {new Date(staleSince).toLocaleDateString()}
+				</p>
+			{/if}
 		{:else}
 			<p class="font-medium text-sm" style="color: var(--text-primary);">Not linked</p>
 			<p class="text-xs" style="color: var(--text-muted);">Changes apply immediately</p>
@@ -50,6 +84,18 @@
 	</div>
 	<div class="flex gap-2">
 		{#if absItemId}
+			{#if staleSince}
+				<button
+					type="button"
+					class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5"
+					style="background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+					onclick={recheck}
+					disabled={rechecking}
+				>
+					{#if rechecking}<Loader2 class="w-3.5 h-3.5 animate-spin" />{:else}<RefreshCw class="w-3.5 h-3.5" />{/if}
+					Re-check
+				</button>
+			{/if}
 			<button
 				type="button"
 				class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
@@ -96,6 +142,7 @@
 	onClose={() => showLinkModal = false}
 	onLinked={(_bookId, linkedItemId) => {
 		toasts.success('Linked to Audiobookshelf');
+		staleSince = null;
 		onChange(linkedItemId);
 	}}
 />

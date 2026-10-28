@@ -1,25 +1,15 @@
 /**
- * Audiobookshelf integration
+ * Audiobookshelf integration: config, REST client, item helpers and the read-only features
  *
  * Configured entirely from Admin → Settings → Integrations:
  *   integration.abs_enabled   - master toggle
  *   integration.abs_base_url  - ABS server URL
  *   integration.abs_api_key   - ABS API key (sent as Authorization: Bearer)
- *   integration.abs_sync_interval_hours - hours between automatic syncs (1-48)
- *   integration.abs_sync_status - advance book status from ABS listening progress
- *   integration.abs_sync_writeback - mark ABS items finished for Done books
  *
  * When the integration is disabled or not configured, every public function no-ops.
  *
- * Sync runs two passes, plus two optional ones:
- *   1. Link pass   - recently added, unlinked books are matched to ABS items
- *                    (ASIN-exact first, then a single exact-title hit).
- *   2. Reverse sync - every ABS library item without a BookShelf book is created
- *                    born-linked; an unlinked exact-title book is linked instead.
- *   3. Status sync - (toggle) linked books advance to Current / Done from the
- *                    key user's ABS progress; never moved backwards.
- *   4. Write-back  - (toggle) linked Done books mark their ABS item finished, once
- *                    per link (books.absWritebackItemId ledger); never un-finishes.
+ * The item sync (match/link, create, series pushback, stale check, status sync) lives in
+ * absSyncService; status only ever flows Audiobookshelf → BookShelf.
  *
  * Linked books carry the "Audiobook Shelf" system tag. Links made here tag the book
  * immediately; every sync also self-heals drift (tag = absItemId IS NOT NULL).
@@ -27,29 +17,21 @@
 
 import { db } from '$lib/server/db';
 import { books, authors, bookAuthors, bookTags, narrators, formats, statuses, tags } from '$lib/server/db/schema';
-import { and, asc, count, eq, gt, inArray, isNotNull, isNull, ne, notInArray, or, sql } from 'drizzle-orm';
-import { getSetting, getSettingAs, setSetting } from './settingsService';
-import { createBook } from './bookService';
-import { applyStatusChange, getDefaultOwnerId } from './statusService';
+import { and, asc, count, eq, inArray, isNotNull, isNull, notInArray, sql } from 'drizzle-orm';
+import { getSetting, getSettingAs } from './settingsService';
 import { createLogger } from './loggerService';
-import { dateInAppTz, startOfDayInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
+import { dateInAppTz, startOfDayInAppTz } from '$lib/server/utils/appTime';
 
 const log = createLogger('abs');
 
 const REQUEST_TIMEOUT_MS = 15_000;
-const PAGE_SIZE = 100;
-const LINK_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
-const SYNC_INTERVAL_DEFAULT_HOURS = 6;
-const SYNC_INTERVAL_MIN_HOURS = 1;
-const SYNC_INTERVAL_MAX_HOURS = 48;
+export const ABS_PAGE_SIZE = 100;
+const PAGE_SIZE = ABS_PAGE_SIZE;
 const SEARCH_DEFAULT_LIMIT = 20;
 const SEARCH_MAX_LIMIT = 50;
 const UNLINKED_LIST_LIMIT = 500;
-const SCHEDULER_TICK_MS = 15 * 60 * 1000;
-const SCHEDULER_FIRST_TICK_MS = 60 * 1000;
 const ABS_TAG_NAME = 'Audiobook Shelf';
-const STATUS_DONE_NAME = 'Done';
-const STATUS_CURRENT_NAME = 'Current';
+const AUTO_ADDED_TAG_NAME = 'Auto-Added';
 
 // ============================================
 // Types
@@ -61,23 +43,27 @@ export interface AbsConfig {
 	apiKey: string;
 }
 
-interface AbsLibrary {
+export interface AbsLibrary {
 	id: string;
 	name: string;
 	mediaType?: string;
 }
 
-interface AbsBookMetadata {
+export interface AbsBookMetadata {
 	title?: string | null;
 	asin?: string | null;
+	isbn?: string | null;
+	seriesName?: string | null;
+	series?: { id?: string; name: string; sequence?: string | null }[];
 	authors?: { id?: string; name: string }[];
 	authorName?: string | null;
 	narrators?: string[];
 	narratorName?: string | null;
 }
 
-interface AbsLibraryItem {
+export interface AbsLibraryItem {
 	id: string;
+	libraryId?: string;
 	media?: { metadata?: AbsBookMetadata };
 }
 
@@ -97,14 +83,12 @@ export interface AbsSearchResult {
 }
 
 /** Expanded ABS library item (GET /api/items/:id?expanded=1), only the fields we read */
-interface AbsExpandedItem {
+export interface AbsExpandedItem {
 	id: string;
 	libraryId?: string;
 	size?: number;
 	media?: {
 		metadata?: AbsBookMetadata & {
-			seriesName?: string | null;
-			series?: { name: string; sequence?: string | null }[];
 			publishedYear?: string | null;
 			publisher?: string | null;
 			description?: string | null;
@@ -135,7 +119,7 @@ export interface AbsItemDetails {
 }
 
 /** ABS media progress record (GET /api/me/progress/:id, or an entry of /api/me mediaProgress) */
-interface AbsMediaProgress {
+export interface AbsMediaProgress {
 	libraryItemId: string;
 	episodeId?: string | null;
 	duration?: number;
@@ -169,40 +153,6 @@ export interface AbsLinkStats {
 	unlinked: UnlinkedAudiobook[];
 }
 
-export interface AbsSyncResult {
-	ok: boolean;
-	skipped?: boolean;
-	error?: string;
-	linked: number;
-	created: number;
-	errors: number;
-	/** Books advanced to Current / Done by the status sync (absent in results stored before 2.12.4) */
-	statusFlips?: number;
-	/** ABS items marked finished from Done books (absent in results stored before 2.16.0) */
-	writeBacks?: number;
-	/** Done books whose linked ABS item no longer exists; not counted as errors (absent before 2.16.0) */
-	writeBackMissing?: number;
-	durationMs: number;
-}
-
-/** Last sync run as persisted in integration.abs_last_result. */
-export interface AbsLastSyncResult extends AbsSyncResult {
-	finishedAt: string;
-}
-
-export interface AbsSyncStatus {
-	/** Last successful sync (drives the scheduler) */
-	lastSync: string | null;
-	/** Last attempted run, successful or not */
-	lastResult: AbsLastSyncResult | null;
-	intervalHours: number;
-	/** lastSync + interval; null when there has never been a successful sync */
-	nextRunAt: string | null;
-	schedulerCheckMinutes: number;
-	/** Linked Done books not yet written back (upper bound: items already finished on ABS need no PATCH) */
-	writeBackPending: number;
-}
-
 // ============================================
 // Config
 // ============================================
@@ -220,7 +170,7 @@ export async function getAbsConfig(): Promise<AbsConfig> {
 	return { enabled: enabled as boolean, baseUrl: normalizeBaseUrl(baseUrl), apiKey: apiKey.trim() };
 }
 
-function isUsable(config: AbsConfig): boolean {
+export function isUsable(config: AbsConfig): boolean {
 	return config.enabled && !!config.baseUrl && !!config.apiKey;
 }
 
@@ -233,25 +183,18 @@ export async function getAbsLinkBaseUrl(): Promise<string | null> {
 	return enabled ? normalizeBaseUrl(baseUrl) || null : null;
 }
 
-/** Automatic sync interval in hours, clamped to 1-48 (default 6). */
-export async function getAbsSyncIntervalHours(): Promise<number> {
-	const hours = await getSettingAs<number>('integration.abs_sync_interval_hours', 'number');
-	if (!Number.isFinite(hours)) return SYNC_INTERVAL_DEFAULT_HOURS;
-	return Math.min(SYNC_INTERVAL_MAX_HOURS, Math.max(SYNC_INTERVAL_MIN_HOURS, hours));
-}
-
 // ============================================
 // REST client
 // ============================================
 
 /** Non-2xx response from ABS (network failures stay plain fetch errors) */
-class AbsHttpError extends Error {
+export class AbsHttpError extends Error {
 	constructor(message: string, readonly status: number) {
 		super(message);
 	}
 }
 
-async function absGet<T>(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: string): Promise<T> {
+export async function absGet<T>(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: string): Promise<T> {
 	const res = await fetch(`${config.baseUrl}${path}`, {
 		// ABS only reads the key from "Authorization: Bearer <token>" (it ignores x-api-key)
 		headers: { Authorization: `Bearer ${config.apiKey}`, Accept: 'application/json' },
@@ -265,7 +208,7 @@ async function absGet<T>(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: st
 }
 
 /** PATCH a JSON body; the response body is ignored (ABS returns JSON or plain "OK" by version). */
-async function absPatch(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: string, body: unknown): Promise<void> {
+export async function absPatch(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: string, body: unknown): Promise<void> {
 	const res = await fetch(`${config.baseUrl}${path}`, {
 		method: 'PATCH',
 		headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -279,12 +222,12 @@ async function absPatch(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, path: str
 	await res.body?.cancel();
 }
 
-async function getLibraries(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>): Promise<AbsLibrary[]> {
+export async function getLibraries(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>): Promise<AbsLibrary[]> {
 	const data = await absGet<{ libraries?: AbsLibrary[] }>(config, '/api/libraries');
 	return data.libraries ?? [];
 }
 
-function pickAudiobookLibrary(libraries: AbsLibrary[]): AbsLibrary | null {
+export function pickAudiobookLibrary(libraries: AbsLibrary[]): AbsLibrary | null {
 	return libraries.find((l) => l.name.toLowerCase().includes('audiobook')) ?? libraries[0] ?? null;
 }
 
@@ -296,19 +239,38 @@ async function searchLibrary(config: AbsConfig, libraryId: string, query: string
 	return (data.book ?? []).map((r) => r.libraryItem).filter((item) => !!item?.id);
 }
 
-async function getLibraryItemsPage(
+/** One page of library items; asks for full items (minified=0), the parsers still accept both shapes. */
+export async function getLibraryItemsPage(
 	config: AbsConfig,
 	libraryId: string,
 	page: number
 ): Promise<{ results: AbsLibraryItem[]; total: number }> {
 	const data = await absGet<{ results?: AbsLibraryItem[]; total?: number }>(
 		config,
-		`/api/libraries/${encodeURIComponent(libraryId)}/items?limit=${PAGE_SIZE}&page=${page}`
+		`/api/libraries/${encodeURIComponent(libraryId)}/items?limit=${PAGE_SIZE}&page=${page}&minified=0`
 	);
 	return { results: data.results ?? [], total: data.total ?? 0 };
 }
 
-function describeError(err: unknown): string {
+/** One expanded item, or null when ABS answers 404 (other failures throw AbsHttpError / fetch errors). */
+export async function getAbsItemOrNull(config: AbsConfig, itemId: string): Promise<AbsExpandedItem | null> {
+	try {
+		return await absGet<AbsExpandedItem>(config, `/api/items/${encodeURIComponent(itemId)}?expanded=1`);
+	} catch (err) {
+		if (err instanceof AbsHttpError && err.status === 404) return null;
+		throw err;
+	}
+}
+
+/**
+ * PATCH an item's media metadata. Only the keys sent are changed; metadata.series replaces
+ * the whole array, which is why callers only send it when the item has none.
+ */
+export async function absPatchItemMedia(config: AbsConfig, itemId: string, metadata: Record<string, unknown>): Promise<void> {
+	await absPatch(config, `/api/items/${encodeURIComponent(itemId)}/media`, { metadata });
+}
+
+export function describeError(err: unknown): string {
 	if (!(err instanceof Error)) return 'Connection failed';
 	if (err.name === 'TimeoutError') return 'Connection timed out';
 	// fetch() wraps network failures as "fetch failed" with the real reason in cause
@@ -323,47 +285,28 @@ function describeError(err: unknown): string {
 // Metadata helpers
 // ============================================
 
-function normalizeTitle(title: string | null | undefined): string {
-	return (title ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function itemTitle(item: AbsLibraryItem): string {
+export function itemTitle(item: AbsLibraryItem): string {
 	return item.media?.metadata?.title?.trim() ?? '';
 }
 
 // Full items carry arrays; minified items carry comma-joined names
-function itemAuthors(item: AbsLibraryItem): string[] {
+export function itemAuthors(item: AbsLibraryItem): string[] {
 	const meta = item.media?.metadata;
 	if (meta?.authors?.length) return meta.authors.map((a) => a.name.trim()).filter(Boolean);
 	return (meta?.authorName ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-function itemNarrators(item: AbsLibraryItem): string[] {
+export function itemNarrators(item: AbsLibraryItem): string[] {
 	const meta = item.media?.metadata;
 	if (meta?.narrators?.length) return meta.narrators.map((n) => n.trim()).filter(Boolean);
 	return (meta?.narratorName ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-}
-
-function isWithinLinkWindow(createdAt: string | null): boolean {
-	if (!createdAt) return false;
-	const time = new Date(createdAt).getTime();
-	return !Number.isNaN(time) && Date.now() - time <= LINK_WINDOW_MS;
 }
 
 // ============================================
 // Row resolution (ensure rows exist before creating books)
 // ============================================
 
-async function ensureAuthor(name: string): Promise<number> {
-	const [existing] = await db.select({ id: authors.id }).from(authors)
-		.where(sql`LOWER(${authors.name}) = LOWER(${name})`).limit(1);
-	if (existing) return existing.id;
-	const now = new Date().toISOString();
-	const [created] = await db.insert(authors).values({ name, createdAt: now, updatedAt: now }).returning({ id: authors.id });
-	return created.id;
-}
-
-async function ensureNarrator(name: string): Promise<number> {
+export async function ensureNarrator(name: string): Promise<number> {
 	const [existing] = await db.select({ id: narrators.id }).from(narrators)
 		.where(sql`LOWER(${narrators.name}) = LOWER(${name})`).limit(1);
 	if (existing) return existing.id;
@@ -373,7 +316,7 @@ async function ensureNarrator(name: string): Promise<number> {
 }
 
 // Prefers "Audio"; reuses the stock "Audiobook" format on fresh installs before creating "Audio"
-async function ensureAudioFormat(): Promise<number> {
+export async function ensureAudioFormat(): Promise<number> {
 	for (const name of ['audio', 'audiobook']) {
 		const [existing] = await db.select({ id: formats.id }).from(formats)
 			.where(sql`LOWER(${formats.name}) = ${name}`).limit(1);
@@ -390,14 +333,14 @@ async function ensureAudioFormat(): Promise<number> {
 }
 
 // Any format whose name contains "audio" (Audio, Audiobook, Audible Audio, ...)
-async function getAudioFormatIds(): Promise<number[]> {
+export async function getAudioFormatIds(): Promise<number[]> {
 	const rows = await db.select({ id: formats.id }).from(formats)
 		.where(sql`LOWER(${formats.name}) LIKE '%audio%'`)
 		.orderBy(asc(formats.id));
 	return rows.map((r) => r.id);
 }
 
-async function getUnreadStatusId(): Promise<number | null> {
+export async function getUnreadStatusId(): Promise<number | null> {
 	const [byName] = await db.select({ id: statuses.id }).from(statuses)
 		.where(sql`LOWER(${statuses.name}) = 'unread'`).limit(1);
 	if (byName) return byName.id;
@@ -411,7 +354,7 @@ async function getUnreadStatusId(): Promise<number | null> {
 // ============================================
 
 // Finds the tag by name (case-insensitive, reusing a user-made one) or creates it; marks it system
-async function ensureAbsTag(): Promise<number> {
+export async function ensureAbsTag(): Promise<number> {
 	const [existing] = await db.select({ id: tags.id, isSystem: tags.isSystem }).from(tags)
 		.where(sql`LOWER(${tags.name}) = LOWER(${ABS_TAG_NAME})`).limit(1);
 	const now = new Date().toISOString();
@@ -421,6 +364,21 @@ async function ensureAbsTag(): Promise<number> {
 	}
 	const [created] = await db.insert(tags)
 		.values({ name: ABS_TAG_NAME, color: '#f97316', icon: 'headphones', isSystem: true, createdAt: now, updatedAt: now })
+		.returning({ id: tags.id });
+	return created.id;
+}
+
+// "Auto-Added" marks books the sync created, so they can be reviewed; reuses a user-made tag of that name
+export async function ensureAutoAddedTag(): Promise<number> {
+	const [existing] = await db.select({ id: tags.id, isSystem: tags.isSystem }).from(tags)
+		.where(sql`LOWER(${tags.name}) = LOWER(${AUTO_ADDED_TAG_NAME})`).limit(1);
+	const now = new Date().toISOString();
+	if (existing) {
+		if (!existing.isSystem) await db.update(tags).set({ isSystem: true, updatedAt: now }).where(eq(tags.id, existing.id));
+		return existing.id;
+	}
+	const [created] = await db.insert(tags)
+		.values({ name: AUTO_ADDED_TAG_NAME, color: '#0ea5e9', icon: 'sparkles', isSystem: true, createdAt: now, updatedAt: now })
 		.returning({ id: tags.id });
 	return created.id;
 }
@@ -439,7 +397,7 @@ async function removeAbsTag(tagId: number, bookId: number): Promise<void> {
 }
 
 /** Set-based self-heal: every linked book gets the tag, every unlinked book loses it. */
-async function healAbsTags(tagId: number): Promise<{ added: number; removed: number }> {
+export async function healAbsTags(tagId: number): Promise<{ added: number; removed: number }> {
 	const now = new Date().toISOString();
 	const tagged = db.select({ bookId: bookTags.bookId }).from(bookTags).where(eq(bookTags.tagId, tagId));
 	const added = await db.insert(bookTags).select(
@@ -571,7 +529,7 @@ export async function getAbsItem(itemId: string): Promise<AbsItemDetails> {
 	}
 }
 
-function toAbsProgress(p: AbsMediaProgress): AbsProgress {
+export function toAbsProgress(p: AbsMediaProgress): AbsProgress {
 	const durationSec = p.duration ?? 0;
 	const currentTimeSec = p.currentTime ?? 0;
 	const progress = p.progress ?? (durationSec > 0 ? currentTimeSec / durationSec : 0);
@@ -637,510 +595,14 @@ export async function getAbsLinkStats(): Promise<AbsLinkStats> {
 	};
 }
 
-/**
- * Link pass: books without absItemId added in the last 14 days.
- * ASIN-exact match first; fallback is a single exact-title hit.
- */
-async function runLinkPass(config: AbsConfig, libraryId: string, usedItemIds: Set<string>, tagId: number): Promise<{ linked: number; errors: number }> {
-	let linked = 0;
-	let errors = 0;
-	let lastId = 0;
-
-	for (;;) {
-		const page = await db
-			.select({ id: books.id, title: books.title, asin: books.asin, createdAt: books.createdAt })
-			.from(books)
-			.where(and(isNull(books.absItemId), gt(books.id, lastId)))
-			.orderBy(books.id)
-			.limit(PAGE_SIZE);
-		if (page.length === 0) break;
-		lastId = page[page.length - 1].id;
-
-		for (const book of page) {
-			if (!isWithinLinkWindow(book.createdAt)) continue;
-
-			try {
-				let match: AbsLibraryItem | null = null;
-
-				const asin = book.asin?.trim();
-				if (asin) {
-					const hits = await searchLibrary(config, libraryId, asin);
-					match = hits.find((item) => item.media?.metadata?.asin === asin) ?? null;
-				}
-
-				if (!match) {
-					const wanted = normalizeTitle(book.title);
-					const hits = await searchLibrary(config, libraryId, book.title);
-					const exact = hits.filter((item) => normalizeTitle(itemTitle(item)) === wanted);
-					if (exact.length === 1) match = exact[0];
-				}
-
-				if (match && !usedItemIds.has(match.id)) {
-					await db.update(books).set({ absItemId: match.id, updatedAt: new Date().toISOString() }).where(eq(books.id, book.id));
-					await addAbsTag(tagId, book.id);
-					usedItemIds.add(match.id);
-					linked++;
-					log.info('Linked book to Audiobookshelf item', { bookId: book.id, absItemId: match.id });
-				}
-			} catch (err) {
-				errors++;
-				log.warn('Audiobookshelf link failed', { bookId: book.id, error: err instanceof Error ? err.message : String(err) });
-			}
-		}
-	}
-
-	return { linked, errors };
-}
-
-/**
- * Reverse sync: every ABS item with no exact-title BookShelf book is created born-linked.
- * An exact-title book without absItemId is linked instead of duplicated.
- */
-async function runReverseSync(config: AbsConfig, libraryId: string, usedItemIds: Set<string>, tagId: number): Promise<{ linked: number; created: number; errors: number }> {
-	let linked = 0;
-	let created = 0;
-	let errors = 0;
-
-	const allBooks = await db.select({ id: books.id, title: books.title, absItemId: books.absItemId }).from(books);
-	const byTitle = new Map<string, { id: number; absItemId: string | null }[]>();
-	for (const b of allBooks) {
-		const key = normalizeTitle(b.title);
-		const list = byTitle.get(key) ?? [];
-		list.push({ id: b.id, absItemId: b.absItemId });
-		byTitle.set(key, list);
-	}
-
-	let ownerId: number | null | undefined;
-	let formatId: number | undefined;
-	let statusId: number | null | undefined;
-
-	for (let pageNum = 0; ; pageNum++) {
-		const { results, total } = await getLibraryItemsPage(config, libraryId, pageNum);
-		if (results.length === 0) break;
-
-		for (const item of results) {
-			if (usedItemIds.has(item.id)) continue;
-			const title = itemTitle(item);
-			if (!title) continue;
-
-			try {
-				const key = normalizeTitle(title);
-				const matches = byTitle.get(key);
-
-				if (matches?.length) {
-					// Already represented; link the first unlinked copy if none is linked yet
-					if (matches.some((m) => m.absItemId)) continue;
-					const target = matches[0];
-					await db.update(books).set({ absItemId: item.id, updatedAt: new Date().toISOString() }).where(eq(books.id, target.id));
-					await addAbsTag(tagId, target.id);
-					target.absItemId = item.id;
-					usedItemIds.add(item.id);
-					linked++;
-					log.info('Linked existing book to Audiobookshelf item', { bookId: target.id, absItemId: item.id });
-					continue;
-				}
-
-				if (ownerId === undefined) ownerId = await getDefaultOwnerId();
-				if (!ownerId) throw new Error('No admin user found for book ownership');
-				if (formatId === undefined) formatId = await ensureAudioFormat();
-				if (statusId === undefined) statusId = await getUnreadStatusId();
-
-				const authorIds: number[] = [];
-				for (const name of itemAuthors(item)) authorIds.push(await ensureAuthor(name));
-				const [narratorName] = itemNarrators(item);
-				const narratorId = narratorName ? await ensureNarrator(narratorName) : null;
-
-				const newBook = await createBook({
-					title,
-					authors: authorIds.map((id) => ({ id })),
-					narratorId,
-					formatId,
-					statusId,
-					ownerId,
-					absItemId: item.id,
-					tagIds: [tagId]
-				});
-				byTitle.set(key, [{ id: newBook.id, absItemId: item.id }]);
-				usedItemIds.add(item.id);
-				created++;
-				log.info('Created book from Audiobookshelf item', { bookId: newBook.id, absItemId: item.id, title });
-			} catch (err) {
-				errors++;
-				log.warn('Audiobookshelf reverse sync failed for item', { absItemId: item.id, title, error: err instanceof Error ? err.message : String(err) });
-			}
-		}
-
-		if ((pageNum + 1) * PAGE_SIZE >= total) break;
-	}
-
-	return { linked, created, errors };
-}
-
-async function getStatusIdByName(name: string): Promise<number | null> {
-	const [row] = await db.select({ id: statuses.id }).from(statuses)
-		.where(sql`LOWER(${statuses.name}) = LOWER(${name})`).limit(1);
-	return row?.id ?? null;
-}
-
-// ABS timestamps are epoch ms; book reading dates are YYYY-MM-DD in the app timezone
-function toDateOnly(epochMs: number | null | undefined): string {
-	return epochMs ? dateInAppTz(epochMs) : todayInAppTz();
-}
-
 /** The API key user's progress for every book item, in one GET /api/me (podcast episodes skipped). */
-async function fetchProgressByItem(config: AbsConfig): Promise<Map<string, AbsMediaProgress>> {
+export async function fetchProgressByItem(config: AbsConfig): Promise<Map<string, AbsMediaProgress>> {
 	const me = await absGet<{ mediaProgress?: AbsMediaProgress[] }>(config, '/api/me');
 	const progressByItem = new Map<string, AbsMediaProgress>();
 	for (const p of me.mediaProgress ?? []) {
 		if (p.libraryItemId && !p.episodeId) progressByItem.set(p.libraryItemId, p);
 	}
 	return progressByItem;
-}
-
-/**
- * Status sync: advance linked books from the API key user's ABS progress.
- * Finished -> Done; started but unfinished -> Current. Advance-only: Done is never
- * touched, Current is never re-set, and books without ABS progress are skipped.
- * A finish that write-back sent itself (absWritebackItemId === absItemId) never pulls
- * a book the user has since moved off Done back to Done.
- */
-async function runStatusSync(config: AbsConfig, progressByItem: Map<string, AbsMediaProgress>): Promise<{ flips: number; errors: number }> {
-	const [doneId, currentId] = await Promise.all([
-		getStatusIdByName(STATUS_DONE_NAME),
-		getStatusIdByName(STATUS_CURRENT_NAME)
-	]);
-	if (doneId === null) log.warn(`No "${STATUS_DONE_NAME}" status found; finished audiobooks will not be marked`);
-	if (currentId === null) log.warn(`No "${STATUS_CURRENT_NAME}" status found; in-progress audiobooks will not be marked`);
-	if (doneId === null && currentId === null) return { flips: 0, errors: 0 };
-
-	if (progressByItem.size === 0) return { flips: 0, errors: 0 };
-
-	const linked = await db
-		.select({
-			id: books.id,
-			absItemId: books.absItemId,
-			statusId: books.statusId,
-			absWritebackItemId: books.absWritebackItemId
-		})
-		.from(books)
-		.where(isNotNull(books.absItemId));
-
-	let flips = 0;
-	let errors = 0;
-
-	for (const book of linked) {
-		const raw = progressByItem.get(book.absItemId as string);
-		if (!raw) continue;
-		// Done stays Done, whatever ABS says now
-		if (doneId !== null && book.statusId === doneId) continue;
-
-		const progress = toAbsProgress(raw);
-		let targetId: number | null = null;
-		const stampDates: { startReadingDate?: string; completedDate?: string } = {};
-		if (raw.startedAt) stampDates.startReadingDate = toDateOnly(raw.startedAt);
-
-		if (progress.isFinished) {
-			if (doneId === null) continue;
-			// We finished this item ourselves and the user has since moved the book off Done
-			if (book.absWritebackItemId === book.absItemId) continue;
-			targetId = doneId;
-			stampDates.completedDate = toDateOnly(raw.finishedAt);
-		} else if (progress.progress > 0) {
-			if (currentId === null || book.statusId === currentId) continue;
-			targetId = currentId;
-		}
-		if (targetId === null) continue;
-
-		try {
-			const { changed } = await applyStatusChange([book.id], targetId, { source: 'abs_sync', stampDates });
-			if (changed.length === 0) continue;
-			flips++;
-			log.info('Updated book status from Audiobookshelf progress', {
-				bookId: book.id,
-				absItemId: book.absItemId,
-				status: targetId === doneId ? STATUS_DONE_NAME : STATUS_CURRENT_NAME,
-				progress: progress.progress
-			});
-		} catch (err) {
-			errors++;
-			log.warn('Audiobookshelf status update failed', { bookId: book.id, error: err instanceof Error ? err.message : String(err) });
-		}
-	}
-
-	return { flips, errors };
-}
-
-// Book completedDate (YYYY-MM-DD) -> epoch ms at 12:00 UTC, so the ABS day matches in any timezone
-function completedDateToEpochMs(date: string | null): number | null {
-	if (!date || !/^\d{4}-\d{2}-\d{2}/.test(date)) return null;
-	const ms = Date.parse(`${date.slice(0, 10)}T12:00:00Z`);
-	return Number.isNaN(ms) ? null : ms;
-}
-
-/**
- * Write-back: mark the ABS item finished for every linked Done book, at most once per
- * link (books.absWritebackItemId records the item written). Only isFinished, plus
- * finishedAt from completedDate, is ever sent, so the listening position is kept and
- * nothing is un-finished. Verified against ABS 2.37.2: PATCH creates a missing
- * progress record, keeps currentTime, sets progress to 1, honours a supplied
- * finishedAt, and returns 404 for unknown items. ABS clears isFinished when playback
- * resumes, which is why the ledger exists: re-listened books are not re-finished.
- */
-async function runWriteBack(
-	config: AbsConfig,
-	progressByItem: Map<string, AbsMediaProgress>
-): Promise<{ writeBacks: number; missing: number; errors: number }> {
-	const result = { writeBacks: 0, missing: 0, errors: 0 };
-	const doneId = await getStatusIdByName(STATUS_DONE_NAME);
-	if (doneId === null) {
-		log.warn(`No "${STATUS_DONE_NAME}" status found; nothing will be marked finished on Audiobookshelf`);
-		return result;
-	}
-
-	// Only Done books are selected, so moving a book off Done never writes anything
-	const [candidates, linkedRows] = await Promise.all([
-		db.select({
-			id: books.id,
-			absItemId: books.absItemId,
-			completedDate: books.completedDate,
-			absWritebackItemId: books.absWritebackItemId
-		})
-			.from(books)
-			.where(and(isNotNull(books.absItemId), eq(books.statusId, doneId))),
-		db.select({ id: books.id, absItemId: books.absItemId }).from(books).where(isNotNull(books.absItemId))
-	]);
-
-	// One item, one book: an item linked to several books is ambiguous and left alone
-	const bookIdsByItem = new Map<string, number[]>();
-	for (const r of linkedRows) {
-		const ids = bookIdsByItem.get(r.absItemId as string) ?? [];
-		ids.push(r.id);
-		bookIdsByItem.set(r.absItemId as string, ids);
-	}
-
-	const recordWriteBack = (bookId: number, absItemId: string) =>
-		db.update(books).set({ absWritebackItemId: absItemId }).where(eq(books.id, bookId));
-	const warnedDuplicates = new Set<string>();
-
-	for (const book of candidates) {
-		const absItemId = book.absItemId as string;
-		if (book.absWritebackItemId === absItemId) continue;
-
-		const bookIds = bookIdsByItem.get(absItemId) ?? [];
-		if (bookIds.length > 1) {
-			if (!warnedDuplicates.has(absItemId)) {
-				warnedDuplicates.add(absItemId);
-				log.warn('Audiobookshelf item is linked to several books; skipping write-back', { absItemId, bookIds });
-			}
-			continue;
-		}
-
-		const record = progressByItem.get(absItemId);
-		try {
-			if (record?.isFinished) {
-				// Already finished on ABS (including books the status sync just moved to Done)
-				await recordWriteBack(book.id, absItemId);
-				continue;
-			}
-
-			const finishedAt = completedDateToEpochMs(book.completedDate);
-			await absPatch(
-				config,
-				`/api/me/progress/${encodeURIComponent(absItemId)}`,
-				finishedAt === null ? { isFinished: true } : { isFinished: true, finishedAt }
-			);
-			await recordWriteBack(book.id, absItemId);
-			result.writeBacks++;
-			log.info('Marked Audiobookshelf item finished', {
-				bookId: book.id,
-				absItemId,
-				hadProgress: !!record,
-				progress: record ? toAbsProgress(record).progress : 0
-			});
-		} catch (err) {
-			if (err instanceof AbsHttpError && err.status === 404) {
-				// Stale link; retried next sync, not counted as an error
-				result.missing++;
-				log.warn('Audiobookshelf item not found; skipping write-back', { bookId: book.id, absItemId });
-				continue;
-			}
-			// Every remaining request would be rejected the same way
-			if (err instanceof AbsHttpError && (err.status === 401 || err.status === 403)) throw err;
-			result.errors++;
-			log.warn('Audiobookshelf write-back failed', { bookId: book.id, absItemId, error: describeError(err) });
-		}
-	}
-
-	return result;
-}
-
-/** Done + linked books the next write-back would mark finished (ledger-filtered, duplicates excluded). */
-async function getAbsWriteBackPendingCount(): Promise<number> {
-	const doneId = await getStatusIdByName(STATUS_DONE_NAME);
-	if (doneId === null) return 0;
-
-	const dupItems = db.select({ absItemId: books.absItemId }).from(books)
-		.where(isNotNull(books.absItemId))
-		.groupBy(books.absItemId)
-		.having(sql`COUNT(*) > 1`);
-	const [row] = await db.select({ n: count() }).from(books).where(and(
-		isNotNull(books.absItemId),
-		eq(books.statusId, doneId),
-		or(isNull(books.absWritebackItemId), ne(books.absWritebackItemId, books.absItemId)),
-		notInArray(books.absItemId, dupItems)
-	));
-	return row?.n ?? 0;
-}
-
-let activeSync: Promise<AbsSyncResult> | null = null;
-
-/** Run one full sync (link, reverse, then the optional status sync and write-back). Concurrent calls share the in-flight run. */
-export function runAbsSync(): Promise<AbsSyncResult> {
-	if (!activeSync) {
-		activeSync = doSync()
-			.then(async (result) => {
-				await persistLastResult(result);
-				return result;
-			})
-			.finally(() => {
-				activeSync = null;
-			});
-	}
-	return activeSync;
-}
-
-async function persistLastResult(result: AbsSyncResult): Promise<void> {
-	// Skipped runs (integration disabled / not configured) never reached ABS; keep the last real result
-	if (result.skipped) return;
-	try {
-		const stored: AbsLastSyncResult = { ...result, finishedAt: new Date().toISOString() };
-		await setSetting('integration.abs_last_result', JSON.stringify(stored));
-	} catch (err) {
-		log.warn('Failed to persist Audiobookshelf sync result', { error: err instanceof Error ? err.message : String(err) });
-	}
-}
-
-/** Sync status for the Integrations settings tab. */
-export async function getAbsSyncStatus(): Promise<AbsSyncStatus> {
-	const [lastSyncRaw, lastResultRaw, intervalHours, writeBackPending] = await Promise.all([
-		getSetting('integration.abs_last_sync'),
-		getSetting('integration.abs_last_result'),
-		getAbsSyncIntervalHours(),
-		getAbsWriteBackPendingCount()
-	]);
-
-	let lastResult: AbsLastSyncResult | null = null;
-	if (lastResultRaw) {
-		try {
-			lastResult = JSON.parse(lastResultRaw) as AbsLastSyncResult;
-		} catch {
-			lastResult = null;
-		}
-	}
-
-	const lastTime = lastSyncRaw ? new Date(lastSyncRaw).getTime() : NaN;
-	const nextRunAt = Number.isNaN(lastTime) ? null : new Date(lastTime + intervalHours * 60 * 60 * 1000).toISOString();
-
-	return {
-		lastSync: lastSyncRaw || null,
-		lastResult,
-		intervalHours,
-		nextRunAt,
-		schedulerCheckMinutes: SCHEDULER_TICK_MS / 60000,
-		writeBackPending
-	};
-}
-
-async function doSync(): Promise<AbsSyncResult> {
-	const started = Date.now();
-	const empty = { linked: 0, created: 0, errors: 0, statusFlips: 0, writeBacks: 0, writeBackMissing: 0 };
-	const config = await getAbsConfig();
-
-	if (!isUsable(config)) {
-		return {
-			ok: false,
-			skipped: true,
-			error: config.enabled ? 'Audiobookshelf URL or API key is not set' : 'Audiobookshelf integration is disabled',
-			...empty,
-			durationMs: 0
-		};
-	}
-
-	try {
-		// Heal tag drift first; it needs no network, so it runs even if ABS is unreachable
-		const tagId = await ensureAbsTag();
-		const healed = await healAbsTags(tagId);
-		if (healed.added || healed.removed) log.info('Healed Audiobook Shelf tag drift', healed);
-
-		const library = pickAudiobookLibrary(await getLibraries(config));
-		if (!library) {
-			return { ok: false, error: 'No libraries found on Audiobookshelf', ...empty, durationMs: Date.now() - started };
-		}
-
-		const linkedRows = await db.select({ absItemId: books.absItemId }).from(books)
-			.where(sql`${books.absItemId} IS NOT NULL`);
-		const usedItemIds = new Set(linkedRows.map((r) => r.absItemId as string));
-
-		const linkPass = await runLinkPass(config, library.id, usedItemIds, tagId);
-		const reverse = await runReverseSync(config, library.id, usedItemIds, tagId);
-
-		const [statusOn, writebackOn] = await Promise.all([
-			getSettingAs<boolean>('integration.abs_sync_status', 'boolean'),
-			getSettingAs<boolean>('integration.abs_sync_writeback', 'boolean')
-		]);
-
-		// One progress snapshot shared by both passes; write-back never runs without it
-		const statusSync = { flips: 0, errors: 0 };
-		const writeBack = { writeBacks: 0, missing: 0, errors: 0 };
-		let progressByItem: Map<string, AbsMediaProgress> | null = null;
-		if (statusOn || writebackOn) {
-			try {
-				progressByItem = await fetchProgressByItem(config);
-			} catch (err) {
-				// Progress lookup failed; links and created books from this run still count
-				statusSync.errors++;
-				log.warn('Audiobookshelf progress lookup failed', { error: describeError(err) });
-			}
-		}
-
-		// Forward first: a book it moves to Done was finished in this snapshot, so write-back skips it
-		if (statusOn && progressByItem) {
-			try {
-				Object.assign(statusSync, await runStatusSync(config, progressByItem));
-			} catch (err) {
-				statusSync.errors++;
-				log.warn('Audiobookshelf status sync failed', { error: describeError(err) });
-			}
-		}
-
-		if (writebackOn && progressByItem) {
-			try {
-				Object.assign(writeBack, await runWriteBack(config, progressByItem));
-			} catch (err) {
-				writeBack.errors++;
-				log.warn('Audiobookshelf write-back failed', { error: describeError(err) });
-			}
-		}
-
-		await setSetting('integration.abs_last_sync', new Date().toISOString());
-
-		const result: AbsSyncResult = {
-			ok: true,
-			linked: linkPass.linked + reverse.linked,
-			created: reverse.created,
-			errors: linkPass.errors + reverse.errors + statusSync.errors + writeBack.errors,
-			statusFlips: statusSync.flips,
-			writeBacks: writeBack.writeBacks,
-			writeBackMissing: writeBack.missing,
-			durationMs: Date.now() - started
-		};
-		log.info('Audiobookshelf sync complete', { library: library.name, ...result });
-		return result;
-	} catch (err) {
-		const message = describeError(err);
-		log.error('Audiobookshelf sync failed', { error: message });
-		return { ok: false, error: message, ...empty, durationMs: Date.now() - started };
-	}
 }
 
 // ============================================
@@ -1244,43 +706,4 @@ export async function getAbsListeningByDay(year: number): Promise<AbsListeningRe
 	const promise = fetchListeningByDay(config, year);
 	listeningCache.set(key, { at: now, promise });
 	return promise;
-}
-
-// ============================================
-// Scheduler
-// ============================================
-
-const SCHEDULER_KEY = Symbol.for('bookshelf.absScheduler');
-type SchedulerGlobal = typeof globalThis & { [SCHEDULER_KEY]?: ReturnType<typeof setInterval> };
-
-async function schedulerTick(): Promise<void> {
-	try {
-		const config = await getAbsConfig();
-		if (!isUsable(config)) return;
-
-		// Re-read each tick so interval changes apply without a restart
-		const intervalMs = (await getAbsSyncIntervalHours()) * 60 * 60 * 1000;
-		const lastSync = await getSetting('integration.abs_last_sync');
-		const lastTime = lastSync ? new Date(lastSync).getTime() : 0;
-		if (!Number.isNaN(lastTime) && Date.now() - lastTime < intervalMs) return;
-
-		await runAbsSync();
-	} catch (err) {
-		log.error('Audiobookshelf scheduled sync crashed', { error: err instanceof Error ? err.message : String(err) });
-	}
-}
-
-/**
- * Start the background sync loop (idempotent). Checks every 15 minutes and
- * runs a sync when enabled and the last run is older than the configured interval.
- */
-export function startAbsScheduler(): void {
-	const g = globalThis as SchedulerGlobal;
-	if (g[SCHEDULER_KEY]) return;
-
-	const first = setTimeout(() => void schedulerTick(), SCHEDULER_FIRST_TICK_MS);
-	first.unref?.();
-	const interval = setInterval(() => void schedulerTick(), SCHEDULER_TICK_MS);
-	interval.unref?.();
-	g[SCHEDULER_KEY] = interval;
 }

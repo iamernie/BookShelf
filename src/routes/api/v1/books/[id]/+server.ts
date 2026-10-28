@@ -6,7 +6,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
-import { updateBook, deleteBook, type CreateBookData } from '$lib/server/services/bookService';
+import { updateBook, deleteBook, AbsItemAlreadyLinkedError, type CreateBookData } from '$lib/server/services/bookService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
 import { applyStatusChange } from '$lib/server/services/statusService';
 import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
@@ -287,6 +287,9 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 			message: 'Book updated successfully'
 		});
 	} catch (err) {
+		if (err instanceof AbsItemAlreadyLinkedError) {
+			return json({ error: err.message, details: { bookId: err.bookId } }, { status: 409 });
+		}
 		console.error('API v1 update book error:', err);
 		return json({ error: 'Failed to update book' }, { status: 500 });
 	}

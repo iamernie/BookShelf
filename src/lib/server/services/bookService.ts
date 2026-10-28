@@ -1,6 +1,26 @@
-import { db, books, bookAuthors, bookSeries, bookTags, authors, series, statuses, genres, formats, narrators, tags, userBooks, userBookTags, metadataSuggestions, readingSessions, bookdropQueue } from '$lib/server/db';
-import { eq, like, sql, desc, asc, and, or, inArray, isNull } from 'drizzle-orm';
+import { db, books, bookAuthors, bookSeries, bookTags, authors, series, statuses, genres, formats, narrators, tags, userBooks, userBookTags, metadataSuggestions, readingSessions, bookdropQueue, absSyncAttention } from '$lib/server/db';
+import { eq, like, sql, desc, asc, and, or, inArray, isNull, ne } from 'drizzle-orm';
 import type { Book, NewBook } from '$lib/server/db/schema';
+import { applyAbsTagParity } from './absService';
+
+/** One Audiobookshelf item links to at most one book */
+export class AbsItemAlreadyLinkedError extends Error {
+	constructor(readonly absItemId: string, readonly bookId: number, readonly title: string) {
+		super(`Audiobookshelf item is already linked to "${title}"`);
+		this.name = 'AbsItemAlreadyLinkedError';
+	}
+}
+
+/** Throws AbsItemAlreadyLinkedError when another book already links this item. */
+export async function assertAbsItemNotLinked(absItemId: string | null | undefined, exceptBookId?: number): Promise<void> {
+	if (!absItemId) return;
+	const [other] = await db
+		.select({ id: books.id, title: books.title })
+		.from(books)
+		.where(and(eq(books.absItemId, absItemId), exceptBookId === undefined ? undefined : ne(books.id, exceptBookId)))
+		.limit(1);
+	if (other) throw new AbsItemAlreadyLinkedError(absItemId, other.id, other.title);
+}
 
 export interface BookWithRelations extends Book {
 	authors: { id: number; name: string; role: string | null; isPrimary: boolean | null }[];
@@ -304,6 +324,7 @@ export async function createBook(data: CreateBookData): Promise<Book> {
 	if (!bookData.ownerId && bookData.libraryType !== 'public') {
 		throw new Error('ownerId is required to create a book');
 	}
+	await assertAbsItemNotLinked(bookData.absItemId);
 
 	const [newBook] = await db
 		.insert(books)
@@ -380,6 +401,15 @@ export async function updateBook(id: number, data: Partial<CreateBookData>): Pro
 	const now = new Date().toISOString();
 	const { authors: bookAuthorsList, series: bookSeriesList, tagIds, ...bookData } = data;
 
+	// A changed Audiobookshelf link must be free, and starts out not stale
+	if (bookData.absItemId !== undefined) {
+		const [current] = await db.select({ absItemId: books.absItemId }).from(books).where(eq(books.id, id)).limit(1);
+		if (current && current.absItemId !== bookData.absItemId) {
+			await assertAbsItemNotLinked(bookData.absItemId, id);
+			bookData.absLinkStaleAt = null;
+		}
+	}
+
 	// Fields are written as given; status changes and date stamping belong to applyStatusChange
 	const [updated] = await db
 		.update(books)
@@ -448,6 +478,8 @@ export async function updateBook(id: number, data: Partial<CreateBookData>): Pro
 }
 
 export async function deleteBook(id: number): Promise<boolean> {
+	const [linked] = await db.select({ absItemId: books.absItemId, title: books.title }).from(books).where(eq(books.id, id)).limit(1);
+
 	// Delete related records first (foreign key constraints)
 	await db.delete(bookAuthors).where(eq(bookAuthors.bookId, id));
 	await db.delete(bookSeries).where(eq(bookSeries.bookId, id));
@@ -460,7 +492,39 @@ export async function deleteBook(id: number): Promise<boolean> {
 
 	// Now delete the book
 	const result = await db.delete(books).where(eq(books.id, id));
+	if (result.changes > 0 && linked?.absItemId) await tombstoneAbsItem(linked.absItemId, linked.title);
 	return result.changes > 0;
+}
+
+/**
+ * A deleted book's Audiobookshelf item would be re-created by the next sync; record an
+ * 'ignored' attention row so the sync skips it (Reopen on the sync page brings it back).
+ */
+async function tombstoneAbsItem(absItemId: string, title: string): Promise<void> {
+	// Still linked to another book (a duplicate link): nothing would resurrect
+	const [stillLinked] = await db.select({ id: books.id }).from(books).where(eq(books.absItemId, absItemId)).limit(1);
+	if (stillLinked) return;
+
+	const now = new Date().toISOString();
+	const [open] = await db.select({ id: absSyncAttention.id }).from(absSyncAttention)
+		.where(and(eq(absSyncAttention.absItemId, absItemId), eq(absSyncAttention.status, 'open'))).limit(1);
+	if (open) {
+		await db.update(absSyncAttention)
+			.set({ status: 'ignored', resolution: 'ignored', resolvedAt: now, updatedAt: now })
+			.where(eq(absSyncAttention.id, open.id));
+		return;
+	}
+	await db.insert(absSyncAttention).values({
+		absItemId,
+		kind: 'deleted_book',
+		status: 'ignored',
+		itemTitle: title,
+		candidates: '[]',
+		resolution: 'ignored',
+		createdAt: now,
+		updatedAt: now,
+		resolvedAt: now
+	});
 }
 
 // Helper functions to get dropdown options
@@ -799,6 +863,16 @@ export async function mergeBooks(targetId: number, sourceId: number): Promise<bo
 	// If source has an ebook but target doesn't, transfer it
 	if (source.ebookPath && !target.ebookPath) {
 		await db.update(books).set({ ebookPath: source.ebookPath }).where(eq(books.id, targetId));
+	}
+
+	// The Audiobookshelf link moves with the merge, or the next sync would re-create the book.
+	// Source first: the unique index on absItemId allows one book per item at any moment.
+	if (source.absItemId && !target.absItemId) {
+		await db.update(books).set({ absItemId: null }).where(eq(books.id, sourceId));
+		await db.update(books)
+			.set({ absItemId: source.absItemId, absLinkStaleAt: source.absLinkStaleAt, updatedAt: now })
+			.where(eq(books.id, targetId));
+		await applyAbsTagParity(targetId);
 	}
 
 	// If source has a cover but target doesn't, transfer it

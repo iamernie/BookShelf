@@ -6,16 +6,16 @@ import { validateToken as validateApiToken } from '$lib/server/services/apiToken
 import { createLogger, logRequest, logError } from '$lib/server/services/loggerService';
 import { checkSetupNeeded } from '$lib/server/services/setupService';
 import { migrationStatus } from '$lib/server/db';
-import { startAbsScheduler } from '$lib/server/services/absService';
+import { startAbsSyncScheduler } from '$lib/server/services/absSyncService';
 
 const log = createLogger('hooks');
 
 // Server startup: background jobs
 export const init: ServerInit = () => {
 	try {
-		startAbsScheduler();
+		startAbsSyncScheduler();
 	} catch (e) {
-		log.error('Failed to start Audiobookshelf scheduler', { error: e instanceof Error ? e.message : String(e) });
+		log.error('Failed to start Audiobookshelf sync scheduler', { error: e instanceof Error ? e.message : String(e) });
 	}
 };
 

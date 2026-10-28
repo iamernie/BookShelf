@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-10-28
+
+### Upgrading: turn sync back on
+- After upgrading, Audiobookshelf sync is **off** until you turn it on, even if it ran on a timer before. Go to Admin → Settings → Integrations, turn on **Sync library items**, check the **Sync owner** and the **Sync schedule** (a 6-hour interval carries over as "Every 6 hours"), and save. Until then nothing syncs, and that includes **Sync listening status**: books won't move to Currently Reading or Done from Audiobookshelf progress
+- Good first step: run **Sync Now** with **Preview only** ticked. It changes no books, but it fills the new Needs attention list so you can sort out uncertain matches before the first real run
+
+### Added
+- New **Admin → Audiobookshelf Sync** page. It lists every sync run, manual or scheduled, with what it linked, created, sent to Audiobookshelf, queued and any errors, and you can open a run to see each book. Preview runs are marked as previews
+- **Needs attention** list: when an Audiobookshelf item could be several books (two "Quantum Assault" records, two books with the same ASIN, a title that matches but with a different author), the sync no longer picks one. The item waits here with **Link to this**, **Create new** and **Ignore item** buttons. Items linked to two books show up here too, with **Keep this one**
+- **Preview** runs show what a sync would do without changing any books or sending anything to Audiobookshelf
+- The sync fills blanks in Audiobookshelf: a linked item with no series gets the book's series and number (2.5 stays 2.5). With **Fill blank authors and narrators** (on by default) an empty author or narrator is filled too. Anything already set in Audiobookshelf is never changed
+- **Stale links:** a book whose Audiobookshelf item is gone (Audiobookshelf answers "not found" after a full library scan) gets a Stale badge on its book page with a **Re-check** button. Nothing is unlinked automatically
+- **Sync owner** setting: books the sync adds belong to this admin or librarian (on upgrade: the first admin, who owned them before)
+- **Sync schedule** choices: every 15 or 30 minutes, every 1, 6, 12 or 24 hours, or Off (Sync Now only). Changes apply without a restart, and a Sync Now run pushes the next scheduled run back
+- Books the sync adds get an **Auto-Added** tag, so you can review them, and the sync owner gets a "Book Added" notification for each one (or one summary when a run adds more than 10)
+- After three scheduled syncs fail in a row, the admin ntfy topic gets one alert, and scheduled runs wait longer between attempts (doubling, at most once a day) until one succeeds. After downtime the sync catches up with one run, not one per missed interval
+
+### Changed
+- Matching is much stricter. Every run reads the whole Audiobookshelf library (not just books added in the last 14 days) and links by ASIN, then ISBN, then title. Titles ignore punctuation, spacing and "(Unabridged)", so "A.I. Battle Station" matches "AI Battle Station". A title can also match without its subtitle or trailing book number, but only when the author agrees. Title matches only link audio-format books; an ebook with the same title gets a separate audio record
+- Matching and status sync only look at the sync owner's books, books in their library and public-library books. Other users' personal books are never linked or changed
+- An Audiobookshelf item that is already linked to a book is never added again, whatever its title says now
+- Authors from Audiobookshelf ("Christopher Hopper, J.N. Chaney") are added as separate authors, and "J. N. Chaney" reuses an existing "J.N. Chaney"
+- An Audiobookshelf item can only be linked to one book. Linking it to a second book shows "already linked" (with the other book's title only if you can see that book)
+- **Sync listening status** finds Done and Currently Reading by their built-in role, so renaming those statuses no longer breaks it (fresh installs never moved books to Currently Reading before)
+- A sync only runs when both **Enable Audiobookshelf** and **Sync library items** are on; Sync Now now runs in the background and the page shows its progress
+
+### Removed
+- **Mark finished on Audiobookshelf** (status write-back) is gone. Listening status now only flows from Audiobookshelf into BookShelf; BookShelf never writes progress or finished flags to Audiobookshelf. Items it marked finished before stay as they are
+- The **Sync every N hours** setting is replaced by the Sync schedule choices (your value carries over to the nearest choice)
+- The old `POST /api/v1/admin/abs/sync` endpoint; Sync Now uses `/api/admin/abs/sync`
+
+### Fixed
+- Merging a linked book into another keeps the Audiobookshelf link, and deleting a linked book no longer makes the next sync add it again (the item is listed as ignored on the Audiobookshelf Sync page, where you can let it come back)
+- On a brand-new install, books with authors or series could not be saved (missing database columns); they can now
+- ntfy notifications whose title has an emoji (Book Added, Book Completed and others) failed to send; they now go through
+
+## [2.22.0] - 2026-10-28
 ## [2.22.0] - 2026-10-28
 
 ### Added

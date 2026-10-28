@@ -2,8 +2,10 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
 	getAllSettings,
+	getSetting,
 	getSettingsByCategory,
 	setSettings,
+	validateSettingValues,
 	SECRET_SETTING_KEYS,
 	SERVER_MANAGED_SETTING_KEYS,
 	type SettingKey
@@ -56,6 +58,17 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	const values = { ...body } as Partial<Record<SettingKey, string>>;
 	for (const key of SERVER_MANAGED_SETTING_KEYS) {
 		delete values[key];
+	}
+
+	// Turning item sync on without an owner: the saving admin owns what the sync creates
+	if (values['integration.abs_sync_enabled'] === 'true') {
+		const owner = values['integration.abs_owner_user_id'] ?? (await getSetting('integration.abs_owner_user_id'));
+		if (!owner.trim()) values['integration.abs_owner_user_id'] = String(locals.user.id);
+	}
+
+	const invalid = await validateSettingValues(values);
+	if (invalid) {
+		throw error(400, { message: invalid });
 	}
 
 	await setSettings(values);

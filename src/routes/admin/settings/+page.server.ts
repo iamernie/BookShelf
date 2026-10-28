@@ -3,7 +3,9 @@ import { getAllSettings, getSetting, SECRET_SETTING_KEYS, SERVER_MANAGED_SETTING
 import { getAISettings } from '$lib/server/services/recommendationService';
 import { getEmailConfigStatus } from '$lib/server/services/emailService';
 import { getStatuses } from '$lib/server/services/statusService';
-import { getAbsSyncStatus } from '$lib/server/services/absService';
+import { getSyncOverview } from '$lib/server/services/absSyncService';
+import { db, users } from '$lib/server/db';
+import { asc, inArray } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// Secrets and server-managed values never enter the editable form
@@ -31,7 +33,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Audiobookshelf: only report whether a key is stored, never the key itself
 	const absStatus = {
 		apiKeySet: !!(await getSetting('integration.abs_api_key')).trim(),
-		sync: await getAbsSyncStatus()
+		sync: await getSyncOverview(),
+		// Sync owner choices: books the sync creates belong to an admin or librarian
+		ownerChoices: await db.select({ id: users.id, username: users.username, role: users.role })
+			.from(users)
+			.where(inArray(users.role, ['admin', 'librarian']))
+			.orderBy(asc(users.username))
 	};
 
 	return {

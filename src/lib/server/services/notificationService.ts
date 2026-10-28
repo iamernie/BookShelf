@@ -123,6 +123,11 @@ export async function shouldNotify(userId: number, event: NotificationEvent): Pr
 	return true;
 }
 
+// ASCII passes through; anything else becomes an RFC 2047 UTF-8 encoded word
+function encodeHeaderValue(value: string): string {
+	return /^[\x20-\x7e]*$/.test(value) ? value : `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+}
+
 /**
  * Send a notification via ntfy
  */
@@ -138,7 +143,8 @@ async function sendNtfy(
 		const response = await fetch(`${baseUrl}/${topic}`, {
 			method: 'POST',
 			headers: {
-				'Title': payload.title,
+				// Header values must be Latin-1 for fetch; ntfy decodes RFC 2047 encoded titles (emoji)
+				'Title': encodeHeaderValue(payload.title),
 				...(payload.priority && { 'Priority': payload.priority.toString() }),
 				...(payload.tags && payload.tags.length > 0 && { 'Tags': payload.tags.join(',') }),
 				...(payload.click && { 'Click': payload.click })

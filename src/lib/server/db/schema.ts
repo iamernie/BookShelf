@@ -23,7 +23,8 @@ export const books = sqliteTable('books', {
 	isbn13: text('isbn13'),
 	asin: text('asin'),
 	absItemId: text('absItemId'), // Audiobookshelf item UUID; null = not linked
-	absWritebackItemId: text('absWritebackItemId'), // absItemId last marked finished on ABS by write-back; null = never
+	absWritebackItemId: text('absWritebackItemId'), // historical: absItemId marked finished by the removed write-back (2.16-2.22); never written now
+	absLinkStaleAt: text('absLinkStaleAt'), // set when the linked ABS item returned 404; cleared when found again / relinked / unlinked
 	goodreadsId: text('goodreadsId'),
 	googleBooksId: text('googleBooksId'),
 	// Provider ratings (separate from user rating)
@@ -744,6 +745,60 @@ export const widgetInstancesRelations = relations(widgetInstances, ({ one }) => 
 }));
 
 // ============================================
+// Audiobookshelf Sync (runs + attention queue)
+// ============================================
+
+// One row per sync run; the partial unique index on status='running' is the cross-request lock
+export const absSyncRuns = sqliteTable('abs_sync_runs', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	triggerType: text('triggerType').notNull(), // manual | scheduled
+	mode: text('mode').notNull(), // apply | preview
+	status: text('status').notNull().default('running'), // running | succeeded | partial | failed | abandoned
+	triggeredBy: integer('triggeredBy').references(() => users.id, { onDelete: 'set null' }),
+	startedAt: text('startedAt').notNull(),
+	finishedAt: text('finishedAt'),
+	durationMs: integer('durationMs'),
+	libraryId: text('libraryId'),
+	itemsScanned: integer('itemsScanned').notNull().default(0),
+	scanComplete: integer('scanComplete', { mode: 'boolean' }).notNull().default(false), // gates stale detection
+	linked: integer('linked').notNull().default(0),
+	created: integer('created').notNull().default(0),
+	pushed: integer('pushed').notNull().default(0),
+	skipped: integer('skipped').notNull().default(0),
+	failed: integer('failed').notNull().default(0),
+	queued: integer('queued').notNull().default(0),
+	staleFound: integer('staleFound').notNull().default(0),
+	staleCleared: integer('staleCleared').notNull().default(0),
+	statusFlips: integer('statusFlips').notNull().default(0),
+	details: text('details'), // JSON [{pass,action,absItemId,title,bookId?,tier?,reason?}], null when empty
+	error: text('error'),
+	alertedAt: text('alertedAt') // set on the scheduled run that fired the 3-in-a-row failure alert
+});
+
+// ABS items a human has to decide on; also 'ignored' tombstones for deleted linked books
+export const absSyncAttention = sqliteTable('abs_sync_attention', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	absItemId: text('absItemId').notNull(),
+	kind: text('kind').notNull(), // ambiguous_match | duplicate_link | deleted_book
+	status: text('status').notNull().default('open'), // open | resolved | ignored
+	itemTitle: text('itemTitle'),
+	itemAuthor: text('itemAuthor'),
+	itemNarrator: text('itemNarrator'),
+	itemAsin: text('itemAsin'),
+	itemIsbn: text('itemIsbn'),
+	tier: text('tier'), // asin | isbn | title | core | base
+	candidates: text('candidates').notNull(), // JSON [{bookId,title,author,formatName,tier}]
+	resolution: text('resolution'), // linked | created | ignored | kept | auto
+	resolvedBookId: integer('resolvedBookId').references(() => books.id, { onDelete: 'set null' }),
+	resolvedBy: integer('resolvedBy').references(() => users.id, { onDelete: 'set null' }),
+	firstSeenRunId: integer('firstSeenRunId').references(() => absSyncRuns.id, { onDelete: 'set null' }),
+	lastSeenRunId: integer('lastSeenRunId').references(() => absSyncRuns.id, { onDelete: 'set null' }),
+	createdAt: text('createdAt').notNull(),
+	updatedAt: text('updatedAt').notNull(),
+	resolvedAt: text('resolvedAt')
+});
+
+// ============================================
 // KOReader Sync Tables
 // ============================================
 
@@ -929,6 +984,10 @@ export type NewApiToken = typeof apiTokens.$inferInsert;
 // Widget instance types
 export type WidgetInstance = typeof widgetInstances.$inferSelect;
 export type NewWidgetInstance = typeof widgetInstances.$inferInsert;
+
+// Audiobookshelf sync types
+export type AbsSyncRun = typeof absSyncRuns.$inferSelect;
+export type AbsSyncAttention = typeof absSyncAttention.$inferSelect;
 
 // Library type values
 export type LibraryType = 'personal' | 'public';

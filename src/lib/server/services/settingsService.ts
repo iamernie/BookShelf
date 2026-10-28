@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { settings } from '$lib/server/db/schema';
+import { settings, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 // Default settings with their metadata
@@ -359,40 +359,47 @@ export const DEFAULT_SETTINGS = {
 		label: 'Audiobookshelf API Key',
 		description: 'API key from Audiobookshelf (Settings → Users → your user → API Token, or Settings → API Keys)'
 	},
-	'integration.abs_sync_interval_hours': {
-		value: '6',
+	'integration.abs_sync_enabled': {
+		value: 'false',
+		type: 'boolean',
+		category: 'integrations',
+		label: 'Sync library items',
+		description: 'Link Audiobookshelf items to books, create books for new items, and fill blank Audiobookshelf series (manual and scheduled runs)'
+	},
+	'integration.abs_owner_user_id': {
+		value: '',
+		type: 'number',
+		category: 'integrations',
+		label: 'Sync owner',
+		description: 'Admin or librarian who owns books created by the sync; matching and status sync only touch this user\'s and public books'
+	},
+	'integration.abs_sync_interval_minutes': {
+		value: '360',
 		type: 'number',
 		category: 'integrations',
 		label: 'Audiobookshelf Sync Interval',
-		description: 'Hours between automatic Audiobookshelf syncs (1-48)'
+		description: 'Minutes between scheduled syncs: 0 (off, Sync Now only), 15, 30, 60, 360, 720 or 1440'
 	},
 	'integration.abs_sync_status': {
 		value: 'false',
 		type: 'boolean',
 		category: 'integrations',
 		label: 'Sync listening status',
-		description: 'Books move Current while listening and Done when finished, based on Audiobookshelf progress'
+		description: 'Books move to Currently Reading while listening and Done when finished, based on Audiobookshelf progress (Audiobookshelf to BookShelf only)'
 	},
-	'integration.abs_sync_writeback': {
-		value: 'false',
+	'integration.abs_sync_pushback_people': {
+		value: 'true',
 		type: 'boolean',
 		category: 'integrations',
-		label: 'Mark finished on Audiobookshelf',
-		description: 'When a linked book is Done in BookShelf, mark its Audiobookshelf item finished (never un-finishes)'
+		label: 'Fill blank authors and narrators',
+		description: 'When an Audiobookshelf item has no author or narrator, send the linked book\'s (never overwrites)'
 	},
-	'integration.abs_last_sync': {
+	'integration.abs_sync_anchor_at': {
 		value: '',
 		type: 'string',
 		category: 'integrations',
-		label: 'Audiobookshelf Last Sync',
-		description: 'Timestamp of the last Audiobookshelf sync run (managed automatically)'
-	},
-	'integration.abs_last_result': {
-		value: '',
-		type: 'string',
-		category: 'integrations',
-		label: 'Audiobookshelf Last Sync Result',
-		description: 'JSON summary of the last Audiobookshelf sync run (managed automatically)'
+		label: 'Audiobookshelf Schedule Anchor',
+		description: 'Last sync time carried over from before 2.23.0; seeds the first scheduled run (managed automatically)'
 	}
 } as const;
 
@@ -400,9 +407,34 @@ export const DEFAULT_SETTINGS = {
 export const SECRET_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_api_key'];
 
 // Settings written by the server only; excluded from the editable settings form
-export const SERVER_MANAGED_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_last_sync', 'integration.abs_last_result'];
+export const SERVER_MANAGED_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_sync_anchor_at'];
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;
+
+// Allowed Audiobookshelf sync intervals in minutes (0 = off, Sync Now only)
+export const ABS_SYNC_INTERVALS = [0, 15, 30, 60, 360, 720, 1440] as const;
+
+/**
+ * Validate setting values that have a fixed shape before they are saved.
+ * Returns an error message, or null when everything is acceptable.
+ */
+export async function validateSettingValues(values: Partial<Record<SettingKey, string>>): Promise<string | null> {
+	const interval = values['integration.abs_sync_interval_minutes'];
+	if (interval !== undefined && !(ABS_SYNC_INTERVALS as readonly number[]).includes(Number(interval))) {
+		return `Audiobookshelf sync interval must be one of ${ABS_SYNC_INTERVALS.join(', ')} minutes`;
+	}
+
+	const owner = values['integration.abs_owner_user_id'];
+	if (owner !== undefined && owner.trim() !== '') {
+		if (!/^\d+$/.test(owner.trim())) return 'Sync owner must be a user id';
+		const [user] = await db.select({ role: users.role }).from(users).where(eq(users.id, Number(owner))).limit(1);
+		if (!user || (user.role !== 'admin' && user.role !== 'librarian')) {
+			return 'Sync owner must be an existing admin or librarian';
+		}
+	}
+
+	return null;
+}
 
 // Get a single setting value
 export async function getSetting(key: SettingKey): Promise<string> {

@@ -26,7 +26,8 @@
 		UserCog,
 		Ticket,
 		FileText,
-		ExternalLink
+		ExternalLink,
+		Headphones
 	} from 'lucide-svelte';
 	import { APP_CONFIG } from '$lib/config/app';
 	import GlobalSearch from '$lib/components/search/GlobalSearch.svelte';
@@ -225,6 +226,10 @@
 							<a href="/admin/widgets" class="dropdown-item" onclick={closeMenus}>
 								<Code class="w-4 h-4" />
 								<span>Widgets</span>
+							</a>
+							<a href="/admin/abs" class="dropdown-item" onclick={closeMenus}>
+								<Headphones class="w-4 h-4" />
+								<span>Audiobookshelf Sync</span>
 							</a>
 							<a href="/admin/diagnostics" class="dropdown-item" onclick={closeMenus}>
 								<Activity class="w-4 h-4" />

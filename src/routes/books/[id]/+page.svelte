@@ -1288,6 +1288,7 @@
 								<AbsLinkSection
 									bookId={data.book.id}
 									absItemId={data.book.absItemId ?? null}
+									absLinkStaleAt={data.book.absLinkStaleAt ?? null}
 									absBaseUrl={data.absBaseUrl ?? ''}
 									initialQuery={data.book.title}
 									onChange={() => invalidateAll()}

@@ -6,6 +6,7 @@
 import { db, users, userPreferences, sessions, widgetInstances } from '$lib/server/db';
 import { eq, desc, asc, like, or, sql, count } from 'drizzle-orm';
 import { hashPassword } from './authService';
+import { getSetting, setSetting } from './settingsService';
 import type { UserRole } from '$lib/server/db/schema';
 
 export interface UserListItem {
@@ -325,6 +326,11 @@ export async function deleteUser(id: number): Promise<{ success: boolean; error?
 
 	// Delete user
 	await db.delete(users).where(eq(users.id, id));
+
+	// A deleted sync owner leaves sync failing clearly ("Sync owner not set") instead of creating unowned books
+	if ((await getSetting('integration.abs_owner_user_id')).trim() === String(id)) {
+		await setSetting('integration.abs_owner_user_id', '');
+	}
 
 	return { success: true };
 }

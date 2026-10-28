@@ -6,7 +6,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
-import { createBook, type CreateBookData } from '$lib/server/services/bookService';
+import { createBook, AbsItemAlreadyLinkedError, type CreateBookData } from '$lib/server/services/bookService';
 import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators, users } from '$lib/server/db';
 import { eq, sql, desc, and, inArray, isNull } from 'drizzle-orm';
@@ -326,6 +326,9 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			message: 'Book created successfully'
 		}, { status: 201 });
 	} catch (err) {
+		if (err instanceof AbsItemAlreadyLinkedError) {
+			return json({ error: err.message, details: { bookId: err.bookId } }, { status: 409 });
+		}
 		console.error('API v1 create book error:', err);
 		return json({ error: 'Failed to create book' }, { status: 500 });
 	}

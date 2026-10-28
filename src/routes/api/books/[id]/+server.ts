@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getBookById, updateBook, deleteBook } from '$lib/server/services/bookService';
+import { getBookById, updateBook, deleteBook, AbsItemAlreadyLinkedError } from '$lib/server/services/bookService';
 import { removeBookFromUserLibrary, getUserBook } from '$lib/server/services/userBookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { canAccessBook, canModifyBook, canDeleteBook } from '$lib/server/services/libraryShareService';
@@ -9,6 +9,14 @@ import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
 import { db, books } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
+
+// One ABS item, one book; the other book's title is only shown to users who can see that book
+async function absLinkConflict(err: AbsItemAlreadyLinkedError, userId: number): Promise<Response> {
+	if (await canAccessBook(userId, err.bookId)) {
+		return json({ message: err.message, details: { bookId: err.bookId } }, { status: 409 });
+	}
+	return json({ message: 'Audiobookshelf item is already linked to another book' }, { status: 409 });
+}
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
@@ -144,7 +152,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, { message: 'No fields to update' });
 	}
 
-	let book = await updateBook(id, updateData);
+	let book;
+	try {
+		book = await updateBook(id, updateData);
+	} catch (err) {
+		if (err instanceof AbsItemAlreadyLinkedError) return absLinkConflict(err, locals.user.id);
+		throw err;
+	}
 
 	if (!book) {
 		throw error(404, { message: 'Book not found' });

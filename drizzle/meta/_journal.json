@@ -43,6 +43,13 @@
       "when": 1793202531763,
       "tag": "0005_widget_instances",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793213437964,
+      "tag": "0006_abs_sync_v2",
+      "breakpoints": true
     }
   ]
 }

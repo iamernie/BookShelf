@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getBooks, createBook, getStatuses, getGenres, getFormats, getNarrators, getTags, getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
+import { getBooks, createBook, getStatuses, getGenres, getFormats, getNarrators, getTags, getAllAuthors, getAllSeries, AbsItemAlreadyLinkedError } from '$lib/server/services/bookService';
+import { canAccessBook } from '$lib/server/services/libraryShareService';
 import { notifyBookAdded } from '$lib/server/services/notificationService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { getAuthorById } from '$lib/server/services/authorService';
@@ -54,43 +55,54 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 	}
 
-	const book = await createBook({
-		title: data.title.trim(),
-		summary: data.summary?.trim() || null,
-		comments: data.comments?.trim() || null,
-		rating: data.rating || null,
-		providerRating: data.providerRating ?? null,
-		providerRatingSource: data.providerRatingSource?.trim() || null,
-		providerRatingCount: data.providerRatingCount ?? null,
-		coverImageUrl,
-		originalCoverUrl,
-		statusId: data.statusId || null,
-		genreId: data.genreId || null,
-		formatId: data.formatId || null,
-		narratorId: data.narratorId || null,
-		releaseDate: data.releaseDate || null,
-		startReadingDate: data.startReadingDate || null,
-		completedDate: data.completedDate || null,
-		isbn10: data.isbn10?.trim() || null,
-		isbn13: data.isbn13?.trim() || null,
-		asin: data.asin?.trim() || null,
-		absItemId: data.absItemId?.trim() || null,
-		goodreadsId: data.goodreadsId?.trim() || null,
-		googleBooksId: data.googleBooksId?.trim() || null,
-		pageCount: data.pageCount || null,
-		booksContained: data.booksContained || 1,
-		publisher: data.publisher?.trim() || null,
-		publishYear: data.publishYear || null,
-		language: data.language?.trim() || 'English',
-		edition: data.edition?.trim() || null,
-		purchasePrice: data.purchasePrice || null,
-		authors: data.authors || [],
-		series: data.series || [],
-		tagIds: data.tagIds || [],
-		libraryType: isPublic ? 'public' : 'personal',
-		// Personal books are owned by the current user; public library books have no owner
-		ownerId: isPublic ? undefined : locals.user.id
-	});
+	let book;
+	try {
+		book = await createBook({
+			title: data.title.trim(),
+			summary: data.summary?.trim() || null,
+			comments: data.comments?.trim() || null,
+			rating: data.rating || null,
+			providerRating: data.providerRating ?? null,
+			providerRatingSource: data.providerRatingSource?.trim() || null,
+			providerRatingCount: data.providerRatingCount ?? null,
+			coverImageUrl,
+			originalCoverUrl,
+			statusId: data.statusId || null,
+			genreId: data.genreId || null,
+			formatId: data.formatId || null,
+			narratorId: data.narratorId || null,
+			releaseDate: data.releaseDate || null,
+			startReadingDate: data.startReadingDate || null,
+			completedDate: data.completedDate || null,
+			isbn10: data.isbn10?.trim() || null,
+			isbn13: data.isbn13?.trim() || null,
+			asin: data.asin?.trim() || null,
+			absItemId: data.absItemId?.trim() || null,
+			goodreadsId: data.goodreadsId?.trim() || null,
+			googleBooksId: data.googleBooksId?.trim() || null,
+			pageCount: data.pageCount || null,
+			booksContained: data.booksContained || 1,
+			publisher: data.publisher?.trim() || null,
+			publishYear: data.publishYear || null,
+			language: data.language?.trim() || 'English',
+			edition: data.edition?.trim() || null,
+			purchasePrice: data.purchasePrice || null,
+			authors: data.authors || [],
+			series: data.series || [],
+			tagIds: data.tagIds || [],
+			libraryType: isPublic ? 'public' : 'personal',
+			// Personal books are owned by the current user; public library books have no owner
+			ownerId: isPublic ? undefined : locals.user.id
+		});
+	} catch (err) {
+		// One ABS item, one book; the other book's title is only shown to users who can see it
+		if (err instanceof AbsItemAlreadyLinkedError) {
+			return (await canAccessBook(locals.user.id, err.bookId))
+				? json({ message: err.message, details: { bookId: err.bookId } }, { status: 409 })
+				: json({ message: 'Audiobookshelf item is already linked to another book' }, { status: 409 });
+		}
+		throw err;
+	}
 
 	// Editors send authors as { id, role }, so resolve the primary author's name for the notification
 	const authorList: { id: number; isPrimary?: boolean }[] = Array.isArray(data.authors) ? data.authors : [];

@@ -310,6 +310,7 @@ function runMigrations() {
 		'Creating media sources tables',
 		'Creating API tokens table',
 		'Creating widget instances table',
+		'Creating Audiobookshelf sync tables',
 		'Finalizing'
 	];
 
@@ -681,6 +682,7 @@ function runMigrations() {
 		safeAddColumn('books', 'asin', 'VARCHAR(10)');
 		safeAddColumn('books', 'absItemId', 'TEXT');
 		safeAddColumn('books', 'absWritebackItemId', 'TEXT');
+		safeAddColumn('books', 'absLinkStaleAt', 'TEXT');
 		safeAddColumn('books', 'goodreadsId', 'VARCHAR(50)');
 		safeAddColumn('books', 'googleBooksId', 'VARCHAR(50)');
 		safeAddColumn('books', 'originalCoverUrl', 'VARCHAR(255)');
@@ -708,6 +710,24 @@ function runMigrations() {
 
 		// Omnibus/collection support
 		safeAddColumn('books', 'booksContained', 'INTEGER DEFAULT 1');
+
+		// Legacy single author/series columns: still in the drizzle schema, so every
+		// books insert/returning names them; the fresh-install DDL above lacks them
+		safeAddColumn('books', 'authorId', 'INTEGER REFERENCES authors(id)');
+		safeAddColumn('books', 'seriesId', 'INTEGER REFERENCES series(id)');
+	}
+
+	// ========== Junction table columns (fresh installs only had authorOrder / seriesOrder) ==========
+	if (tableExists('bookauthors')) {
+		safeAddColumn('bookauthors', 'role', "TEXT DEFAULT 'Author'");
+		safeAddColumn('bookauthors', 'isPrimary', 'INTEGER DEFAULT 0');
+		safeAddColumn('bookauthors', 'displayOrder', 'INTEGER DEFAULT 0');
+	}
+	if (tableExists('bookseries')) {
+		safeAddColumn('bookseries', 'bookNum', 'REAL');
+		safeAddColumn('bookseries', 'bookNumEnd', 'INTEGER');
+		safeAddColumn('bookseries', 'isPrimary', 'INTEGER DEFAULT 0');
+		safeAddColumn('bookseries', 'displayOrder', 'INTEGER DEFAULT 0');
 	}
 
 	// ========== Users table columns ==========
@@ -1594,6 +1614,126 @@ function runMigrations() {
 	}
 
 	completeStep('Creating widget instances table');
+
+	// ========== Audiobookshelf sync (2.23.0) ==========
+	updateStatus('Creating Audiobookshelf sync tables...');
+
+	safeCreateTable('abs_sync_runs', `
+		CREATE TABLE abs_sync_runs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			triggerType TEXT NOT NULL CHECK (triggerType IN ('manual','scheduled')),
+			mode TEXT NOT NULL CHECK (mode IN ('apply','preview')),
+			status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','succeeded','partial','failed','abandoned')),
+			triggeredBy INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			startedAt TEXT NOT NULL,
+			finishedAt TEXT,
+			durationMs INTEGER,
+			libraryId TEXT,
+			itemsScanned INTEGER NOT NULL DEFAULT 0,
+			scanComplete INTEGER NOT NULL DEFAULT 0,
+			linked INTEGER NOT NULL DEFAULT 0,
+			created INTEGER NOT NULL DEFAULT 0,
+			pushed INTEGER NOT NULL DEFAULT 0,
+			skipped INTEGER NOT NULL DEFAULT 0,
+			failed INTEGER NOT NULL DEFAULT 0,
+			queued INTEGER NOT NULL DEFAULT 0,
+			staleFound INTEGER NOT NULL DEFAULT 0,
+			staleCleared INTEGER NOT NULL DEFAULT 0,
+			statusFlips INTEGER NOT NULL DEFAULT 0,
+			details TEXT,
+			error TEXT,
+			alertedAt TEXT
+		)
+	`);
+
+	safeCreateTable('abs_sync_attention', `
+		CREATE TABLE abs_sync_attention (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			absItemId TEXT NOT NULL,
+			kind TEXT NOT NULL CHECK (kind IN ('ambiguous_match','duplicate_link','deleted_book')),
+			status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved','ignored')),
+			itemTitle TEXT,
+			itemAuthor TEXT,
+			itemNarrator TEXT,
+			itemAsin TEXT,
+			itemIsbn TEXT,
+			tier TEXT,
+			candidates TEXT NOT NULL,
+			resolution TEXT CHECK (resolution IN ('linked','created','ignored','kept','auto')),
+			resolvedBookId INTEGER REFERENCES books(id) ON DELETE SET NULL,
+			resolvedBy INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			firstSeenRunId INTEGER REFERENCES abs_sync_runs(id) ON DELETE SET NULL,
+			lastSeenRunId INTEGER REFERENCES abs_sync_runs(id) ON DELETE SET NULL,
+			createdAt TEXT NOT NULL,
+			updatedAt TEXT NOT NULL,
+			resolvedAt TEXT
+		)
+	`);
+
+	// Separate statements: safeCreateTable skips its whole SQL once the table exists
+	try {
+		// The cross-request / cross-restart lock: at most one running row
+		sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS abs_sync_runs_single_running ON abs_sync_runs(status) WHERE status = 'running'");
+		sqlite.exec('CREATE INDEX IF NOT EXISTS abs_sync_runs_started ON abs_sync_runs(startedAt)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS abs_sync_runs_trigger_mode_started ON abs_sync_runs(triggerType, mode, startedAt)');
+		sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS abs_sync_attention_open_item ON abs_sync_attention(absItemId) WHERE status = 'open'");
+		sqlite.exec('CREATE INDEX IF NOT EXISTS abs_sync_attention_item ON abs_sync_attention(absItemId, status)');
+	} catch (e) {
+		console.error('[db] Failed to create Audiobookshelf sync indexes:', e);
+	}
+
+	// One ABS item <-> one book. Fails while duplicate links exist; every sync run retries it
+	// and opens a duplicate_link attention row per duplicated item.
+	try {
+		sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS books_absItemId_unique ON books(absItemId) WHERE absItemId IS NOT NULL');
+	} catch {
+		console.warn('[db] books.absItemId has duplicate links; unique index deferred until they are resolved');
+	}
+
+	// Settings: hours interval -> minutes, old last-sync time -> schedule anchor, write-back and last-result removed
+	try {
+		const getSettingValue = (key: string) =>
+			(sqlite.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string | null } | undefined)?.value ?? null;
+		const putSetting = (key: string, value: string, type: string) =>
+			sqlite.prepare(
+				`INSERT INTO settings (key, value, type, category, updatedAt) VALUES (?, ?, ?, 'integrations', datetime('now'))
+				 ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE settings.value IS NULL OR settings.value = ''`
+			).run(key, value, type);
+
+		const oldHours = getSettingValue('integration.abs_sync_interval_hours');
+		if (oldHours !== null && getSettingValue('integration.abs_sync_interval_minutes') === null) {
+			const hours = parseInt(oldHours, 10);
+			const minutes = Number.isFinite(hours) ? hours * 60 : 360;
+			// Nearest allowed value; ties go to the more frequent one
+			const snapped = [15, 30, 60, 360, 720, 1440].reduce((best, v) =>
+				Math.abs(v - minutes) < Math.abs(best - minutes) ? v : best
+			);
+			putSetting('integration.abs_sync_interval_minutes', String(snapped), 'number');
+			console.log(`[db] Audiobookshelf sync interval ${oldHours} h -> ${snapped} min`);
+		}
+
+		const lastSync = getSettingValue('integration.abs_last_sync');
+		if (lastSync) putSetting('integration.abs_sync_anchor_at', lastSync, 'string');
+
+		// Owner of sync-created books: the first admin, which is who owned them before 2.23.0
+		const ownerSet = (getSettingValue('integration.abs_owner_user_id') ?? '').trim() !== '';
+		if (!ownerSet && getSettingValue('integration.abs_enabled') === 'true') {
+			const admin = sqlite.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get() as { id: number } | undefined;
+			if (admin) putSetting('integration.abs_owner_user_id', String(admin.id), 'number');
+		}
+
+		const removed = sqlite.prepare(
+			"DELETE FROM settings WHERE key IN ('integration.abs_sync_interval_hours','integration.abs_sync_writeback','integration.abs_last_sync','integration.abs_last_result')"
+		).run();
+		if (removed.changes > 0) {
+			console.log(`[db] Removed ${removed.changes} retired Audiobookshelf settings`);
+			migrationsMade = true;
+		}
+	} catch (e) {
+		console.error('[db] Failed to migrate Audiobookshelf settings:', e);
+	}
+
+	completeStep('Creating Audiobookshelf sync tables');
 
 	// ========== Migrate owned books to user_books table ==========
 	// For users who own books (via ownerId), ensure those books appear in their personal library (user_books)
