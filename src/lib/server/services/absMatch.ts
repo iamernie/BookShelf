@@ -9,11 +9,13 @@
  * Tiers, first tier with any hit decides:
  *   asin  - ASIN equality (any format)
  *   isbn  - ISBN-13 equality, ISBN-10 converted (any format)
- *   title - cleaned title (audio-format books only)
- *   core  - title before the first ': ' / ' - ' (audio only, author must agree)
- *   base  - title without a trailing book number (audio only, author must agree)
+ *   title - cleaned title (any format; a non-audio record also needs the author to agree)
+ *   core  - title before the first ': ' / ' - ' (any format, author must agree)
+ *   base  - title without a trailing book number (any format, author must agree)
  *   then the script's prefix containment over the same forms, which only ever queues
  * One unlinked hit links; several queue for a human; hits that are all linked elsewhere skip.
+ * v2: the script only title-matched audio records; an ABS item now links to the existing
+ * print/ebook record of the same book instead of creating a duplicate audio record.
  */
 
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
@@ -57,7 +59,7 @@ export type MatchResult =
 	| { kind: 'link'; tier: MatchTier; bookId: number; candidates: MatchCandidate[] }
 	| { kind: 'queue'; tier: MatchTier; reason: 'several_candidates' | 'author_mismatch' | 'prefix_only'; candidates: MatchCandidate[] }
 	| { kind: 'skip'; tier: MatchTier; reason: 'matches_linked_book'; candidates: MatchCandidate[] }
-	| { kind: 'create'; note: 'non_audio_title_match' | null; candidates: MatchCandidate[] };
+	| { kind: 'create' };
 
 // ============================================
 // Title forms (ported from the script)
@@ -170,7 +172,6 @@ export interface MatchIndex {
 	books: MatchBook[];
 	byAsin: Map<string, MatchBook[]>;
 	byIsbn: Map<string, MatchBook[]>;
-	audio: MatchBook[];
 }
 
 function push<K>(map: Map<K, MatchBook[]>, key: K, book: MatchBook) {
@@ -188,7 +189,7 @@ export function buildMatchIndex(books: MatchBook[]): MatchIndex {
 		const isbns = new Set([normalizeIsbn(b.isbn13), normalizeIsbn(b.isbn10)].filter((x): x is string => !!x));
 		for (const isbn of isbns) push(byIsbn, isbn, b);
 	}
-	return { books, byAsin, byIsbn, audio: books.filter((b) => b.isAudio) };
+	return { books, byAsin, byIsbn };
 }
 
 /** Add a book created or linked during the run, so later items in the same scan see it. */
@@ -198,7 +199,6 @@ export function addToMatchIndex(index: MatchIndex, book: MatchBook): void {
 	if (asin) push(index.byAsin, asin, book);
 	const isbn = normalizeIsbn(book.isbn13) ?? normalizeIsbn(book.isbn10);
 	if (isbn) push(index.byIsbn, isbn, book);
-	if (book.isAudio) index.audio.push(book);
 }
 
 function toCandidate(b: MatchBook, tier: MatchTier): MatchCandidate {
@@ -222,7 +222,10 @@ function decide(hits: MatchBook[], tier: MatchTier): MatchResult {
  * The caller has already skipped linked, ignored and queued items.
  *
  * v2 title order: exact normalized equality on every form first (title, then core and base with
- * author agreement), then the script's prefix containment. The script linked prefix hits directly
+ * author agreement), then the script's prefix containment. Every tier considers books of any
+ * format. At the title tier an audio record matches on title alone, while a print/ebook record
+ * also needs the author to agree; a same-title non-audio record with another author (or no
+ * author to compare) is queued as author_mismatch rather than linked or duplicated. The script linked prefix hits directly
  * at the title tier with no author check, so 'Lone Star: A Tale' (another author) linked to
  * 'Lone Star' and 'Dune Messiah' to 'Dune'; here a prefix-only hit is queued for a human, and only
  * when the author agrees (or the item has no author to compare).
@@ -247,17 +250,21 @@ export function matchItem(item: MatchItem, index: MatchIndex): MatchResult {
 	if (core && core !== clean) forms.push(['core', core]);
 	if (base && base !== clean && base !== core) forms.push(['base', base]);
 
-	// 1. Exact. The cleaned title decides on its own: a same-title book linked to another item
-	//    means this is a second copy of that audiobook, so it is skipped (never re-created).
+	// 1. Exact. The cleaned title decides on its own for audio records (plus non-audio records
+	//    whose author agrees): a same-title book linked to another item means this is a second
+	//    copy of that audiobook, so it is skipped (never re-created).
 	//    Core/base forms only consider unlinked books (a linked 'Soldier' must not swallow
 	//    'Soldier 2') and need the author to agree.
 	for (const [tier, form] of forms) {
 		if (tier === 'title') {
-			const hits = index.audio.filter((b) => titleExact(b.title, form));
-			if (hits.length) return decide(hits, tier);
-			continue;
+			const hits = index.books.filter((b) => titleExact(b.title, form));
+			if (hits.length === 0) continue;
+			const eligible = hits.filter((b) => b.isAudio || authorsAgree(item, b.authors));
+			if (eligible.length) return decide(eligible, tier);
+			// Only print/ebook records with another author (or none to compare): a human decides
+			return { kind: 'queue', tier, reason: 'author_mismatch', candidates: hits.map((b) => toCandidate(b, tier)) };
 		}
-		const hits = index.audio.filter((b) => !b.absItemId && titleExact(b.title, form));
+		const hits = index.books.filter((b) => !b.absItemId && titleExact(b.title, form));
 		if (hits.length === 0) continue;
 		const agreeing = hits.filter((b) => authorsAgree(item, b.authors));
 		if (agreeing.length) return decide(agreeing, tier);
@@ -269,18 +276,12 @@ export function matchItem(item: MatchItem, index: MatchIndex): MatchResult {
 	//    v2: the script's base-tier prefix hit a linked 'Brand New 0' for 'Brand New 1' and skipped it forever.
 	const hasAuthor = item.authors.length > 0 || !!item.authorName;
 	for (const [tier, form] of forms) {
-		const hits = index.audio.filter((b) => !b.absItemId && titleMatches(b.title, form) && (!hasAuthor || authorsAgree(item, b.authors)));
+		const hits = index.books.filter((b) => !b.absItemId && titleMatches(b.title, form) && (!hasAuthor || authorsAgree(item, b.authors)));
 		if (hits.length === 0) continue;
 		return { kind: 'queue', tier, reason: 'prefix_only', candidates: [...new Map(hits.map((b) => [b.id, toCandidate(b, tier)])).values()] };
 	}
 
-	// Title tiers only link audio records; a same-title ebook gets a separate audio record
-	const nonAudio = index.books.filter((b) => !b.isAudio && titleExact(b.title, clean));
-	return {
-		kind: 'create',
-		note: nonAudio.length ? 'non_audio_title_match' : null,
-		candidates: nonAudio.map((b) => toCandidate(b, 'title'))
-	};
+	return { kind: 'create' };
 }
 
 /** Series sequence the script sent: '3', '2.5', or '1-3' for a range; null when unnumbered */

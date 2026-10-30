@@ -399,6 +399,53 @@ export async function getSeriesWithBooks(id: number, userId?: number): Promise<{
 	return { series: seriesData as SeriesWithBookCount, books: enrichedBooks, stats };
 }
 
+export interface SeriesNoteBook {
+	id: number;
+	title: string;
+	bookNum: number | null;
+	comments: string;
+	completedDate: string | null;
+	lastReadAt: string | null;
+	startReadingDate: string | null;
+}
+
+/**
+ * Notes written on the books of each series, for the book page's series-notes digest.
+ * Same book visibility as the series page; only books with notes, in series order.
+ */
+export async function getSeriesBookNotes(seriesIds: number[], userId?: number): Promise<Record<number, SeriesNoteBook[]>> {
+	const result: Record<number, SeriesNoteBook[]> = {};
+	if (seriesIds.length === 0) return result;
+
+	const libCondBooks = userId
+		? or(
+				eq(books.libraryType, 'personal'),
+				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
+		  )
+		: eq(books.libraryType, 'personal');
+
+	const rows = await db
+		.select({
+			seriesId: bookSeries.seriesId,
+			id: books.id,
+			title: books.title,
+			bookNum: bookSeries.bookNum,
+			comments: books.comments,
+			completedDate: books.completedDate,
+			lastReadAt: books.lastReadAt,
+			startReadingDate: books.startReadingDate
+		})
+		.from(books)
+		.innerJoin(bookSeries, eq(books.id, bookSeries.bookId))
+		.where(and(inArray(bookSeries.seriesId, seriesIds), libCondBooks, sql`TRIM(COALESCE(${books.comments}, '')) != ''`))
+		.orderBy(asc(bookSeries.bookNum), asc(books.id));
+
+	for (const { seriesId, ...row } of rows) {
+		(result[seriesId] ??= []).push({ ...row, comments: row.comments ?? '' });
+	}
+	return result;
+}
+
 async function calculateSeriesStats(
 	seriesId: number,
 	seriesBooks: { id: number; title: string; bookNum: number | null; statusId: number | null; rating: number | null; completedDate: string | null; pageCount: number | null }[]

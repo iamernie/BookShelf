@@ -39,6 +39,7 @@
 	import InlineTagEditor from '$lib/components/tag/InlineTagEditor.svelte';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
+	import SeriesNotesDigest from '$lib/components/series/SeriesNotesDigest.svelte';
 	import { RefreshCw } from 'lucide-svelte';
 
 	import { browser } from '$app/environment';
@@ -1122,6 +1123,7 @@
 									{/if}
 								</button>
 							{/if}
+							<SeriesNotesDigest seriesId={s.id} books={data.seriesBookNotes[s.id] ?? []} />
 						</div>
 					{/if}
 				</div>
@@ -1187,6 +1189,7 @@
 									{/if}
 								</button>
 							{/if}
+							<SeriesNotesDigest seriesId={s.id} books={data.seriesBookNotes[s.id] ?? []} />
 						</div>
 					{/each}
 				{/if}

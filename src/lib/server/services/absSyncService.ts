@@ -728,8 +728,7 @@ async function handleItem(ctx: RunContext, scope: Scope, item: AbsLibraryItem): 
 				pass: 'create',
 				action: 'created',
 				...base,
-				bookId: bookId > 0 ? bookId : undefined,
-				reason: result.note ?? undefined
+				bookId: bookId > 0 ? bookId : undefined
 			});
 		}
 	}

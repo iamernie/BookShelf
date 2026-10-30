@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.23.2] - 2026-10-29
+
+### Added
+- Series notes on a book page now include **Notes from the books in this series**: the notes you wrote on the series book you read most recently are shown right away, and the notes on the other books sit in a list below (open by default when there are three or fewer, and it remembers whether you opened or closed it for each series). Each entry links to its book, where you edit those notes. Books without notes are left out.
+
+### Fixed
+- Audiobookshelf sync no longer creates a duplicate audiobook record when you already have the same book as a print or ebook record. An Audiobookshelf item now links to the existing book when the title and author match. If the title matches but the author doesn't (or the book has no author), the item goes to **Needs attention** so you can decide.
+
 ## [2.23.1] - 2026-10-28
 
 ### Fixed
