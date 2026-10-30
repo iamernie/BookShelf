@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.23.3] - 2026-10-29
+
+### Fixed
+- The built-in PDF reader now opens PDFs. Before this fix, every PDF failed to load with an error in the browser console. The EPUB and comic readers were not affected.
+
 ## [2.23.2] - 2026-10-29
 
 ### Added

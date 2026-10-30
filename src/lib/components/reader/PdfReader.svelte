@@ -84,7 +84,7 @@
 			pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.mjs';
 
 			// Load the PDF document
-			const loadingTask = pdfjsLib.getDocument(ebookUrl);
+			const loadingTask = pdfjsLib.getDocument({ url: ebookUrl });
 			pdfDoc = await loadingTask.promise;
 			totalPages = pdfDoc.numPages;
 
