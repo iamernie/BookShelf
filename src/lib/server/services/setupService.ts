@@ -106,12 +106,12 @@ export async function initializeDefaultData(): Promise<{ success: boolean; error
 		const [statusCount] = await db.select({ count: count() }).from(statuses);
 		if (statusCount.count === 0) {
 			await db.insert(statuses).values([
-				{ name: 'Done', key: 'READ', color: '#10b981', icon: 'circle-check', isSystem: true, sortOrder: 1, createdAt: now, updatedAt: now },
-				{ name: 'Currently Reading', key: 'CURRENT', color: '#3b82f6', icon: 'book-open', isSystem: true, sortOrder: 2, createdAt: now, updatedAt: now },
-				{ name: 'To Read', key: 'NEXT', color: '#f59e0b', icon: 'bookmark', isSystem: true, sortOrder: 3, createdAt: now, updatedAt: now },
-				{ name: 'Did Not Finish', key: 'DNF', color: '#ef4444', icon: 'x-circle', isSystem: true, sortOrder: 4, createdAt: now, updatedAt: now },
-				{ name: 'Wishlist', key: 'WISHLIST', color: '#8b5cf6', icon: 'heart', isSystem: true, sortOrder: 5, createdAt: now, updatedAt: now },
-				{ name: 'Parked', key: 'PARKED', color: '#6b7280', icon: 'pause-circle', isSystem: true, sortOrder: 6, createdAt: now, updatedAt: now }
+				{ name: 'Unread', key: 'UNREAD', color: '#6c757d', icon: 'fas fa-book', isSystem: true, sortOrder: 1, createdAt: now, updatedAt: now },
+				{ name: 'Done', key: 'READ', color: '#198754', icon: 'circle-check', isSystem: true, sortOrder: 2, createdAt: now, updatedAt: now },
+				{ name: 'Current', key: 'CURRENT', color: '#0d6efd', icon: 'fas fa-book-reader', isSystem: true, sortOrder: 3, createdAt: now, updatedAt: now },
+				{ name: 'Next', key: 'NEXT', color: '#ffc107', icon: 'fas fa-bookmark', isSystem: true, sortOrder: 4, createdAt: now, updatedAt: now },
+				{ name: 'On Hold', key: 'ON_HOLD', color: '#fd7e14', icon: 'fas fa-pause-circle', isSystem: true, sortOrder: 5, createdAt: now, updatedAt: now },
+				{ name: 'DNF', key: 'DNF', color: '#dc3545', icon: 'fas fa-times-circle', isSystem: true, sortOrder: 6, createdAt: now, updatedAt: now }
 			]);
 		}
 

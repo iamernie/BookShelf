@@ -17,9 +17,7 @@ const STATUS_KEYS = {
 	READ: 'READ',
 	CURRENT: 'CURRENT',
 	NEXT: 'NEXT',
-	DNF: 'DNF',
-	WISHLIST: 'WISHLIST',
-	PARKED: 'PARKED'
+	DNF: 'DNF'
 };
 
 // Dashboard widget types
@@ -102,11 +100,10 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 	const yearPattern = `${currentYear}%`;
 	const libCond = getUserLibraryCondition(userId);
 
-	const [readStatusId, currentStatusId, nextStatusId, wishlistStatusId, dnfStatusId] = await Promise.all([
+	const [readStatusId, currentStatusId, nextStatusId, dnfStatusId] = await Promise.all([
 		getStatusId(STATUS_KEYS.READ),
 		getStatusId(STATUS_KEYS.CURRENT),
 		getStatusId(STATUS_KEYS.NEXT),
-		getStatusId(STATUS_KEYS.WISHLIST),
 		getStatusId(STATUS_KEYS.DNF)
 	]);
 
@@ -135,13 +132,10 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		currentStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
 			.where(and(eq(books.statusId, currentStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
-		// TBR = NEXT + WISHLIST statuses
-		Promise.all([
-			nextStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
-				.where(and(eq(books.statusId, nextStatusId), libCond)) : Promise.resolve([{ count: 0 }]),
-			wishlistStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
-				.where(and(eq(books.statusId, wishlistStatusId), libCond)) : Promise.resolve([{ count: 0 }])
-		]).then(([next, wish]) => [{ count: (next[0]?.count || 0) + (wish[0]?.count || 0) }]),
+		// TBR = NEXT status
+		nextStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
+			.where(and(eq(books.statusId, nextStatusId), libCond))
+			: Promise.resolve([{ count: 0 }]),
 		db.select({ count: sql<number>`count(*)` }).from(authors),
 		db.select({ count: sql<number>`count(*)` }).from(series),
 		db.select({ avg: sql<number>`avg(rating)` }).from(books)
@@ -633,13 +627,9 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 // ============================================
 export async function getRandomTbrPick(userId?: number): Promise<BookCardData | null> {
 	const libCond = getUserLibraryCondition(userId);
-	const [nextStatusId, wishlistStatusId] = await Promise.all([
-		getStatusId(STATUS_KEYS.NEXT),
-		getStatusId(STATUS_KEYS.WISHLIST)
-	]);
-
-	const tbrStatusIds = [nextStatusId, wishlistStatusId].filter((id): id is number => id !== null);
-	if (tbrStatusIds.length === 0) return null;
+	const nextStatusId = await getStatusId(STATUS_KEYS.NEXT);
+	if (nextStatusId === null) return null;
+	const tbrStatusIds = [nextStatusId];
 
 	// Get count first
 	const countRes = await db.select({ count: sql<number>`count(*)` })

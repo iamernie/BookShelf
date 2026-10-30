@@ -7,6 +7,7 @@ import { db } from '$lib/server/db';
 import { books, authors, series, genres, bookAuthors, bookSeries, settings } from '$lib/server/db/schema';
 import { eq, ne, desc, sql, and, isNull, isNotNull, notInArray, inArray, gt } from 'drizzle-orm';
 import { createLogger } from './loggerService';
+import { getStatusByKey } from './statusService';
 
 const log = createLogger('recommendations');
 
@@ -14,7 +15,15 @@ const log = createLogger('recommendations');
 const STATUS_UNREAD = 1;
 const STATUS_READ = 2;
 const STATUS_CURRENT = 3;
-const STATUS_WISHLIST = 8;
+
+/**
+ * Status for books added from a recommendation: WISHLIST if the instance has it,
+ * else NEXT, else none (the book is created without a status)
+ */
+export async function getRecommendationStatusId(): Promise<number | null> {
+	const status = (await getStatusByKey('WISHLIST')) ?? (await getStatusByKey('NEXT'));
+	return status?.id ?? null;
+}
 
 export interface AIRecommendation {
 	title: string;
@@ -767,6 +776,8 @@ export async function addRecommendationToLibrary(data: {
 			genreId = existingGenre[0]?.id || null;
 		}
 
+		const statusId = await getRecommendationStatusId();
+
 		// Create the book
 		const [newBook] = await db
 			.insert(books)
@@ -774,7 +785,7 @@ export async function addRecommendationToLibrary(data: {
 				title: data.title,
 				authorId,
 				genreId,
-				statusId: STATUS_WISHLIST,
+				statusId,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString()
 			})

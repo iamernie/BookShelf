@@ -107,7 +107,7 @@ export const genres = sqliteTable('genres', {
 export const statuses = sqliteTable('statuses', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
-	key: text('key').unique(), // READ, CURRENT, NEXT, DNF, WISHLIST, PARKED
+	key: text('key').unique(), // UNREAD, READ, CURRENT, NEXT, ON_HOLD, DNF
 	isSystem: integer('isSystem', { mode: 'boolean' }).default(false),
 	color: text('color').default('#6c757d'),
 	icon: text('icon').default('fas fa-bookmark'),

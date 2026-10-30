@@ -8,9 +8,7 @@ const STATUS_KEYS = {
 	READ: 'READ',
 	CURRENT: 'CURRENT',
 	NEXT: 'NEXT',
-	DNF: 'DNF',
-	WISHLIST: 'WISHLIST',
-	PARKED: 'PARKED'
+	DNF: 'DNF'
 };
 
 export interface DashboardStats {

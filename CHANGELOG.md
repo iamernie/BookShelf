@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.23.4] - 2026-10-30
+
+### Changed
+- New installs now start with six reading statuses: **Unread, Done, Current, Next, On Hold and DNF**. Before, a new install got Done, Currently Reading, To Read, Did Not Finish, Wishlist and Parked, with no Unread or On Hold. Existing libraries keep their statuses as they are.
+- The dashboard's To Be Read count and random TBR pick now use only the Next status (Wishlist is gone).
+
+### Fixed
+- Adding a book from a recommendation now gives it the Wishlist status if your library has one, otherwise Next, otherwise no status. Before, it always used status number 8, which on most libraries is missing or the wrong status.
+
 ## [2.23.3] - 2026-10-29
 
 ### Fixed
