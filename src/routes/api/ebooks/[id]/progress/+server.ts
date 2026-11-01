@@ -16,8 +16,21 @@ import { parseReadingProgress, stringifyReadingProgress } from '$lib/server/serv
 import type { ReadingProgress } from '$lib/server/services/ebookService';
 import { syncProgressFromBrowser } from '$lib/server/services/koreaderService';
 import { syncFromWebReader as syncKoboProgress } from '$lib/server/services/koboReadingStateService';
+import { canReachBook } from '$lib/server/services/libraryShareService';
 
-export const GET: RequestHandler = async ({ params }) => {
+// Page values are optional: anything unusable is dropped, the save still goes through.
+// 0 is a real value here, it's the first page of a comic.
+function parsePageNumber(value: unknown): number | undefined {
+	if (value === null || value === undefined) return undefined;
+	const page = parseInt(String(value));
+	return Number.isInteger(page) && page >= 0 ? page : undefined;
+}
+
+export const GET: RequestHandler = async ({ params, locals }) => {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+
 	const bookId = parseInt(params.id);
 
 	if (isNaN(bookId)) {
@@ -38,6 +51,10 @@ export const GET: RequestHandler = async ({ params }) => {
 		throw error(404, 'Book not found');
 	}
 
+	if (!(await canReachBook(locals.user.id, bookId))) {
+		throw error(403, { message: 'You do not have access to this book' });
+	}
+
 	const progress = parseReadingProgress(book.readingProgress);
 
 	return json({
@@ -48,6 +65,10 @@ export const GET: RequestHandler = async ({ params }) => {
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+
 	const bookId = parseInt(params.id);
 
 	if (isNaN(bookId)) {
@@ -60,6 +81,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
+	if (!(await canReachBook(locals.user.id, bookId))) {
+		throw error(403, { message: 'You do not have access to this book' });
+	}
+
 	const body = await request.json();
 	const { location, percentage, chapter, currentPage, totalPages } = body;
 
@@ -67,8 +92,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		location,
 		percentage: parseFloat(percentage) || 0,
 		chapter: chapter || undefined,
-		currentPage: currentPage ? parseInt(currentPage) : undefined,
-		totalPages: totalPages ? parseInt(totalPages) : undefined,
+		currentPage: parsePageNumber(currentPage),
+		totalPages: parsePageNumber(totalPages),
 		savedAt: new Date().toISOString()
 	};
 
@@ -95,7 +120,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				locals.user.id,
 				bookId,
 				progress.percentage,
-				location || ''
+				progress.currentPage
 			);
 			koreaderSynced = syncResult.synced;
 			koreaderSyncReason = syncResult.reason;

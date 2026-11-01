@@ -1473,6 +1473,46 @@ function runMigrations() {
 		// Indexes may already exist
 	}
 
+	const ebookHashesCreated = safeCreateTable('book_ebook_hashes', `
+		CREATE TABLE book_ebook_hashes (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			bookId INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+			hash TEXT NOT NULL,
+			source TEXT NOT NULL,
+			createdAt TEXT NOT NULL
+		)
+	`);
+
+	try {
+		sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_book_ebook_hashes_book_hash ON book_ebook_hashes(bookId, hash)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_book_ebook_hashes_hash ON book_ebook_hashes(hash)');
+	} catch {
+		// Indexes may already exist
+	}
+
+	// Backfill once, with the table: a later boot would bring back hashes an unlink removed.
+	// A failure drops the table so the next boot retries, or old device hashes would stay lost.
+	if (ebookHashesCreated) {
+		try {
+			const now = new Date().toISOString();
+			sqlite.transaction(() => {
+				sqlite.prepare(`
+					INSERT OR IGNORE INTO book_ebook_hashes (bookId, hash, source, createdAt)
+					SELECT id, ebookMd5, 'legacy', ? FROM books
+					WHERE ebookPath IS NOT NULL AND ebookMd5 IS NOT NULL AND ebookMd5 != ''
+				`).run(now);
+				sqlite.prepare(`
+					INSERT OR IGNORE INTO book_ebook_hashes (bookId, hash, source, createdAt)
+					SELECT DISTINCT bookId, documentHash, 'legacy', ? FROM koreader_progress
+					WHERE bookId IN (SELECT id FROM books) AND documentHash != ''
+				`).run(now);
+			})();
+		} catch (e) {
+			console.error('[db] Failed to backfill book_ebook_hashes:', e);
+			sqlite.exec('DROP TABLE IF EXISTS book_ebook_hashes');
+		}
+	}
+
 	completeStep('Creating KOReader sync tables');
 
 	// ========== Kobo Sync Tables ==========

@@ -10,6 +10,7 @@ import {
 	type ExtractedEbook,
 	type SaveContext
 } from '$lib/server/services/ebookMetadataService';
+import { rememberEbookHash } from '$lib/server/services/ebookHashService';
 import { db } from '$lib/server/db';
 import { books, authors, bookAuthors, formats, statuses, genres, series, bookSeries } from '$lib/server/db/schema';
 import { eq, like } from 'drizzle-orm';
@@ -276,6 +277,10 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 				createdAt: now,
 				updatedAt: now
 			}).returning().get();
+
+			if (ebookMd5) {
+				await rememberEbookHash(newBook.id, ebookMd5, 'import');
+			}
 
 			// Link authors
 			for (const authorId of authorIds) {

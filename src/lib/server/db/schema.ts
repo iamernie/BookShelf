@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 
 // ============================================
@@ -45,7 +45,7 @@ export const books = sqliteTable('books', {
 	// Ebook support
 	ebookPath: text('ebookPath'),
 	ebookFormat: text('ebookFormat'),
-	ebookMd5: text('ebookMd5'), // MD5 hash of ebook file for KOReader sync
+	ebookMd5: text('ebookMd5'), // Partial MD5 of the current ebook file; matching reads book_ebook_hashes
 	readingProgress: text('readingProgress'), // JSON
 	lastReadAt: text('lastReadAt'),
 	// Library type: 'personal' or 'public'
@@ -829,6 +829,23 @@ export const koreaderProgress = sqliteTable('koreader_progress', {
 	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
 });
 
+// Every KOReader document hash known to belong to a book. A file replaced on the server keeps
+// its old hash here, so a device still holding the old copy links to the same book.
+export const bookEbookHashes = sqliteTable(
+	'book_ebook_hashes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		bookId: integer('bookId').notNull().references(() => books.id, { onDelete: 'cascade' }),
+		hash: text('hash').notNull(),
+		source: text('source').notNull(), // legacy, upload, import, bookdrop, rehash, manual_link, merge
+		createdAt: text('createdAt').notNull()
+	},
+	(table) => [
+		uniqueIndex('idx_book_ebook_hashes_book_hash').on(table.bookId, table.hash),
+		index('idx_book_ebook_hashes_hash').on(table.hash)
+	]
+);
+
 // KOReader relations
 export const koreaderUsersRelations = relations(koreaderUsers, ({ one }) => ({
 	user: one(users, { fields: [koreaderUsers.userId], references: [users.id] })
@@ -837,6 +854,10 @@ export const koreaderUsersRelations = relations(koreaderUsers, ({ one }) => ({
 export const koreaderProgressRelations = relations(koreaderProgress, ({ one }) => ({
 	user: one(users, { fields: [koreaderProgress.userId], references: [users.id] }),
 	book: one(books, { fields: [koreaderProgress.bookId], references: [books.id] })
+}));
+
+export const bookEbookHashesRelations = relations(bookEbookHashes, ({ one }) => ({
+	book: one(books, { fields: [bookEbookHashes.bookId], references: [books.id] })
 }));
 
 // ============================================
@@ -976,6 +997,8 @@ export type KoreaderUser = typeof koreaderUsers.$inferSelect;
 export type NewKoreaderUser = typeof koreaderUsers.$inferInsert;
 export type KoreaderProgress = typeof koreaderProgress.$inferSelect;
 export type NewKoreaderProgress = typeof koreaderProgress.$inferInsert;
+export type BookEbookHash = typeof bookEbookHashes.$inferSelect;
+export type NewBookEbookHash = typeof bookEbookHashes.$inferInsert;
 
 // API Token types
 export type ApiToken = typeof apiTokens.$inferSelect;

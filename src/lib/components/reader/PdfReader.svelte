@@ -48,6 +48,7 @@
 	let canvasContainerEl: HTMLDivElement;
 	let canvasEl: HTMLCanvasElement;
 	let saveTimeout: ReturnType<typeof setTimeout>;
+	let positionDirty = false;
 
 	// Theme colors
 	const themeColors = {
@@ -134,9 +135,6 @@
 			};
 
 			await page.render(renderContext).promise;
-
-			// Schedule progress save
-			scheduleSaveProgress();
 		} catch (err) {
 			console.error('Error rendering page:', err);
 		}
@@ -148,6 +146,7 @@
 			currentPage--;
 			pageInputValue = currentPage.toString();
 			renderPage(currentPage);
+			markPositionChanged();
 		}
 	}
 
@@ -156,14 +155,16 @@
 			currentPage++;
 			pageInputValue = currentPage.toString();
 			renderPage(currentPage);
+			markPositionChanged();
 		}
 	}
 
 	function goToPage(page: number) {
-		if (page >= 1 && page <= totalPages) {
+		if (page >= 1 && page <= totalPages && page !== currentPage) {
 			currentPage = page;
 			pageInputValue = currentPage.toString();
 			renderPage(currentPage);
+			markPositionChanged();
 		}
 	}
 
@@ -250,6 +251,13 @@
 	}
 
 	// Progress saving
+	// Only navigation changes the position: opening a book at a position that doesn't
+	// fit this file, zooming or leaving must not overwrite what's saved
+	function markPositionChanged() {
+		positionDirty = true;
+		scheduleSaveProgress();
+	}
+
 	function scheduleSaveProgress() {
 		if (saveTimeout) {
 			clearTimeout(saveTimeout);
@@ -258,8 +266,11 @@
 	}
 
 	async function saveProgress() {
+		if (!positionDirty) return;
+		positionDirty = false;
+
 		try {
-			await fetch(`/api/ebooks/${bookId}/progress`, {
+			const res = await fetch(`/api/ebooks/${bookId}/progress`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -269,14 +280,18 @@
 					totalPages
 				})
 			});
+			if (!res.ok) {
+				positionDirty = true;
+			}
 		} catch (err) {
+			positionDirty = true;
 			console.error('Error saving progress:', err);
 		}
 	}
 
 	// Save progress using sendBeacon (more reliable for page unload)
 	function saveProgressBeacon() {
-		if (totalPages === 0) return;
+		if (totalPages === 0 || !positionDirty) return;
 
 		const progressData = JSON.stringify({
 			location: `page:${currentPage}`,
@@ -286,7 +301,7 @@
 		});
 
 		if (navigator.sendBeacon) {
-			navigator.sendBeacon(
+			positionDirty = !navigator.sendBeacon(
 				`/api/ebooks/${bookId}/progress`,
 				new Blob([progressData], { type: 'application/json' })
 			);

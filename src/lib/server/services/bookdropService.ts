@@ -1,6 +1,7 @@
 import { db, bookdropQueue, bookdropSettings, books, authors, bookAuthors, formats, statuses } from '$lib/server/db';
 import { eq, and, desc, asc, isNull, sql } from 'drizzle-orm';
 import { extractEbookMetadata, saveCoverImage, saveEbookFile, type EbookMetadata } from './ebookMetadataService';
+import { rememberEbookHash } from './ebookHashService';
 import { createHash } from 'crypto';
 import { readFile, unlink, rename, mkdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -368,6 +369,10 @@ export async function importQueueItem(
 				updatedAt: now
 			})
 			.returning();
+
+		if (ebookMd5) {
+			await rememberEbookHash(book.id, ebookMd5, 'bookdrop');
+		}
 
 		// Add book-author junction if author exists
 		if (authorId) {

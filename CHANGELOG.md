@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-10-31
+
+### Upgrading: run Verify & Add Hashes once
+- After upgrading, go to Admin → Settings → Storage and click **Verify & Add Hashes** once. It reads every ebook file and records its KOReader hash. No existing hash is removed, so devices holding older copies keep working. Until you run it, books with an out-of-date hash still sync, and browser PDF and comic progress is saved under the old hash.
+- Going back to 2.23.x after running Verify is not clean: 2.23.x only knows a book's newest hash, so devices holding older copies stop matching.
+
+### Added
+- A book can now be known by several KOReader hashes. If you replace an ebook file, a device still holding the old copy stays linked to the same book, and so does one with the new copy.
+- Progress from PDF and comic reading now goes both ways: a page you reach in the browser can be picked up in KOReader, and a page you reach in KOReader opens in the browser.
+- A KOReader push now also updates your own reading progress and last-read date for the book. It never changes a reading status. A push adds a book to your library only if the book is public or yours.
+
+### Changed
+- **Generate Missing Hashes** and **Regenerate All Hashes** are replaced by one **Verify & Add Hashes** button, which always checks every ebook and lists any missing files. Their stored hashes are kept.
+- KOReader now shows a clear message if you try to register from the device: create the login in BookShelf settings, then use Login. With sync turned off in BookShelf, the device gets a login failure rather than a generic error.
+- Linking a sync entry to a book by hand no longer changes the book's stored hash, and you can only link to a book you have access to. Unlinking or removing an entry stops the next push from linking it again.
+- KOReader sync only links to books you can reach. If a library share is removed, pushes stop updating that book.
+- Browser reading progress is now refused for books you don't have access to.
+
+### Fixed
+- Ebooks added through bulk import or BookDrop now get the hash KOReader uses, so they match on a device. They were getting a full-file hash that could never match.
+- Browser EPUB reading no longer touches KOReader's saved position. An EPUB browser position isn't something KOReader can open.
+- Opening a PDF or comic, zooming, resizing or leaving the page no longer saves over your position. Only turning a page does.
+- The first page of a comic now saves correctly. It used to be dropped.
+- Replacing an ebook now saves the new file before deleting the old one, so a failed upload no longer loses the file you had.
+- Removing an ebook now also clears its hashes and unlinks its KOReader entries, keeping their positions. Uploading the same file again relinks on the next push.
+- Merging books now carries the ebook format, KOReader hashes and linked sync entries to the surviving book.
+- A KOReader position below 1% no longer opens an EPUB in the browser at the wrong place (0.5% was opening at 50%).
+- A malformed KOReader push is now refused instead of overwriting a real position, and a numeric page 0 is no longer blanked.
+
 ## [2.23.4] - 2026-10-30
 
 ### Changed

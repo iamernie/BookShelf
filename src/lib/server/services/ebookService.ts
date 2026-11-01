@@ -75,14 +75,6 @@ function validateEbook(filename: string, size: number): { valid: boolean; error?
 }
 
 /**
- * Compute MD5 hash of a buffer (full file hash)
- * Note: This is NOT compatible with KOReader - use computeKoreaderMd5 instead
- */
-export function computeMd5(buffer: Buffer): string {
-	return createHash('md5').update(buffer).digest('hex');
-}
-
-/**
  * Compute KOReader-compatible partial MD5 hash
  *
  * KOReader uses LuaJIT's bit.lshift(1024, 2*i) for i = -1 to 10.
@@ -125,19 +117,6 @@ export function computeKoreaderMd5(buffer: Buffer): string {
 	}
 
 	return md5.digest('hex');
-}
-
-/**
- * Compute MD5 hash of a file by path (full file hash)
- * Note: This is NOT compatible with KOReader - use computeFileKoreaderMd5 instead
- */
-export async function computeFileMd5(filepath: string): Promise<string | null> {
-	try {
-		const buffer = await readFile(filepath);
-		return computeMd5(buffer);
-	} catch {
-		return null;
-	}
 }
 
 /**
@@ -319,6 +298,7 @@ export interface ReadingProgress {
 	currentPage?: number;
 	totalPages?: number;
 	savedAt: string;
+	source?: string; // 'koreader' when a device wrote it; percentage is always 0-100 then
 }
 
 /**

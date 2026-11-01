@@ -12,6 +12,7 @@ import { eq } from 'drizzle-orm';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { canModifyBook } from '$lib/server/services/libraryShareService';
 import { saveEbook, deleteEbook } from '$lib/server/services/ebookService';
+import { setCurrentEbookHash } from '$lib/server/services/ebookHashService';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
@@ -48,12 +49,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, 'No file uploaded');
 	}
 
-	// Delete old ebook if exists
-	if (book.ebookPath) {
-		await deleteEbook(book.ebookPath);
-	}
-
-	// Save new ebook
+	// Save new ebook first: a failed save must leave the old file and record untouched
 	const result = await saveEbook(file, bookId);
 
 	if (!result.success) {
@@ -67,11 +63,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		.where(eq(formats.name, 'eBook'))
 		.limit(1);
 
-	// Update book record with ebook path, MD5 hash (for KOReader sync), and format
+	// Update book record with ebook path and format
 	const updateData: Record<string, unknown> = {
 		ebookPath: result.filename,
 		ebookFormat: result.format,
-		ebookMd5: result.md5, // For KOReader sync matching
 		updatedAt: new Date().toISOString()
 	};
 
@@ -84,6 +79,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		.update(books)
 		.set(updateData)
 		.where(eq(books.id, bookId));
+
+	// The old hash stays known, so a device still holding the old file keeps its link
+	if (result.md5) {
+		await setCurrentEbookHash(bookId, result.md5, 'upload');
+	}
+
+	// Old file goes last, once nothing points at it. A failed delete only leaves an orphan.
+	if (book.ebookPath && book.ebookPath !== result.filename) {
+		await deleteEbook(book.ebookPath);
+	}
 
 	return json({
 		success: true,

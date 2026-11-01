@@ -3,9 +3,10 @@ import { createReadStream } from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
 import { createWriteStream } from 'fs';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes } from 'crypto';
 import { mkdir } from 'fs/promises';
 import { getStoragePaths, resolvePathPattern, type PathPatternContext } from './settingsService';
+import { computeKoreaderMd5 } from './ebookService';
 import { createLogger } from './loggerService';
 import type AdmZip from 'adm-zip';
 
@@ -506,9 +507,9 @@ export async function saveEbookFile(
 
 	const fs = await import('fs/promises');
 
-	// Read file to compute MD5 hash for KOReader sync
+	// Read file to compute KOReader-compatible partial MD5 hash for sync
 	const fileBuffer = await fs.readFile(tempPath);
-	const md5 = createHash('md5').update(fileBuffer).digest('hex');
+	const md5 = computeKoreaderMd5(fileBuffer);
 
 	// Copy file to destination
 	await fs.copyFile(tempPath, fullPath);

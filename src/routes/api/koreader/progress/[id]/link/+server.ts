@@ -12,6 +12,8 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { koreaderProgress, books } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { rememberEbookHash, forgetManualHash } from '$lib/server/services/ebookHashService';
+import { canReachBook } from '$lib/server/services/libraryShareService';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
@@ -61,6 +63,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
+	if (!(await canReachBook(locals.user.id, data.bookId))) {
+		throw error(403, { message: 'You do not have access to this book' });
+	}
+
+	// Moving a link takes the hash away from the book it was on
+	if (progress.bookId && progress.bookId !== data.bookId) {
+		await forgetManualHash(progress.bookId, progress.documentHash);
+	}
+
 	// Update the progress entry to link to the book
 	await db
 		.update(koreaderProgress)
@@ -70,15 +81,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		})
 		.where(eq(koreaderProgress.id, progressId));
 
-	// Also update the book's ebookMd5 to match this document hash
-	// This enables future automatic syncing
-	await db
-		.update(books)
-		.set({
-			ebookMd5: progress.documentHash,
-			updatedAt: new Date().toISOString()
-		})
-		.where(eq(books.id, data.bookId));
+	// Remember the document hash on the book, which enables future automatic syncing
+	// books.ebookMd5 stays: a device's hash says nothing about the current file
+	await rememberEbookHash(data.bookId, progress.documentHash, 'manual_link');
 
 	return json({
 		success: true,
@@ -122,6 +127,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 			updatedAt: new Date().toISOString()
 		})
 		.where(eq(koreaderProgress.id, progressId));
+
+	// Otherwise the next push would redo the link
+	if (progress.bookId) {
+		await forgetManualHash(progress.bookId, progress.documentHash);
+	}
 
 	return json({ success: true });
 };

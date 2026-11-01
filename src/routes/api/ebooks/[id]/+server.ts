@@ -12,6 +12,7 @@ import { eq } from 'drizzle-orm';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { canModifyBook } from '$lib/server/services/libraryShareService';
 import { deleteEbook } from '$lib/server/services/ebookService';
+import { clearEbookHashes } from '$lib/server/services/ebookHashService';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
@@ -50,11 +51,14 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		.set({
 			ebookPath: null,
 			ebookFormat: null,
+			ebookMd5: null,
 			readingProgress: null,
 			lastReadAt: null,
 			updatedAt: new Date().toISOString()
 		})
 		.where(eq(books.id, bookId));
+
+	clearEbookHashes(bookId);
 
 	return json({
 		success: true,

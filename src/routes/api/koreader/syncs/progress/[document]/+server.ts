@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
 	}
 
 	if (!auth.syncEnabled) {
-		return json({ message: 'Sync disabled' }, { status: 403 });
+		return json({ message: 'Sync disabled' }, { status: 401 });
 	}
 
 	const documentHash = params.document;

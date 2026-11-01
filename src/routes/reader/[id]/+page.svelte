@@ -172,12 +172,7 @@
 					// Fall back to percentage-based navigation
 					if (data.progress.percentage && data.progress.percentage > 0) {
 						await book.locations.generate(1024);
-						// Normalize percentage: if > 1, it's in 0-100 format; if <= 1, it's in 0-1 format
-						let normalizedPercent = data.progress.percentage;
-						if (normalizedPercent > 1) {
-							normalizedPercent = normalizedPercent / 100;
-						}
-						const cfi = book.locations.cfiFromPercentage(normalizedPercent);
+						const cfi = book.locations.cfiFromPercentage(progressFraction(data.progress));
 						await rendition.display(cfi);
 					} else {
 						await rendition.display();
@@ -188,12 +183,8 @@
 				// Generate locations and navigate by percentage
 				try {
 					await book.locations.generate(1024);
-					// Normalize percentage: if > 1, it's in 0-100 format; if <= 1, it's in 0-1 format
 					// epub.js cfiFromPercentage expects 0-1 format
-					let normalizedPercent = data.progress.percentage;
-					if (normalizedPercent > 1) {
-						normalizedPercent = normalizedPercent / 100;
-					}
+					const normalizedPercent = progressFraction(data.progress);
 					console.log('[Reader] Navigating to percentage:', data.progress.percentage, '-> normalized:', normalizedPercent);
 					const cfi = book.locations.cfiFromPercentage(normalizedPercent);
 					await rendition.display(cfi);
@@ -254,6 +245,15 @@
 			errorMessage = 'Failed to load ebook. The file may be corrupted.';
 			loading = false;
 		}
+	}
+
+	// Saved progress as the 0-1 fraction epub.js expects
+	// KOReader's is always 0-100, so 0.5 from a device means 0.5%; other writers may use either scale
+	function progressFraction(progress: { percentage: number; source?: string }): number {
+		if (progress.source === 'koreader' || progress.percentage > 1) {
+			return progress.percentage / 100;
+		}
+		return progress.percentage;
 	}
 
 	// Update progress display
@@ -344,6 +344,8 @@
 					'no_credentials': '✗ No KOReader credentials configured. Go to Account Settings → KOReader Sync',
 					'sync_disabled': '✗ KOReader sync is disabled. Enable it in Account Settings → KOReader Sync',
 					'no_md5_hash': '✗ Book has no MD5 hash. Run POST /api/admin/rehash-ebooks as admin',
+					'no_position': 'Not synced: this position is not one KOReader can open',
+					'stale': 'Not synced: KOReader has a newer position',
 					'error': '✗ Sync error occurred',
 					'': '✗ Not synced (unknown reason)'
 				};

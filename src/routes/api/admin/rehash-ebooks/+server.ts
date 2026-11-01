@@ -1,32 +1,27 @@
 /**
- * Admin API to compute KOReader-compatible MD5 hashes for existing ebooks
+ * Admin API to verify the KOReader hashes of all ebooks
  *
- * POST /api/admin/rehash-ebooks - Compute MD5 hashes for all ebooks without one
- * POST /api/admin/rehash-ebooks?force=true - Regenerate ALL ebook hashes (use after algorithm change)
+ * POST /api/admin/rehash-ebooks - Hash every ebook file, record the hash, and move books.ebookMd5
  *
- * This is needed for KOReader sync to work with books uploaded before the feature was added,
- * or when the hashing algorithm changes (e.g., switching from full-file to partial MD5)
+ * Nothing is deleted, so a device holding an older copy of a file keeps matching. A missing
+ * file is reported and its stored hashes stay as they are. Files replaced on disk have no app
+ * event, so this is also how those hashes get picked up.
  */
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { books } from '$lib/server/db/schema';
-import { eq, and, isNull, isNotNull } from 'drizzle-orm';
+import { and, isNull, isNotNull } from 'drizzle-orm';
 import { computeFileKoreaderMd5, getEbookPath } from '$lib/server/services/ebookService';
+import { setCurrentEbookHash } from '$lib/server/services/ebookHashService';
 
-export const POST: RequestHandler = async ({ locals, url }) => {
+export const POST: RequestHandler = async ({ locals }) => {
 	// Admin only
 	if (!locals.user || locals.user.role !== 'admin') {
 		throw error(403, 'Admin access required');
 	}
 
-	// Check if force regeneration is requested (regenerate ALL hashes)
-	const force = url.searchParams.get('force') === 'true';
-
-	// Find books to process
-	// - If force=true: all books with ebooks (regenerate all)
-	// - Otherwise: only books with ebooks but no MD5 hash
 	const booksToProcess = await db
 		.select({
 			id: books.id,
@@ -34,19 +29,14 @@ export const POST: RequestHandler = async ({ locals, url }) => {
 			ebookPath: books.ebookPath
 		})
 		.from(books)
-		.where(
-			force
-				? isNotNull(books.ebookPath)
-				: and(
-						isNotNull(books.ebookPath),
-						isNull(books.ebookMd5)
-					)
-		);
+		.where(isNotNull(books.ebookPath));
 
 	const results = {
 		total: booksToProcess.length,
-		updated: 0,
-		force,
+		updated: 0, // books.ebookMd5 moved
+		added: 0, // a hash was new to this book
+		unchanged: 0,
+		missing: [] as { id: number; title: string }[],
 		errors: [] as { id: number; title: string; error: string }[]
 	};
 
@@ -56,11 +46,7 @@ export const POST: RequestHandler = async ({ locals, url }) => {
 		try {
 			const filepath = getEbookPath(book.ebookPath);
 			if (!filepath) {
-				results.errors.push({
-					id: book.id,
-					title: book.title,
-					error: 'Could not resolve ebook path'
-				});
+				results.missing.push({ id: book.id, title: book.title });
 				continue;
 			}
 
@@ -75,15 +61,10 @@ export const POST: RequestHandler = async ({ locals, url }) => {
 				continue;
 			}
 
-			await db
-				.update(books)
-				.set({
-					ebookMd5: md5,
-					updatedAt: new Date().toISOString()
-				})
-				.where(eq(books.id, book.id));
-
-			results.updated++;
+			const { added, mirrorChanged } = await setCurrentEbookHash(book.id, md5, 'rehash');
+			if (added) results.added++;
+			if (mirrorChanged) results.updated++;
+			if (!added && !mirrorChanged) results.unchanged++;
 		} catch (e) {
 			results.errors.push({
 				id: book.id,

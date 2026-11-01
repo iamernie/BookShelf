@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	}
 
 	if (!auth.syncEnabled) {
-		return json({ message: 'Sync disabled' }, { status: 403 });
+		return json({ message: 'Sync disabled' }, { status: 401 });
 	}
 
 	return json({ username });

@@ -175,7 +175,14 @@
 	// MD5 hash generation state
 	let generatingHashes = $state(false);
 	let hashStats = $state<{ withEbook: number; withHash: number; needsHash: number } | null>(null);
-	let hashResult = $state<{ total: number; updated: number; errors: { id: number; title: string; error: string }[] } | null>(null);
+	let hashResult = $state<{
+		total: number;
+		updated: number;
+		added: number;
+		unchanged: number;
+		missing: { id: number; title: string }[];
+		errors: { id: number; title: string; error: string }[];
+	} | null>(null);
 
 	// Fetch placeholders on mount
 	$effect(() => {
@@ -540,18 +547,17 @@
 		}
 	}
 
-	async function generateMd5Hashes(force: boolean = false) {
+	async function verifyEbookHashes() {
 		generatingHashes = true;
 		hashResult = null;
 
 		try {
-			const url = force ? '/api/admin/rehash-ebooks?force=true' : '/api/admin/rehash-ebooks';
-			const res = await fetch(url, {
+			const res = await fetch('/api/admin/rehash-ebooks', {
 				method: 'POST'
 			});
 
 			if (!res.ok) {
-				throw new Error('Failed to generate hashes');
+				throw new Error('Failed to verify hashes');
 			}
 
 			hashResult = await res.json();
@@ -561,6 +567,9 @@
 			hashResult = {
 				total: 0,
 				updated: 0,
+				added: 0,
+				unchanged: 0,
+				missing: [],
 				errors: [{ id: 0, title: 'Error', error: e instanceof Error ? e.message : 'Unknown error' }]
 			};
 		} finally {
@@ -1723,50 +1732,40 @@
 								type="button"
 								class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
 								style="background: var(--accent); color: white;"
-								onclick={() => generateMd5Hashes(false)}
-								disabled={generatingHashes || (hashStats && hashStats.needsHash === 0)}
+								onclick={verifyEbookHashes}
+								disabled={generatingHashes}
+								title="Hash every ebook file and add any hash not on record. Existing hashes are kept, so devices holding older copies still match."
 							>
 								{#if generatingHashes}
 									<Loader2 class="w-4 h-4 animate-spin" />
-									Generating...
+									Verifying...
 								{:else}
 									<Hash class="w-4 h-4" />
-									Generate Missing Hashes
+									Verify & Add Hashes
 								{/if}
 							</button>
-							<button
-								type="button"
-								class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
-								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
-								onclick={() => generateMd5Hashes(true)}
-								disabled={generatingHashes || !hashStats || hashStats.withEbook === 0}
-								title="Regenerate all hashes using KOReader-compatible partial MD5 algorithm"
-							>
-								{#if generatingHashes}
-									<Loader2 class="w-4 h-4 animate-spin" />
-								{:else}
-									<Hash class="w-4 h-4" />
-								{/if}
-								Regenerate All Hashes
-							</button>
-							{#if hashStats && hashStats.needsHash === 0}
-								<span class="flex items-center gap-1.5 text-sm" style="color: #22c55e;">
-									<Check class="w-4 h-4" />
-									All ebooks have MD5 hashes
-								</span>
-							{/if}
 						</div>
 
 						{#if hashResult}
 							<div class="mt-4 p-3 rounded-lg" style="background: var(--bg-tertiary);">
-								{#if hashResult.updated > 0}
+								{#if hashResult.added > 0}
 									<p class="text-sm" style="color: #22c55e;">
-										Successfully generated {hashResult.updated} MD5 hash{hashResult.updated === 1 ? '' : 'es'}.
+										Added {hashResult.added} new hash{hashResult.added === 1 ? '' : 'es'}.
 									</p>
-								{:else if hashResult.total === 0}
+								{:else if hashResult.total > 0 && hashResult.errors.length === 0}
 									<p class="text-sm" style="color: var(--text-muted);">
-										All ebooks already have MD5 hashes.
+										No new hashes. Everything is on record.
 									</p>
+								{/if}
+								{#if hashResult.missing.length > 0}
+									<p class="text-sm mt-2" style="color: #f59e0b;">
+										{hashResult.missing.length} ebook file{hashResult.missing.length === 1 ? '' : 's'} missing. Stored hashes were kept.
+									</p>
+									<ul class="mt-1 text-xs space-y-1" style="color: var(--text-muted);">
+										{#each hashResult.missing as book (book.id)}
+											<li>{book.title}</li>
+										{/each}
+									</ul>
 								{/if}
 								{#if hashResult.errors.length > 0}
 									<p class="text-sm mt-2" style="color: #ef4444;">

@@ -40,7 +40,7 @@ export const PUT: RequestHandler = async ({ request }) => {
 	}
 
 	if (!auth.syncEnabled) {
-		return json({ message: 'Sync disabled' }, { status: 403 });
+		return json({ message: 'Sync disabled' }, { status: 401 });
 	}
 
 	let data: KoreaderProgressData;
@@ -54,10 +54,15 @@ export const PUT: RequestHandler = async ({ request }) => {
 		return json({ message: 'Missing document hash' }, { status: 400 });
 	}
 
+	// KOReader always sends both; a push without them must not overwrite a real position
+	if (typeof data.percentage !== 'number' || data.progress === undefined || data.progress === null) {
+		return json({ message: 'Missing progress or percentage' }, { status: 400 });
+	}
+
 	const result = await saveProgress(auth.userId, {
 		document: data.document,
-		progress: data.progress || '',
-		percentage: data.percentage || 0,
+		progress: String(data.progress), // A page can arrive as a number, 0 included
+		percentage: data.percentage,
 		device: data.device || 'unknown',
 		device_id: data.device_id || 'unknown',
 		timestamp: data.timestamp

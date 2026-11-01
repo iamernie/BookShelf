@@ -12,8 +12,9 @@ import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async () => {
 	// User registration is disabled - must use BookShelf UI
+	// 402 is the code KOReader treats as a failed registration and shows the message for
 	return json(
-		{ message: 'Registration disabled. Create KOReader credentials in BookShelf settings.' },
-		{ status: 403 }
+		{ message: 'User registration is disabled. Create credentials in BookShelf settings, then use Login.' },
+		{ status: 402 }
 	);
 };

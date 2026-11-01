@@ -188,6 +188,29 @@ export async function canAccessBook(userId: number, bookId: number): Promise<boo
 }
 
 /**
+ * Check if a user can reach a book for reading and sync: ownerless and public books are open
+ * to everyone, anything else goes through canAccessBook. Ownerless is checked here and not in
+ * getBookPermission because bulk imports have no owner and are still the library's own books.
+ */
+export async function canReachBook(userId: number, bookId: number): Promise<boolean> {
+	const book = await db
+		.select({ ownerId: books.ownerId, libraryType: books.libraryType })
+		.from(books)
+		.where(eq(books.id, bookId))
+		.get();
+
+	if (!book) {
+		return false;
+	}
+
+	if (book.ownerId === null || book.libraryType === 'public') {
+		return true;
+	}
+
+	return canAccessBook(userId, bookId);
+}
+
+/**
  * Check if a user can modify a specific book (requires read_write or full permission, or ownership)
  */
 export async function canModifyBook(userId: number, bookId: number): Promise<boolean> {

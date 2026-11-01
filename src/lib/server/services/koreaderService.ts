@@ -6,9 +6,11 @@
  */
 
 import { db } from '$lib/server/db';
-import { koreaderUsers, koreaderProgress, books } from '$lib/server/db/schema';
+import { koreaderUsers, koreaderProgress, books, userBooks } from '$lib/server/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { createHash } from 'crypto';
+import { findBookForHash } from './ebookHashService';
+import { canReachBook } from './libraryShareService';
 
 // ============================================
 // Types
@@ -21,11 +23,6 @@ export interface KoreaderProgressData {
 	device: string;
 	device_id: string;
 	timestamp?: number; // Unix timestamp
-}
-
-export interface KoreaderUserData {
-	username: string;
-	password: string;
 }
 
 // ============================================
@@ -163,10 +160,9 @@ export async function deleteKoreaderUser(userId: number): Promise<void> {
 /**
  * Get reading progress for a document
  *
- * IMPORTANT: KOReader can only navigate using XPointer format for EPUBs.
- * The browser uses EPUB CFI format which is incompatible.
- * We only return progress data if we have a valid XPointer that KOReader can use.
- * Otherwise, return null so KOReader doesn't show a misleading sync prompt.
+ * IMPORTANT: KOReader can only navigate to an XPointer (reflowable formats) or a page number
+ * (PDF, CBZ). Anything else, like the browser's EPUB CFI, returns null so KOReader doesn't
+ * show a sync prompt it can't act on.
  */
 export async function getProgress(
 	userId: number,
@@ -187,18 +183,14 @@ export async function getProgress(
 		return null;
 	}
 
-	// KOReader uses XPointer format for EPUB positions (starts with /)
-	// Browser uses EPUB CFI format (epubcfi...) which KOReader can't navigate
-	// Only return progress if we have a valid XPointer, otherwise KOReader
-	// would show "sync to X%?" prompt but fail navigation when user confirms
 	const progressValue = progress.progress || '';
-	const isValidXPointer = progressValue.startsWith('/');
+	const isNavigable = progressValue.startsWith('/') || /^\d+$/.test(progressValue);
 
-	if (!isValidXPointer) {
-		// No valid XPointer - don't advertise progress to KOReader
+	if (!isNavigable) {
+		// Nothing KOReader can go to - don't advertise progress
 		// KOReader will sync its own progress TO us when user reads on device
 		console.log(
-			`[KOReader GET] No valid XPointer for document ${documentHash.substring(0, 8)}... ` +
+			`[KOReader GET] No navigable position for document ${documentHash.substring(0, 8)}... ` +
 				`(progress="${progressValue.substring(0, 20)}...") - returning null`
 		);
 		return null;
@@ -225,6 +217,8 @@ export async function saveProgress(
 	const now = new Date().toISOString();
 	const timestamp = data.timestamp || Math.floor(Date.now() / 1000);
 
+	let written = true;
+
 	// Check if progress already exists
 	const [existing] = await db
 		.select()
@@ -239,7 +233,8 @@ export async function saveProgress(
 
 	if (existing) {
 		// Only update if incoming timestamp is newer
-		if (!existing.timestamp || timestamp >= existing.timestamp) {
+		written = !existing.timestamp || timestamp >= existing.timestamp;
+		if (written) {
 			await db
 				.update(koreaderProgress)
 				.set({
@@ -272,8 +267,10 @@ export async function saveProgress(
 	const bookId = await tryLinkProgressToBook(userId, data.document);
 
 	// Sync progress to the book's reading progress for the browser reader
-	if (bookId && data.percentage !== undefined) {
+	// A stale push kept the row as it was, so it says nothing new about the book either
+	if (bookId && written) {
 		await syncProgressToBook(bookId, data.percentage, data.progress, now);
+		await syncProgressToUserBook(userId, bookId, data.percentage * 100, now);
 	}
 
 	return {
@@ -287,6 +284,25 @@ export async function saveProgress(
 }
 
 /**
+ * Convert a KOReader page position to the browser reader's page convention.
+ * KOReader pages are 1-based; the PDF reader's are too, the CBZ reader's are 0-based indexes.
+ * Returns undefined when the position isn't a page, like an EPUB XPointer.
+ */
+function toReaderPage(format: string | null | undefined, location: string | undefined): number | undefined {
+	const kind = format?.toLowerCase();
+	if ((kind !== 'pdf' && kind !== 'cbz') || !/^\d+$/.test(location ?? '')) {
+		return undefined;
+	}
+
+	const page = parseInt(location!);
+	if (page < 1) {
+		return undefined;
+	}
+
+	return kind === 'cbz' ? page - 1 : page;
+}
+
+/**
  * Sync KOReader progress to the book's reading progress
  * This allows the browser reader to continue where KOReader left off
  */
@@ -296,6 +312,12 @@ async function syncProgressToBook(
 	location: string | undefined,
 	timestamp: string
 ): Promise<void> {
+	const [book] = await db
+		.select({ ebookFormat: books.ebookFormat })
+		.from(books)
+		.where(eq(books.id, bookId))
+		.limit(1);
+
 	// Update the book's reading progress
 	// KOReader stores percentage as 0-1, but BookShelf browser reader expects 0-100
 	// Convert to 0-100 format for consistency with browser reader
@@ -304,7 +326,7 @@ async function syncProgressToBook(
 		location: location || '',
 		percentage: percentageAs100,
 		chapter: undefined,
-		currentPage: undefined,
+		currentPage: toReaderPage(book?.ebookFormat, location),
 		totalPages: undefined,
 		savedAt: timestamp,
 		source: 'koreader' // Mark that this came from KOReader
@@ -321,8 +343,57 @@ async function syncProgressToBook(
 }
 
 /**
- * Try to link progress to a book by finding a book with matching MD5 hash
- * KOReader sends the MD5 hash of the ebook file as the document identifier
+ * Sync KOReader progress to the user's own book data. Progress and last-read only, no status.
+ *
+ * A user_books row is library membership, which grants file access through canAccessBook and
+ * outlives a revoked share. So a push only creates one where membership gives nothing new:
+ * public books and the user's own. Anything else updates an existing row or does nothing.
+ */
+async function syncProgressToUserBook(
+	userId: number,
+	bookId: number,
+	percentAs100: number,
+	now: string
+): Promise<void> {
+	const [existing] = await db
+		.select({ id: userBooks.id })
+		.from(userBooks)
+		.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, bookId)))
+		.limit(1);
+
+	if (existing) {
+		await db
+			.update(userBooks)
+			.set({ readingProgress: percentAs100, lastReadAt: now, updatedAt: now })
+			.where(eq(userBooks.id, existing.id));
+		return;
+	}
+
+	const [book] = await db
+		.select({ ownerId: books.ownerId, libraryType: books.libraryType })
+		.from(books)
+		.where(eq(books.id, bookId))
+		.limit(1);
+
+	if (book?.libraryType !== 'public' && book?.ownerId !== userId) {
+		return;
+	}
+
+	await db.insert(userBooks).values({
+		userId,
+		bookId,
+		readingProgress: percentAs100,
+		lastReadAt: now,
+		addedAt: now,
+		createdAt: now,
+		updatedAt: now
+	});
+}
+
+/**
+ * Try to link progress to a book by finding a book that knows this document hash
+ * KOReader sends the partial MD5 of the ebook file as the document identifier
+ * Returns the book to sync to, or null if there is none the user can reach
  */
 async function tryLinkProgressToBook(userId: number, documentHash: string): Promise<number | null> {
 	// Check if we already have a progress entry with a linked book
@@ -338,23 +409,18 @@ async function tryLinkProgressToBook(userId: number, documentHash: string): Prom
 		.limit(1);
 
 	if (progress?.bookId) {
-		// Already linked
-		return progress.bookId;
+		// Already linked, but access may have ended since (a revoked share)
+		return (await canReachBook(userId, progress.bookId)) ? progress.bookId : null;
 	}
 
-	// Try to find a book with matching MD5 hash
-	const [matchingBook] = await db
-		.select({ id: books.id })
-		.from(books)
-		.where(eq(books.ebookMd5, documentHash))
-		.limit(1);
+	const matchingBookId = await findBookForHash(userId, documentHash);
 
-	if (matchingBook) {
+	if (matchingBookId) {
 		// Link the progress entry to the book
 		await db
 			.update(koreaderProgress)
 			.set({
-				bookId: matchingBook.id,
+				bookId: matchingBookId,
 				updatedAt: new Date().toISOString()
 			})
 			.where(
@@ -364,7 +430,7 @@ async function tryLinkProgressToBook(userId: number, documentHash: string): Prom
 				)
 			);
 
-		return matchingBook.id;
+		return matchingBookId;
 	}
 
 	return null;
@@ -413,44 +479,27 @@ export async function getRecentProgress(userId: number, limit: number = 5) {
 		.limit(limit);
 }
 
-/**
- * Manually link a progress entry to a book
- */
-export async function linkProgressToBook(
-	progressId: number,
-	bookId: number,
-	userId: number
-): Promise<void> {
-	await db
-		.update(koreaderProgress)
-		.set({
-			bookId,
-			updatedAt: new Date().toISOString()
-		})
-		.where(
-			and(
-				eq(koreaderProgress.id, progressId),
-				eq(koreaderProgress.userId, userId)
-			)
-		);
-}
-
 export interface SyncResult {
 	synced: boolean;
-	reason: 'success' | 'no_credentials' | 'sync_disabled' | 'no_md5_hash' | 'error';
+	reason: 'success' | 'no_credentials' | 'sync_disabled' | 'no_md5_hash' | 'no_position' | 'stale' | 'error';
 }
 
 /**
  * Sync browser reader progress to KOReader
  * Called when user reads in the browser and we want KOReader to pick up the progress
  *
+ * Only PDF and CBZ qualify: a browser page is a position KOReader can navigate to, an EPUB CFI
+ * isn't. Reads stay per-hash because positions are file-specific, so this writes only the row
+ * for the book's current hash.
+ *
  * @param percentage - Progress as 0-100 (browser format), will be converted to 0-1 for KOReader
+ * @param currentPage - The reader's page: 1-based for PDF, 0-based index for CBZ
  */
 export async function syncProgressFromBrowser(
 	userId: number,
 	bookId: number,
 	percentage: number,
-	location: string
+	currentPage: number | undefined
 ): Promise<SyncResult> {
 	// First, check if the user has KOReader sync enabled
 	const koreaderUser = await getKoreaderUser(userId);
@@ -465,10 +514,15 @@ export async function syncProgressFromBrowser(
 
 	// Get the book's MD5 hash to find the corresponding KOReader progress entry
 	const [book] = await db
-		.select({ ebookMd5: books.ebookMd5, title: books.title })
+		.select({ ebookFormat: books.ebookFormat, ebookMd5: books.ebookMd5, title: books.title })
 		.from(books)
 		.where(eq(books.id, bookId))
 		.limit(1);
+
+	const format = book?.ebookFormat?.toLowerCase();
+	if ((format !== 'pdf' && format !== 'cbz') || !Number.isInteger(currentPage)) {
+		return { synced: false, reason: 'no_position' };
+	}
 
 	if (!book?.ebookMd5) {
 		// Book doesn't have an MD5 hash (no ebook file or hash not computed)
@@ -476,11 +530,25 @@ export async function syncProgressFromBrowser(
 		return { synced: false, reason: 'no_md5_hash' };
 	}
 
+	const koreaderPage = format === 'cbz' ? currentPage! + 1 : currentPage!;
+	if (koreaderPage < 1) {
+		return { synced: false, reason: 'no_position' };
+	}
+
 	const now = new Date().toISOString();
 	const timestamp = Math.floor(Date.now() / 1000);
 
 	// Convert percentage from browser format (0-100) to KOReader format (0-1)
 	const koreaderPercentage = percentage / 100;
+
+	const position = {
+		progress: String(koreaderPage),
+		percentage: koreaderPercentage,
+		device: 'BookShelf Browser',
+		deviceId: 'bookshelf-browser',
+		timestamp,
+		updatedAt: now
+	};
 
 	// Check if progress entry exists
 	const [existing] = await db
@@ -495,54 +563,29 @@ export async function syncProgressFromBrowser(
 		.limit(1);
 
 	if (existing) {
-		// Update existing progress - only if browser timestamp is newer
-		if (!existing.timestamp || timestamp >= existing.timestamp) {
-			// Check if we have a valid XPointer from KOReader
-			const hasValidXPointer = existing.progress && existing.progress.startsWith('/');
-
-			// IMPORTANT: KOReader can only navigate using XPointer format
-			// If we don't have a valid XPointer, we shouldn't update the timestamp
-			// because KOReader would show "sync to X%?" prompt but can't actually navigate there
-			await db
-				.update(koreaderProgress)
-				.set({
-					// NEVER touch progress field - keep whatever KOReader set
-					percentage: koreaderPercentage,
-					device: 'BookShelf Browser',
-					deviceId: 'bookshelf-browser',
-					// Only update timestamp if we have a valid XPointer KOReader can use
-					// This prevents KOReader from showing false sync prompts
-					timestamp: hasValidXPointer ? timestamp : existing.timestamp,
-					updatedAt: now
-				})
-				.where(eq(koreaderProgress.id, existing.id));
-
-			if (hasValidXPointer) {
-				console.log(`[KOReader Sync] Updated progress for book ${bookId} (${book.title}): ${percentage}% → ${koreaderPercentage}, keeping XPointer`);
-			} else {
-				console.log(`[KOReader Sync] Updated percentage only for book ${bookId} (${book.title}): ${percentage}% (no XPointer - won't trigger KOReader sync prompt)`);
-			}
-		} else {
-			console.log(`[KOReader Sync] Skipped update for book ${bookId} - existing timestamp ${existing.timestamp} is newer than ${timestamp}`);
+		// A position that isn't a page (a stray XPointer) is never overwritten with one
+		if (!/^\d*$/.test(existing.progress ?? '')) {
+			return { synced: false, reason: 'no_position' };
 		}
+
+		// Update existing progress - only if browser timestamp is newer
+		if (existing.timestamp && timestamp < existing.timestamp) {
+			console.log(`[KOReader Sync] Skipped update for book ${bookId} - existing timestamp ${existing.timestamp} is newer than ${timestamp}`);
+			return { synced: false, reason: 'stale' };
+		}
+
+		await db.update(koreaderProgress).set(position).where(eq(koreaderProgress.id, existing.id));
+		console.log(`[KOReader Sync] Updated progress for book ${bookId} (${book.title}): page ${koreaderPage}, ${percentage}%`);
 	} else {
 		// Create new progress entry linked to this book
-		// Leave progress field empty - only KOReader should set XPointer
-		// Use timestamp 0 so KOReader doesn't see this as a sync target
-		// (KOReader will only sync TO us, not FROM us, until it sets its own XPointer)
 		await db.insert(koreaderProgress).values({
+			...position,
 			userId,
 			bookId,
 			documentHash: book.ebookMd5,
-			progress: '', // Empty - only KOReader sets XPointer
-			percentage: koreaderPercentage,
-			device: 'BookShelf Browser',
-			deviceId: 'bookshelf-browser',
-			timestamp: 0, // Use 0 so KOReader always considers its own progress newer
-			createdAt: now,
-			updatedAt: now
+			createdAt: now
 		});
-		console.log(`[KOReader Sync] Created progress entry for book ${bookId} (${book.title}) at ${Math.round(koreaderPercentage * 100)}% (no XPointer - KOReader will sync TO this, not FROM it)`);
+		console.log(`[KOReader Sync] Created progress entry for book ${bookId} (${book.title}): page ${koreaderPage}, ${percentage}%`);
 	}
 
 	return { synced: true, reason: 'success' };

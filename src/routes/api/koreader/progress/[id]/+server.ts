@@ -11,6 +11,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { koreaderProgress } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { forgetManualHash } from '$lib/server/services/ebookHashService';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
@@ -40,6 +41,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	// Delete the progress entry
 	await db.delete(koreaderProgress).where(eq(koreaderProgress.id, progressId));
+
+	// Otherwise the next push would create a new entry and redo a mistaken link
+	if (progress.bookId) {
+		await forgetManualHash(progress.bookId, progress.documentHash);
+	}
 
 	return json({ success: true, message: 'Progress entry deleted' });
 };

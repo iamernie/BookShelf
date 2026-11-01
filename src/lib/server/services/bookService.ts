@@ -2,6 +2,7 @@ import { db, books, bookAuthors, bookSeries, bookTags, authors, series, statuses
 import { eq, like, sql, desc, asc, and, or, inArray, isNull, ne } from 'drizzle-orm';
 import type { Book, NewBook } from '$lib/server/db/schema';
 import { applyAbsTagParity } from './absService';
+import { carryEbookHashes } from './ebookHashService';
 
 /** One Audiobookshelf item links to at most one book */
 export class AbsItemAlreadyLinkedError extends Error {
@@ -862,8 +863,15 @@ export async function mergeBooks(targetId: number, sourceId: number): Promise<bo
 
 	// If source has an ebook but target doesn't, transfer it
 	if (source.ebookPath && !target.ebookPath) {
-		await db.update(books).set({ ebookPath: source.ebookPath }).where(eq(books.id, targetId));
+		await db.update(books).set({
+			ebookPath: source.ebookPath,
+			ebookFormat: source.ebookFormat,
+			ebookMd5: source.ebookMd5
+		}).where(eq(books.id, targetId));
 	}
+
+	// KOReader hashes and linked progress move too, or devices lose the book with the source
+	carryEbookHashes(sourceId, targetId);
 
 	// The Audiobookshelf link moves with the merge, or the next sync would re-create the book.
 	// Source first: the unique index on absItemId allows one book per item at any moment.
