@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.24.1] - 2026-11-01
+
+### Upgrading: share your library before you upgrade
+- Personal books now really are personal. Until now, ebook downloads, comic pages, the OPDS download and a few other routes served any ebook to any logged-in user. After upgrading, other users can only open your personal books if you share your library with them. If someone on your server reads your books, create the share first (a read share opens your whole library to them). Public library books stay open to everyone.
+- Accounts with the role `user` now behave exactly like `member`. Existing accounts don't need changing. Before, `user` wasn't a recognized role, so permission checks treated those accounts as having no permissions. A role BookShelf doesn't recognize gets no permissions.
+- Viewers and guests lose the ability to add, upload or import books (details below). This only matters if you have such accounts, or if your default role for new signups is viewer or guest. New signups on the `member` role are not affected.
+
+### Security
+- Reading an ebook now requires both a role that may read and access to the book, on every route that hands out a file: the reader page, `/ebooks`, ebook file and download, comic pages and comic details, the OPDS download, and browser reading progress. Guests get a refusal on all of them, as the role was always meant to work. Kobo downloads check the role too.
+- A book in your library no longer grants access by itself. If a share is removed, your ratings, status and notes are kept and the book stays on your list, but opening the file is refused. If the book is shared again, access and your history come back. You can still remove the book from your list.
+- Adding books now requires the matching permission: creating a book, accepting an AI recommendation, uploading an ebook, sending files to BookDrop, importing from ebooks, CSV or Audible, and importing from BookDrop. Viewers and guests are refused. They can still skip, retry and delete their own BookDrop items, and previewing a CSV or Audible file stays open.
+- `/ebooks` now matches a file to its book by exact path. Before, a partial match could judge a file by the wrong book, and a trailing slash in the URL skipped the check entirely. A file that belongs to no book is now available to admins only.
+- Comic pages are now cached by your browser only, never by a shared cache such as a proxy. They still cache for 24 hours.
+
+### Fixed
+- Public and ownerless ebooks now open for everyone who may read. `/ebooks` and the book details route were refusing them unless the book was already in your library, even though they were listed.
+- Ebooks imported in bulk now belong to the person who imported them. Before, they had no owner, so everyone could read them until the next restart, which then gave them to the first admin and locked out the person who imported them.
+- Direct links to ebook files with a `%` in the name no longer fail with a server error.
+
 ## [2.24.0] - 2026-10-31
 
 ### Upgrading: run Verify & Add Hashes once

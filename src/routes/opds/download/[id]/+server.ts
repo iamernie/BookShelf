@@ -14,6 +14,7 @@ import { books } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getEbookStream, getContentType, ebookExists } from '$lib/server/services/ebookService';
 import { validateCredentials } from '$lib/server/services/authService';
+import { canReadEbook } from '$lib/server/services/libraryShareService';
 import { basename } from 'path';
 
 // Handle Basic Auth for OPDS
@@ -40,11 +41,12 @@ async function authenticateBasicAuth(request: Request): Promise<boolean> {
 	}
 }
 
-export const GET: RequestHandler = async ({ params, request }) => {
+export const GET: RequestHandler = async ({ params, request, locals }) => {
 	// Verify Basic Auth
 	const isAuthenticated = await authenticateBasicAuth(request);
 
-	if (!isAuthenticated) {
+	// locals.user comes from the same credentials, through the OPDS branch of the hook
+	if (!isAuthenticated || !locals.user) {
 		return new Response('Unauthorized', {
 			status: 401,
 			headers: {
@@ -64,6 +66,10 @@ export const GET: RequestHandler = async ({ params, request }) => {
 
 	if (!book) {
 		throw error(404, 'Book not found');
+	}
+
+	if (!(await canReadEbook(locals.user, bookId))) {
+		throw error(403, { message: 'You do not have access to this book' });
 	}
 
 	if (!book.ebookPath) {

@@ -7,6 +7,7 @@ import {
 	getQueueItem,
 	importAllPending
 } from '$lib/server/services/bookdropService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 
 // POST /api/bookdrop/bulk - Perform bulk actions
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -17,6 +18,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const data = await request.json();
 	const action = data.action;
 	const ids: number[] = data.ids || [];
+
+	if ((action === 'import' || action === 'import_all') && !hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to import books' });
+	}
 
 	const results: Array<{ id: number; success: boolean; error?: string; bookId?: number }> = [];
 

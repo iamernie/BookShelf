@@ -14,7 +14,7 @@ import {
 	updateUserBook,
 	type UpdateUserBookInput
 } from '$lib/server/services/userBookService';
-import { canAccessBook } from '$lib/server/services/libraryShareService';
+import { canReachBook } from '$lib/server/services/libraryShareService';
 // Permission service used for full User type - for simplified locals.user, check role directly
 import type { LibraryType } from '$lib/server/db/schema';
 
@@ -70,7 +70,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// Check if book exists
 	const [book] = await db
-		.select({ id: books.id, libraryType: books.libraryType })
+		.select({ id: books.id })
 		.from(books)
 		.where(eq(books.id, bookId))
 		.limit(1);
@@ -79,9 +79,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	// Public books can be added by anyone; personal books need ownership or an active share,
-	// otherwise the user_books row created below would itself grant access
-	if (book.libraryType !== 'public' && !(await canAccessBook(locals.user.id, bookId))) {
+	// A book the user can't reach stays off their library list
+	if (!(await canReachBook(locals.user.id, bookId))) {
 		throw error(403, { message: 'You do not have access to this book' });
 	}
 

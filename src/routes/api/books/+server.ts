@@ -1,11 +1,11 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getBooks, createBook, getStatuses, getGenres, getFormats, getNarrators, getTags, getAllAuthors, getAllSeries, AbsItemAlreadyLinkedError } from '$lib/server/services/bookService';
-import { canAccessBook } from '$lib/server/services/libraryShareService';
+import { canReachBook } from '$lib/server/services/libraryShareService';
 import { notifyBookAdded } from '$lib/server/services/notificationService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { getAuthorById } from '$lib/server/services/authorService';
-import { canManagePublicLibrary } from '$lib/server/services/permissionService';
+import { canManagePublicLibrary, hasPermission, Permission } from '$lib/server/services/permissionService';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
@@ -29,6 +29,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to add books' });
 	}
 
 	const data = await request.json();
@@ -97,7 +101,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	} catch (err) {
 		// One ABS item, one book; the other book's title is only shown to users who can see it
 		if (err instanceof AbsItemAlreadyLinkedError) {
-			return (await canAccessBook(locals.user.id, err.bookId))
+			return (await canReachBook(locals.user.id, err.bookId))
 				? json({ message: err.message, details: { bookId: err.bookId } }, { status: 409 })
 				: json({ message: 'Audiobookshelf item is already linked to another book' }, { status: 409 });
 		}

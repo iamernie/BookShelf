@@ -1,6 +1,7 @@
-import { db, libraryShares, users, books, userBooks } from '$lib/server/db';
+import { db, libraryShares, users, books } from '$lib/server/db';
 import { eq, and, or, inArray } from 'drizzle-orm';
 import type { LibrarySharePermission } from '$lib/server/db/schema';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 
 export interface LibraryShareInfo {
 	id: number;
@@ -167,30 +168,10 @@ export async function getBookPermission(
 }
 
 /**
- * Check if a user can access a specific book
- * User can access if: book is in their user_books, they own it, or it was shared with them
- */
-export async function canAccessBook(userId: number, bookId: number): Promise<boolean> {
-	// First check if book is in user's personal library (user_books)
-	const userBook = await db
-		.select({ id: userBooks.id })
-		.from(userBooks)
-		.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, bookId)))
-		.get();
-
-	if (userBook) {
-		return true;
-	}
-
-	// Fall back to ownership/sharing check
-	const permission = await getBookPermission(userId, bookId);
-	return permission !== null;
-}
-
-/**
- * Check if a user can reach a book for reading and sync: ownerless and public books are open
- * to everyone, anything else goes through canAccessBook. Ownerless is checked here and not in
- * getBookPermission because bulk imports have no owner and are still the library's own books.
+ * Check if a user can reach a book: ownerless and public books are open to everyone, anything
+ * else needs ownership or an active share. A user_books row is only a reading record, it survives
+ * a revoked share and grants nothing. Ownerless is checked here and not in getBookPermission
+ * because bulk imports have no owner and are still the library's own books.
  */
 export async function canReachBook(userId: number, bookId: number): Promise<boolean> {
 	const book = await db
@@ -207,7 +188,15 @@ export async function canReachBook(userId: number, bookId: number): Promise<bool
 		return true;
 	}
 
-	return canAccessBook(userId, bookId);
+	return (await getBookPermission(userId, bookId)) !== null;
+}
+
+/**
+ * Check if a user can read a book's ebook file or reader progress: the role allows reading and
+ * the book is reachable
+ */
+export async function canReadEbook(user: { id: number; role: string | null }, bookId: number): Promise<boolean> {
+	return hasPermission(user, Permission.READ_EBOOKS) && canReachBook(user.id, bookId);
 }
 
 /**

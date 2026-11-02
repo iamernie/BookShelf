@@ -10,8 +10,13 @@ import { db } from '$lib/server/db';
 import { books } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getCbzPage } from '$lib/server/services/cbzService';
+import { canReadEbook } from '$lib/server/services/libraryShareService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+
 	const bookId = parseInt(params.id);
 	const pageIndex = parseInt(params.page);
 
@@ -28,6 +33,10 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	if (!book) {
 		throw error(404, 'Book not found');
+	}
+
+	if (!(await canReadEbook(locals.user, bookId))) {
+		throw error(403, { message: 'You do not have access to this book' });
 	}
 
 	if (!book.ebookPath) {
@@ -48,7 +57,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	return new Response(new Uint8Array(page.data), {
 		headers: {
 			'Content-Type': page.mimeType,
-			'Cache-Control': 'public, max-age=86400' // Cache for 24 hours
+			'Cache-Control': 'private, max-age=86400' // Cache for 24 hours, never in a shared cache
 		}
 	});
 };

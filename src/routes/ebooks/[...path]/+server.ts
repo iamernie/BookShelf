@@ -3,8 +3,8 @@ import type { RequestHandler } from './$types';
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join, extname, resolve, normalize, relative } from 'path';
 import { db, books } from '$lib/server/db';
-import { like } from 'drizzle-orm';
-import { canAccessBook } from '$lib/server/services/libraryShareService';
+import { inArray } from 'drizzle-orm';
+import { canReadEbook } from '$lib/server/services/libraryShareService';
 
 // MIME types for ebook files
 const MIME_TYPES: Record<string, string> = {
@@ -35,9 +35,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 
 	// Sanitize and resolve path to prevent directory traversal
-	// First, URL-decode the path, normalize it, then resolve against base directory
-	const decodedPath = decodeURIComponent(requestedPath);
-	const normalizedPath = normalize(decodedPath).replace(/^(\.\.(\/|\\|$))+/, '');
+	// The path param is already URL-decoded: normalize it, then resolve against base directory
+	const normalizedPath = normalize(requestedPath).replace(/^(\.\.(\/|\\|$))+/, '');
 
 	// Build the full file path using resolve for proper path canonicalization
 	const ebooksDir = resolve(process.cwd(), 'static', 'ebooks');
@@ -55,21 +54,26 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(404, 'Ebook not found');
 	}
 
-	// Find the book that owns this ebook file and check access permissions
-	const ebookPath = `/ebooks/${normalizedPath}`;
-	const book = await db
+	// Find the books stored at this exact path, in either stored form. Matching the canonical
+	// path means a request can't dodge the lookup with a trailing slash or a '/.'
+	const owners = await db
 		.select({ id: books.id })
 		.from(books)
-		.where(like(books.ebookPath, `%${normalizedPath}`))
-		.limit(1);
+		.where(inArray(books.ebookPath, [relativePath, `/ebooks/${relativePath}`]));
 
-	if (book.length > 0) {
-		const hasAccess = await canAccessBook(locals.user.id, book[0].id);
+	if (owners.length > 0) {
+		let hasAccess = false;
+		for (const owner of owners) {
+			hasAccess = await canReadEbook(locals.user, owner.id);
+			if (hasAccess) break;
+		}
 		if (!hasAccess) {
 			throw error(403, 'You do not have access to this ebook');
 		}
+	} else if (locals.user.role !== 'admin') {
+		// An orphaned file has no book to check access against
+		throw error(404, 'Ebook not found');
 	}
-	// If no book found with this path, still serve it (might be an orphaned file or edge case)
 
 	// Get file stats
 	const stats = statSync(filePath);

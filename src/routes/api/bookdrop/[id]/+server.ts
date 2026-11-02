@@ -8,6 +8,7 @@ import {
 	retryQueueItem,
 	updateQueueItemMetadata
 } from '$lib/server/services/bookdropService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 
 // GET /api/bookdrop/[id] - Get single queue item
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -88,6 +89,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	switch (action) {
 		case 'import': {
+			if (!hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
+				throw error(403, { message: 'You do not have permission to import books' });
+			}
+
 			const result = await importQueueItem(id, {
 				title: data.title,
 				authorName: data.authorName,

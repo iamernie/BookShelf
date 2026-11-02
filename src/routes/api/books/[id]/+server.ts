@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getBookById, updateBook, deleteBook, AbsItemAlreadyLinkedError } from '$lib/server/services/bookService';
 import { removeBookFromUserLibrary, getUserBook } from '$lib/server/services/userBookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
-import { canAccessBook, canModifyBook, canDeleteBook } from '$lib/server/services/libraryShareService';
+import { canReachBook, canModifyBook, canDeleteBook } from '$lib/server/services/libraryShareService';
 import { applyStatusChange } from '$lib/server/services/statusService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
@@ -12,7 +12,7 @@ import { eq } from 'drizzle-orm';
 
 // One ABS item, one book; the other book's title is only shown to users who can see that book
 async function absLinkConflict(err: AbsItemAlreadyLinkedError, userId: number): Promise<Response> {
-	if (await canAccessBook(userId, err.bookId)) {
+	if (await canReachBook(userId, err.bookId)) {
 		return json({ message: err.message, details: { bookId: err.bookId } }, { status: 409 });
 	}
 	return json({ message: 'Audiobookshelf item is already linked to another book' }, { status: 409 });
@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 	// Check if user has access to this book
 	if (locals.user) {
-		const hasAccess = await canAccessBook(locals.user.id, id);
+		const hasAccess = await canReachBook(locals.user.id, id);
 		if (!hasAccess) {
 			throw error(403, { message: 'You do not have access to this book' });
 		}

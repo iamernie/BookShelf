@@ -345,9 +345,9 @@ async function syncProgressToBook(
 /**
  * Sync KOReader progress to the user's own book data. Progress and last-read only, no status.
  *
- * A user_books row is library membership, which grants file access through canAccessBook and
- * outlives a revoked share. So a push only creates one where membership gives nothing new:
- * public books and the user's own. Anything else updates an existing row or does nothing.
+ * A user_books row grants no access, but it does put a book on the user's library list and it
+ * outlives a revoked share. So a push only creates one where that shows nothing new: public books
+ * and the user's own. Anything else updates an existing row or does nothing.
  */
 async function syncProgressToUserBook(
 	userId: number,

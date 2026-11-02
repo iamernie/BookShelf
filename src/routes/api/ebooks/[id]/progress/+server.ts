@@ -16,7 +16,7 @@ import { parseReadingProgress, stringifyReadingProgress } from '$lib/server/serv
 import type { ReadingProgress } from '$lib/server/services/ebookService';
 import { syncProgressFromBrowser } from '$lib/server/services/koreaderService';
 import { syncFromWebReader as syncKoboProgress } from '$lib/server/services/koboReadingStateService';
-import { canReachBook } from '$lib/server/services/libraryShareService';
+import { canReadEbook } from '$lib/server/services/libraryShareService';
 
 // Page values are optional: anything unusable is dropped, the save still goes through.
 // 0 is a real value here, it's the first page of a comic.
@@ -51,7 +51,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	if (!(await canReachBook(locals.user.id, bookId))) {
+	if (!(await canReadEbook(locals.user, bookId))) {
 		throw error(403, { message: 'You do not have access to this book' });
 	}
 
@@ -81,7 +81,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	if (!(await canReachBook(locals.user.id, bookId))) {
+	if (!(await canReadEbook(locals.user, bookId))) {
 		throw error(403, { message: 'You do not have access to this book' });
 	}
 

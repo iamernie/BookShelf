@@ -9,7 +9,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { books, formats } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { canManagePublicLibrary } from '$lib/server/services/permissionService';
+import { canManagePublicLibrary, hasPermission, Permission } from '$lib/server/services/permissionService';
 import { canModifyBook } from '$lib/server/services/libraryShareService';
 import { saveEbook, deleteEbook } from '$lib/server/services/ebookService';
 import { setCurrentEbookHash } from '$lib/server/services/ebookHashService';
@@ -17,6 +17,10 @@ import { setCurrentEbookHash } from '$lib/server/services/ebookHashService';
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.UPLOAD_EBOOKS)) {
+		throw error(403, { message: 'You do not have permission to upload ebooks' });
 	}
 
 	const bookId = parseInt(params.id);

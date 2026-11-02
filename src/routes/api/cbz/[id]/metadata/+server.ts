@@ -10,8 +10,13 @@ import { db } from '$lib/server/db';
 import { books } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { getCbzMetadata } from '$lib/server/services/cbzService';
+import { canReadEbook } from '$lib/server/services/libraryShareService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+
 	const bookId = parseInt(params.id);
 
 	if (isNaN(bookId)) {
@@ -23,6 +28,10 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	if (!book) {
 		throw error(404, 'Book not found');
+	}
+
+	if (!(await canReadEbook(locals.user, bookId))) {
+		throw error(403, { message: 'You do not have access to this book' });
 	}
 
 	if (!book.ebookPath) {

@@ -10,9 +10,10 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateToken } from '$lib/server/services/koboService';
 import { db } from '$lib/server/db';
-import { books } from '$lib/server/db/schema';
+import { books, users } from '$lib/server/db/schema';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import { getEbookStream, getContentType, ebookExists, getEbookPath } from '$lib/server/services/ebookService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { statSync } from 'fs';
 import path from 'path';
 
@@ -60,6 +61,13 @@ export const GET: RequestHandler = async ({ params, request }) => {
 	if (!book) {
 		console.log('[Kobo Download] Book not found in database');
 		throw error(404, 'Book not found');
+	}
+
+	// The token only names the user, so the role comes from their row
+	const [account] = await db.select({ role: users.role }).from(users).where(eq(users.id, user.userId)).limit(1);
+	if (!hasPermission(account ?? null, Permission.READ_EBOOKS)) {
+		console.log('[Kobo Download] Role cannot read ebooks');
+		throw error(403, { message: 'You do not have access to this book' });
 	}
 
 	console.log('[Kobo Download] Book found:', {

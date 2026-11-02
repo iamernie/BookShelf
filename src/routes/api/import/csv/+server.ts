@@ -18,6 +18,7 @@ import {
 } from '$lib/server/services/importService';
 import { db, books, authors, series, narrators, statuses, formats, genres } from '$lib/server/db';
 import { eq, asc, like } from 'drizzle-orm';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { createBook } from '$lib/server/services/bookService';
 
 // Temporary storage for parsed import data (in production, use session or redis)
@@ -237,6 +238,10 @@ export const POST: RequestHandler = async ({ request }) => {
 export const PUT: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to import books' });
 	}
 
 	const { sessionId, selectedRows, createMissing = true } = await request.json();

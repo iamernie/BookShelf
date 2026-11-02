@@ -128,13 +128,21 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 const ROLE_HIERARCHY: UserRole[] = ['admin', 'librarian', 'member', 'viewer', 'guest'];
 
 /**
+ * The role a user's permissions come from. 'user' is the legacy default (auth also turns a NULL
+ * role into it) and behaves as member. Anything else unknown, or a raw NULL, has no permissions.
+ */
+function effectiveRole(user: UserWithRole): UserRole | null {
+	return user.role === 'user' ? 'member' : (user.role as UserRole | null);
+}
+
+/**
  * Check if a user has a specific permission
  */
 export function hasPermission(user: UserWithRole | null, permission: Permission): boolean {
 	if (!user) return false;
 
-	const role = (user.role as UserRole) || 'member';
-	const permissions = ROLE_PERMISSIONS[role] || [];
+	const role = effectiveRole(user);
+	const permissions = (role && ROLE_PERMISSIONS[role]) || [];
 
 	return permissions.includes(permission);
 }
@@ -159,8 +167,8 @@ export function hasAnyPermission(user: UserWithRole | null, permissions: Permiss
 export function hasRole(user: UserWithRole | null, minimumRole: UserRole): boolean {
 	if (!user) return false;
 
-	const userRole = (user.role as UserRole) || 'member';
-	const userRoleIndex = ROLE_HIERARCHY.indexOf(userRole);
+	const userRole = effectiveRole(user);
+	const userRoleIndex = userRole ? ROLE_HIERARCHY.indexOf(userRole) : -1;
 	const minimumRoleIndex = ROLE_HIERARCHY.indexOf(minimumRole);
 
 	// Lower index = higher privilege

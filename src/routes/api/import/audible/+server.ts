@@ -9,6 +9,7 @@ import { parseAudibleHtml, calculateStartDate, isDateInPast, type AudibleBook } 
 import { db } from '$lib/server/db';
 import { books, authors, series, narrators, formats, statuses, genres, bookAuthors, bookSeries, userBooks } from '$lib/server/db/schema';
 import { eq, and, or, like, sql } from 'drizzle-orm';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { fuzzyMatch } from '$lib/server/services/importService';
 
 // In-memory session storage for parsed data
@@ -146,6 +147,10 @@ export const POST: RequestHandler = async ({ request }) => {
 export const PUT: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to import books' });
 	}
 
 	const body = await request.json();

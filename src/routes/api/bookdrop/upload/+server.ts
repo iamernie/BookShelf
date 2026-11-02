@@ -5,6 +5,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { randomBytes } from 'crypto';
 import { createLogger } from '$lib/server/services/loggerService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 
 const log = createLogger('bookdrop-upload');
 
@@ -12,6 +13,10 @@ const log = createLogger('bookdrop-upload');
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.UPLOAD_EBOOKS)) {
+		throw error(403, { message: 'You do not have permission to upload ebooks' });
 	}
 
 	const formData = await request.formData();

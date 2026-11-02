@@ -7,6 +7,7 @@ import {
 	testAIConnection,
 	addRecommendationToLibrary
 } from '$lib/server/services/recommendationService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 
 // GET - Get AI recommendations
 export const GET: RequestHandler = async ({ locals, url }) => {
@@ -29,6 +30,10 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
 	if (!locals.user) {
 		throw error(401, 'Authentication required');
+	}
+
+	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to add books' });
 	}
 
 	try {

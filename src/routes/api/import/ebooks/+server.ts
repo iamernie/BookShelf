@@ -11,6 +11,7 @@ import {
 	type SaveContext
 } from '$lib/server/services/ebookMetadataService';
 import { rememberEbookHash } from '$lib/server/services/ebookHashService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { db } from '$lib/server/db';
 import { books, authors, bookAuthors, formats, statuses, genres, series, bookSeries } from '$lib/server/db/schema';
 import { eq, like } from 'drizzle-orm';
@@ -22,6 +23,10 @@ const pendingImports = new Map<string, ExtractedEbook[]>();
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to import books' });
 	}
 
 	const formData = await request.formData();
@@ -155,6 +160,10 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 
+	if (!hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to import books' });
+	}
+
 	const body = await request.json();
 	const { sessionId, selectedIndexes, bookData } = body;
 
@@ -274,6 +283,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 				isbn10: isbn && isbn.length === 10 ? isbn : null,
 				publisher: customData.publisher || extracted.metadata.publisher,
 				summary: customData.description || extracted.metadata.description,
+				ownerId: locals.user.id,
 				createdAt: now,
 				updatedAt: now
 			}).returning().get();
