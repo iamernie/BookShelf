@@ -1,5 +1,5 @@
 /**
- * Grouping key for the Data Cleanup duplicate finders (authors, series)
+ * Grouping key for the Data Cleanup duplicate finders (authors, series, narrators)
  *
  * Names that differ only by case, punctuation or spacing must produce the same
  * key: 'J.N. Chaney', 'J. N. Chaney' and 'JN Chaney' all become 'jnchaney'.

@@ -5,7 +5,7 @@ import { ignorePair, unignorePair, type EntityType } from '$lib/server/services/
 /**
  * POST /api/duplicates/ignore
  * Mark a pair as not duplicates (ignore them)
- * Body: { entityType: 'author' | 'series' | 'book', id1: number, id2: number }
+ * Body: { entityType: 'author' | 'series' | 'book' | 'narrator', id1: number, id2: number }
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -20,8 +20,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { entityType, id1, id2 } = body;
 
-	if (!entityType || !['author', 'series', 'book'].includes(entityType)) {
-		throw error(400, 'entityType must be "author", "series", or "book"');
+	if (!entityType || !['author', 'series', 'book', 'narrator'].includes(entityType)) {
+		throw error(400, 'entityType must be "author", "series", "book", or "narrator"');
 	}
 
 	if (typeof id1 !== 'number' || typeof id2 !== 'number') {
@@ -50,7 +50,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 /**
  * DELETE /api/duplicates/ignore
  * Remove a pair from ignored list (allow it to show as duplicate again)
- * Body: { entityType: 'author' | 'series' | 'book', id1: number, id2: number }
+ * Body: { entityType: 'author' | 'series' | 'book' | 'narrator', id1: number, id2: number }
  */
 export const DELETE: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -64,8 +64,8 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { entityType, id1, id2 } = body;
 
-	if (!entityType || !['author', 'series', 'book'].includes(entityType)) {
-		throw error(400, 'entityType must be "author", "series", or "book"');
+	if (!entityType || !['author', 'series', 'book', 'narrator'].includes(entityType)) {
+		throw error(400, 'entityType must be "author", "series", "book", or "narrator"');
 	}
 
 	if (typeof id1 !== 'number' || typeof id2 !== 'number') {

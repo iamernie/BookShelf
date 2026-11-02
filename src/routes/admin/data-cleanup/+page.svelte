@@ -12,7 +12,8 @@
 		ChevronDown,
 		ChevronRight,
 		X,
-		ArrowRight
+		ArrowRight,
+		Mic
 	} from 'lucide-svelte';
 
 	interface AuthorDuplicate {
@@ -25,6 +26,11 @@
 		series: { id: number; title: string; bookCount: number }[];
 	}
 
+	interface NarratorDuplicate {
+		name: string;
+		narrators: { id: number; name: string; bookCount: number }[];
+	}
+
 	interface BookDuplicate {
 		title: string;
 		books: { id: number; title: string; authorName: string | null; coverImageUrl: string | null }[];
@@ -33,18 +39,21 @@
 	let loading = $state({
 		authors: false,
 		series: false,
+		narrators: false,
 		books: false
 	});
 
 	let duplicates = $state({
 		authors: [] as AuthorDuplicate[],
 		series: [] as SeriesDuplicate[],
+		narrators: [] as NarratorDuplicate[],
 		books: [] as BookDuplicate[]
 	});
 
 	let expanded = $state({
 		authors: new Set<string>(),
 		series: new Set<string>(),
+		narrators: new Set<string>(),
 		books: new Set<string>()
 	});
 
@@ -52,6 +61,7 @@
 	let selectedKeep = $state({
 		authors: new Map<string, number>(), // groupName -> authorId to keep
 		series: new Map<string, number>(),
+		narrators: new Map<string, number>(),
 		books: new Map<string, number>()
 	});
 
@@ -100,6 +110,30 @@
 		}
 	}
 
+	async function loadNarratorDuplicates() {
+		loading.narrators = true;
+		message = null;
+		try {
+			const res = await fetch('/api/narrators/duplicates');
+			const data = await res.json();
+			if (data.success) {
+				const previous = selectedKeep.narrators;
+				duplicates.narrators = data.duplicates;
+				// Keep the chosen keeper across a reload while it is still in the group
+				selectedKeep.narrators = new Map();
+				for (const group of data.duplicates as NarratorDuplicate[]) {
+					const kept = previous.get(group.name);
+					const stillThere = group.narrators.some((n) => n.id === kept);
+					selectedKeep.narrators.set(group.name, stillThere && kept ? kept : group.narrators[0].id);
+				}
+			}
+		} catch {
+			message = { type: 'error', text: 'Failed to load narrator duplicates' };
+		} finally {
+			loading.narrators = false;
+		}
+	}
+
 	async function loadBookDuplicates() {
 		loading.books = true;
 		message = null;
@@ -124,11 +158,12 @@
 		await Promise.all([
 			loadAuthorDuplicates(),
 			loadSeriesDuplicates(),
+			loadNarratorDuplicates(),
 			loadBookDuplicates()
 		]);
 	}
 
-	function toggleExpand(type: 'authors' | 'series' | 'books', key: string) {
+	function toggleExpand(type: 'authors' | 'series' | 'narrators' | 'books', key: string) {
 		if (expanded[type].has(key)) {
 			expanded[type].delete(key);
 		} else {
@@ -137,7 +172,7 @@
 		expanded = { ...expanded };
 	}
 
-	function selectKeep(type: 'authors' | 'series' | 'books', groupKey: string, id: number) {
+	function selectKeep(type: 'authors' | 'series' | 'narrators' | 'books', groupKey: string, id: number) {
 		selectedKeep[type].set(groupKey, id);
 		selectedKeep = { ...selectedKeep };
 	}
@@ -188,6 +223,30 @@
 		}
 	}
 
+	async function mergeNarrators(targetId: number, sourceId: number) {
+		merging = `narrator-${sourceId}`;
+		message = null;
+		try {
+			const res = await fetch('/api/narrators/merge', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ targetId, sourceId })
+			});
+			const data = await res.json();
+			if (data.success) {
+				// Reload first: the loader clears the message
+				await loadNarratorDuplicates();
+				message = { type: 'success', text: `Narrator merged successfully` };
+			} else {
+				message = { type: 'error', text: data.error || data.message || 'Merge failed' };
+			}
+		} catch {
+			message = { type: 'error', text: 'Failed to merge narrators' };
+		} finally {
+			merging = null;
+		}
+	}
+
 	async function mergeBooks(targetId: number, sourceId: number) {
 		merging = `book-${sourceId}`;
 		message = null;
@@ -211,7 +270,7 @@
 		}
 	}
 
-	async function ignoreGroup(entityType: 'author' | 'series' | 'book', items: { id: number }[], groupKey: string) {
+	async function ignoreGroup(entityType: 'author' | 'series' | 'narrator' | 'book', items: { id: number }[], groupKey: string) {
 		ignoring = `${entityType}-${groupKey}`;
 		message = null;
 		try {
@@ -233,6 +292,7 @@
 			// Reload the appropriate list
 			if (entityType === 'author') await loadAuthorDuplicates();
 			else if (entityType === 'series') await loadSeriesDuplicates();
+			else if (entityType === 'narrator') await loadNarratorDuplicates();
 			else await loadBookDuplicates();
 		} catch {
 			message = { type: 'error', text: 'Failed to ignore duplicates' };
@@ -256,15 +316,15 @@
 	<div class="flex items-center justify-between mb-6">
 		<div>
 			<h1 class="text-2xl font-bold" style="color: var(--text-primary);">Data Cleanup</h1>
-			<p style="color: var(--text-secondary);">Find and merge duplicate authors, series, and books</p>
+			<p style="color: var(--text-secondary);">Find and merge duplicate authors, series, narrators, and books</p>
 		</div>
 
 		<button
 			class="btn-secondary flex items-center gap-2"
 			onclick={loadAll}
-			disabled={loading.authors || loading.series || loading.books}
+			disabled={loading.authors || loading.series || loading.narrators || loading.books}
 		>
-			{#if loading.authors || loading.series || loading.books}
+			{#if loading.authors || loading.series || loading.narrators || loading.books}
 				<Loader2 class="w-4 h-4 animate-spin" />
 			{:else}
 				<RefreshCw class="w-4 h-4" />
@@ -289,7 +349,7 @@
 	{/if}
 
 	<!-- Summary Cards -->
-	<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 		<div class="card p-4">
 			<div class="flex items-center gap-3 mb-2">
 				<div class="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-500">
@@ -338,6 +398,24 @@
 							Loading...
 						{:else}
 							{duplicates.books.length} group(s) found
+						{/if}
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="card p-4">
+			<div class="flex items-center gap-3 mb-2">
+				<div class="w-10 h-10 rounded-lg flex items-center justify-center bg-teal-500">
+					<Mic class="w-5 h-5 text-white" />
+				</div>
+				<div>
+					<h3 class="font-semibold" style="color: var(--text-primary);">Duplicate Narrators</h3>
+					<p class="text-sm" style="color: var(--text-secondary);">
+						{#if loading.narrators}
+							Loading...
+						{:else}
+							{duplicates.narrators.length} group(s) found
 						{/if}
 					</p>
 				</div>
@@ -555,6 +633,120 @@
 													disabled={merging !== null}
 												>
 													{#if merging === `series-${s.id}`}
+														<Loader2 class="w-4 h-4 animate-spin" />
+													{:else}
+														<ArrowRight class="w-4 h-4" />
+													{/if}
+													Merge
+												</button>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
+	<!-- Duplicate Narrators -->
+	<div class="card p-4 mb-6">
+		<div class="flex items-center justify-between mb-4">
+			<h3 class="font-semibold flex items-center gap-2" style="color: var(--text-primary);">
+				<Mic class="w-5 h-5" />
+				Duplicate Narrators
+			</h3>
+			<button
+				class="btn-secondary text-sm flex items-center gap-2"
+				onclick={loadNarratorDuplicates}
+				disabled={loading.narrators}
+			>
+				{#if loading.narrators}
+					<Loader2 class="w-4 h-4 animate-spin" />
+				{:else}
+					<RefreshCw class="w-4 h-4" />
+				{/if}
+			</button>
+		</div>
+
+		{#if loading.narrators}
+			<div class="flex items-center justify-center py-8">
+				<Loader2 class="w-8 h-8 animate-spin" style="color: var(--accent);" />
+			</div>
+		{:else if duplicates.narrators.length === 0}
+			<div class="flex items-center gap-3 p-4 rounded-lg" style="background-color: var(--bg-tertiary);">
+				<CheckCircle class="w-5 h-5 text-green-500" />
+				<span style="color: var(--text-primary);">No duplicate narrators found</span>
+			</div>
+		{:else}
+			<div class="space-y-2">
+				{#each duplicates.narrators as group}
+					{@const keepId = selectedKeep.narrators.get(group.name) || group.narrators[0].id}
+					<div class="rounded-lg" style="background-color: var(--bg-tertiary);">
+						<div class="p-3 flex items-center justify-between">
+							<button
+								class="flex items-center gap-2 flex-1 text-left"
+								onclick={() => toggleExpand('narrators', group.name)}
+							>
+								{#if expanded.narrators.has(group.name)}
+									<ChevronDown class="w-4 h-4" style="color: var(--text-muted);" />
+								{:else}
+									<ChevronRight class="w-4 h-4" style="color: var(--text-muted);" />
+								{/if}
+								<span class="font-medium" style="color: var(--text-primary);">{group.name}</span>
+								<span class="text-sm px-2 py-0.5 rounded-full" style="background-color: var(--accent); color: white;">
+									{group.narrators.length}
+								</span>
+							</button>
+							<button
+								class="text-sm px-3 py-1 rounded flex items-center gap-1 hover:bg-red-500/20 transition-colors"
+								style="color: var(--text-muted);"
+								onclick={() => ignoreGroup('narrator', group.narrators, group.name)}
+								disabled={ignoring !== null}
+								title="Mark as not duplicates"
+							>
+								{#if ignoring === `narrator-${group.name}`}
+									<Loader2 class="w-4 h-4 animate-spin" />
+								{:else}
+									<X class="w-4 h-4" />
+								{/if}
+								Not duplicates
+							</button>
+						</div>
+
+						{#if expanded.narrators.has(group.name)}
+							<div class="px-3 pb-3">
+								<div class="space-y-2">
+									{#each group.narrators as narrator}
+										{@const isSelected = narrator.id === keepId}
+										<div class="flex items-center justify-between p-2 rounded {isSelected ? 'ring-2 ring-green-500/50' : ''}" style="background-color: var(--bg-secondary);">
+											<div class="flex items-center gap-3">
+												<input
+													type="radio"
+													name="keep-narrator-{group.name}"
+													checked={isSelected}
+													onchange={() => selectKeep('narrators', group.name, narrator.id)}
+													class="w-4 h-4 accent-green-500"
+												/>
+												<div>
+													<span style="color: var(--text-primary);">{narrator.name}</span>
+													<span class="text-sm ml-2" style="color: var(--text-muted);">
+														({narrator.bookCount} book{narrator.bookCount !== 1 ? 's' : ''})
+													</span>
+													{#if isSelected}
+														<span class="text-xs ml-2 px-2 py-0.5 rounded bg-green-500/20 text-green-400">Keep</span>
+													{/if}
+												</div>
+											</div>
+											{#if !isSelected}
+												<button
+													class="btn-accent text-sm flex items-center gap-1"
+													onclick={() => mergeNarrators(keepId, narrator.id)}
+													disabled={merging !== null}
+												>
+													{#if merging === `narrator-${narrator.id}`}
 														<Loader2 class="w-4 h-4 animate-spin" />
 													{:else}
 														<ArrowRight class="w-4 h-4" />

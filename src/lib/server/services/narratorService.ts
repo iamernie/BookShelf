@@ -1,6 +1,7 @@
 import { db, narrators, books, narratorTags, tags } from '$lib/server/db';
 import { eq, like, asc, desc, sql, and, or, inArray, type SQL } from 'drizzle-orm';
 import { stripHtmlTags } from './metadataProviders/types';
+import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
 // Infer Narrator type from schema
 type NarratorType = typeof narrators.$inferSelect;
@@ -429,6 +430,147 @@ export async function setNarratorTags(narratorId: number, tagIds: number[]): Pro
 			}))
 		);
 	}
+}
+
+// ============================================
+// Duplicate Cleanup
+// ============================================
+
+/**
+ * Find potential duplicate narrators
+ */
+export async function findDuplicateNarrators(): Promise<
+	Array<{ name: string; narrators: { id: number; name: string; bookCount: number }[] }>
+> {
+	// Get ignored pairs
+	const { getIgnoredPairs } = await import('./ignoredDuplicatesService');
+	const ignoredPairs = await getIgnoredPairs('narrator');
+
+	// Ties on name fall back to the oldest id, so the default keeper is deterministic
+	const allNarrators = await db
+		.select({
+			id: narrators.id,
+			name: narrators.name,
+			bookCount: sql<number>`(SELECT COUNT(*) FROM books WHERE books.narratorId = narrators.id)`
+		})
+		.from(narrators)
+		.orderBy(narrators.name, narrators.id);
+
+	// Group by normalized name
+	const groups = new Map<string, Array<{ id: number; name: string; bookCount: number }>>();
+
+	for (const narrator of allNarrators) {
+		const normalized = duplicateNameKey(narrator.name);
+
+		if (!groups.has(normalized)) {
+			groups.set(normalized, []);
+		}
+		groups.get(normalized)!.push(narrator);
+	}
+
+	// Return only groups with duplicates, filtering out ignored pairs
+	const duplicates: Array<{
+		name: string;
+		narrators: { id: number; name: string; bookCount: number }[];
+	}> = [];
+
+	groups.forEach((narratorList) => {
+		if (narratorList.length > 1) {
+			// Filter out narrators where all pairs are ignored
+			const nonIgnoredNarrators = filterIgnoredPairs(narratorList, ignoredPairs);
+			if (nonIgnoredNarrators.length > 1) {
+				// Label the group with a real name; the grouping key is not display text
+				duplicates.push({ name: nonIgnoredNarrators[0].name, narrators: nonIgnoredNarrators });
+			}
+		}
+	});
+
+	return duplicates;
+}
+
+/**
+ * Filter out items where all pairs in the group are ignored
+ */
+function filterIgnoredPairs<T extends { id: number }>(items: T[], ignoredPairs: Set<string>): T[] {
+	if (items.length <= 1) return items;
+
+	// Check if ALL pairs in this group are ignored
+	let hasNonIgnoredPair = false;
+	for (let i = 0; i < items.length && !hasNonIgnoredPair; i++) {
+		for (let j = i + 1; j < items.length; j++) {
+			const pairKey = `${items[i].id}-${items[j].id}`;
+			if (!ignoredPairs.has(pairKey)) {
+				hasNonIgnoredPair = true;
+				break;
+			}
+		}
+	}
+
+	// If all pairs are ignored, return empty (don't show this group)
+	if (!hasNonIgnoredPair) {
+		return [];
+	}
+
+	return items;
+}
+
+/**
+ * Merge a duplicate narrator into the keeper: repoint its books, carry its tags without
+ * doubling a pair (narratortags has no unique index), then delete it. All writes run in one
+ * transaction; a failure inside it throws and leaves everything as it was.
+ */
+export async function mergeNarrators(
+	targetId: number,
+	sourceId: number
+): Promise<{ success: boolean; merged: number; error?: string }> {
+	if (targetId === sourceId) {
+		return { success: false, merged: 0, error: 'Cannot merge narrator with itself' };
+	}
+
+	const [target] = await db.select({ id: narrators.id }).from(narrators).where(eq(narrators.id, targetId));
+	if (!target) {
+		return { success: false, merged: 0, error: 'Target narrator not found' };
+	}
+
+	const [source] = await db.select({ id: narrators.id }).from(narrators).where(eq(narrators.id, sourceId));
+	if (!source) {
+		return { success: false, merged: 0, error: 'Source narrator not found' };
+	}
+
+	const now = new Date().toISOString();
+
+	const merged = db.transaction((tx) => {
+		// Repoint books before the delete: books.narratorId has no ON DELETE, so the delete would fail
+		const result = tx.update(books).set({ narratorId: targetId }).where(eq(books.narratorId, sourceId)).run();
+
+		const keeperTagIds = new Set(
+			tx
+				.select({ tagId: narratorTags.tagId })
+				.from(narratorTags)
+				.where(eq(narratorTags.narratorId, targetId))
+				.all()
+				.map((r) => r.tagId)
+		);
+		const sourceTags = tx
+			.select({ tagId: narratorTags.tagId })
+			.from(narratorTags)
+			.where(eq(narratorTags.narratorId, sourceId))
+			.all();
+
+		for (const { tagId } of sourceTags) {
+			if (keeperTagIds.has(tagId)) continue;
+			tx.insert(narratorTags).values({ narratorId: targetId, tagId, createdAt: now, updatedAt: now }).run();
+			// The source may hold the same tag twice
+			keeperTagIds.add(tagId);
+		}
+
+		tx.delete(narratorTags).where(eq(narratorTags.narratorId, sourceId)).run();
+		tx.delete(narrators).where(eq(narrators.id, sourceId)).run();
+
+		return result.changes;
+	});
+
+	return { success: true, merged };
 }
 
 // ============================================

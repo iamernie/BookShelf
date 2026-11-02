@@ -1,7 +1,7 @@
 import { db, ignoredDuplicates } from '$lib/server/db';
 import { eq, and, or } from 'drizzle-orm';
 
-export type EntityType = 'author' | 'series' | 'book';
+export type EntityType = 'author' | 'series' | 'book' | 'narrator';
 
 /**
  * Check if a pair of entities is marked as ignored (not duplicates)
