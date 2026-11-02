@@ -341,3 +341,73 @@ body {
 		transform: translateX(0);
 	}
 }
+
+/* ============================================
+   List view grids (Series, Authors, Narrators)
+   Header and rows share one class per surface, so the template and the
+   column hiding live together here and can't drift apart. Columns are listed
+   in BROWSE_SURFACES (src/lib/utils/browse.ts). Breakpoints match BookRow.
+   ============================================ */
+.list-grid-series,
+.list-grid-authors,
+.list-grid-narrators {
+	display: grid;
+	align-items: center;
+	gap: 0.75rem;
+	padding-inline: 1rem;
+}
+
+.list-grid-series {
+	grid-template-columns: minmax(0, 3fr) 7.5rem minmax(0, 2fr) 4rem minmax(0, 1.25fr) 7rem;
+}
+.list-grid-authors {
+	grid-template-columns: minmax(0, 3fr) 4.5rem 4.5rem 4rem minmax(0, 1.25fr) minmax(0, 2fr);
+}
+.list-grid-narrators {
+	grid-template-columns: minmax(0, 3fr) 4.5rem 4rem minmax(0, 2fr);
+}
+
+@media (max-width: 1200px) {
+	.list-grid-series {
+		grid-template-columns: minmax(0, 3fr) 7.5rem minmax(0, 2fr) 4rem minmax(0, 1.25fr);
+	}
+	.list-grid-authors {
+		grid-template-columns: minmax(0, 3fr) 4.5rem 4.5rem 4rem minmax(0, 1.25fr);
+	}
+	.list-grid-series .hide-1200,
+	.list-grid-authors .hide-1200 {
+		display: none;
+	}
+}
+
+@media (max-width: 900px) {
+	.list-grid-series {
+		grid-template-columns: minmax(0, 3fr) 7.5rem minmax(0, 2fr);
+	}
+	.list-grid-authors {
+		grid-template-columns: minmax(0, 3fr) 4.5rem 4.5rem 4rem;
+	}
+	.list-grid-narrators {
+		grid-template-columns: minmax(0, 3fr) 4.5rem 4rem;
+	}
+	.list-grid-series .hide-900,
+	.list-grid-authors .hide-900,
+	.list-grid-narrators .hide-900 {
+		display: none;
+	}
+}
+
+@media (max-width: 640px) {
+	.list-grid-series {
+		grid-template-columns: minmax(0, 1fr) 6.5rem;
+	}
+	.list-grid-authors,
+	.list-grid-narrators {
+		grid-template-columns: minmax(0, 1fr) 4.5rem;
+	}
+	.list-grid-series .hide-640,
+	.list-grid-authors .hide-640,
+	.list-grid-narrators .hide-640 {
+		display: none;
+	}
+}

@@ -143,8 +143,8 @@ Authorization: Bearer <token>
 | `genre` | number | Filter by genre ID |
 | `author` | number | Filter by author ID |
 | `series` | number | Filter by series ID |
-| `sort` | string | Sort field (title, author, rating, createdAt, etc.) |
-| `order` | string | Sort order (asc, desc) |
+| `sort` | string | Sort field: createdAt (default), updatedAt, title, author, series, status, rating, completedDate, format, genre. Unknown values use createdAt |
+| `order` | string | Sort order (asc, desc; default desc). Empty values sort last either way |
 
 **Response:**
 ```json
@@ -238,6 +238,8 @@ Authorization: Bearer <token>
 | `page` | number | Page number |
 | `limit` | number | Items per page |
 | `q` | string | Search by name |
+| `sort` | string | name (default), bookCount, rating, progress, createdAt, updatedAt |
+| `order` | string | asc (default) or desc |
 
 ### Get Author
 
@@ -289,6 +291,15 @@ Authorization: Bearer <token>
 GET /api/series
 Authorization: Bearer <token>
 ```
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `page` | number | Page number |
+| `limit` | number | Items per page |
+| `search` | string | Search by title |
+| `sort` | string | title (default), author, bookCount, progress, rating, createdAt, updatedAt |
+| `order` | string | asc (default) or desc |
 
 ### Get Series
 

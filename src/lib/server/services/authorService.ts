@@ -1,5 +1,5 @@
 import { db, authors, bookAuthors, books, statuses, genres, bookSeries, series, authorTags, tags } from '$lib/server/db';
-import { eq, like, sql, desc, asc, and, inArray, or } from 'drizzle-orm';
+import { eq, like, sql, desc, asc, and, inArray, or, type SQL } from 'drizzle-orm';
 import type { Author, NewAuthor } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
 import type { BookCardData } from '$lib/types';
@@ -40,11 +40,13 @@ export interface AuthorWithBookCount extends Author {
 	bookCount: number;
 }
 
+export type AuthorSort = 'name' | 'bookCount' | 'createdAt' | 'updatedAt' | 'rating' | 'progress';
+
 export interface GetAuthorsOptions {
 	page?: number;
 	limit?: number;
 	search?: string;
-	sort?: 'name' | 'bookCount' | 'createdAt' | 'rating' | 'progress';
+	sort?: AuthorSort;
 	order?: 'asc' | 'desc';
 	includeStats?: boolean;
 	userId?: number; // Filter stats to user's library (personal + added from public)
@@ -106,25 +108,30 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 	// Get status IDs for stats
 	const { readId, dnfId } = await getReadStatusIds();
 
-	// Build dynamic order clause
-	let orderColumn;
+	// sort and order are never interpolated: direction is one of two literals, the column comes from
+	// the switch. Rating and Read % treat 0 as "none", matching the card and row; nulls last, id last.
+	const dir = order === 'desc' ? sql`DESC` : sql`ASC`;
+	const byName = sql`authors.name COLLATE NOCASE ASC`;
+	let orderTerms: SQL[];
 	switch (sort) {
 		case 'bookCount':
-			orderColumn = sql`book_count`;
+			orderTerms = [sql`book_count ${dir}`, byName, sql`authors.id ASC`];
 			break;
 		case 'rating':
-			orderColumn = sql`average_rating`;
+			orderTerms = [sql`NULLIF(average_rating, 0) ${dir} NULLS LAST`, byName, sql`authors.id ASC`];
 			break;
 		case 'progress':
-			orderColumn = sql`completion_percentage`;
+			orderTerms = [sql`NULLIF(completion_percentage, 0) ${dir} NULLS LAST`, byName, sql`authors.id ASC`];
 			break;
 		case 'createdAt':
-			orderColumn = authors.createdAt;
+			orderTerms = [sql`authors.createdAt ${dir} NULLS LAST`, sql`authors.id ${dir}`];
+			break;
+		case 'updatedAt':
+			orderTerms = [sql`authors.updatedAt ${dir} NULLS LAST`, sql`authors.id ${dir}`];
 			break;
 		default:
-			orderColumn = authors.name;
+			orderTerms = [sql`authors.name COLLATE NOCASE ${dir}`, sql`authors.id ASC`];
 	}
-	const orderDir = order === 'desc' ? desc : asc;
 
 	// Get authors with statistics (filtered by user's library)
 	const items = await db
@@ -171,7 +178,7 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 		})
 		.from(authors)
 		.where(whereClause)
-		.orderBy(orderDir(orderColumn))
+		.orderBy(...orderTerms)
 		.limit(limit)
 		.offset(offset);
 

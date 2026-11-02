@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-11-02
+
+### Added
+- List view on Series, Authors and Narrators, with sorting and a page-size picker.
+- Sort My Books by Author or Recently Updated. Recently Updated includes reading activity.
+- Your view and sort are remembered for each page in this browser, across visits and sidebar links.
+
+### Changed
+- Series Order now sorts by series, then book number, with standalone books last.
+- Status sort now runs Current, Next, On Hold, Unread, Done, DNF, instead of alphabetically.
+- Unrated books now always sort last, including under Lowest Rated.
+- Narrators now load in pages.
+- Title and name sorts are now ASCII case-insensitive, so "alpha" no longer sorts after "Zeta". This covers plain A-Z only: accented first letters such as "É" still sort after Z, and numbers sort character by character, so "#10" comes before "#2".
+
+### Fixed
+- Narrator sorting now covers the whole list, not just one page, and narrators past the first 50 can be reached.
+- The sort dropdown no longer goes blank after sorting by a column header.
+- Pre-release and Listen no longer sit after a truncated title in list rows.
+- Book 0 of a series now shows its number in list rows and on book cards.
+- A tag on a narrator's page now filters the Narrators list to that tag, instead of being ignored.
+
 ## [2.24.2] - 2026-11-02
 
 ### Fixed

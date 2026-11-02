@@ -1,5 +1,5 @@
 import { db, narrators, books, narratorTags, tags } from '$lib/server/db';
-import { eq, like, asc, desc, sql, and, or, inArray } from 'drizzle-orm';
+import { eq, like, asc, desc, sql, and, or, inArray, type SQL } from 'drizzle-orm';
 import { stripHtmlTags } from './metadataProviders/types';
 
 // Infer Narrator type from schema
@@ -23,11 +23,13 @@ export interface NarratorWithStats extends NarratorType {
 	tags?: TagInfo[];
 }
 
+export type NarratorSort = 'name' | 'createdAt' | 'updatedAt' | 'bookCount' | 'rating';
+
 export interface GetNarratorsOptions {
 	page?: number;
 	limit?: number;
 	search?: string;
-	sort?: 'name' | 'createdAt' | 'bookCount' | 'rating';
+	sort?: NarratorSort;
 	order?: 'asc' | 'desc';
 	userId?: number; // Filter stats to user's library
 	tagId?: number; // Filter by tag
@@ -63,18 +65,6 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 		.where(whereClause);
 	const total = countResult[0]?.count ?? 0;
 
-	// Get narrators
-	const orderDir = order === 'asc' ? asc : desc;
-	const orderColumn = sort === 'createdAt' ? narrators.createdAt : narrators.name;
-
-	const narratorsList = await db
-		.select()
-		.from(narrators)
-		.where(whereClause)
-		.orderBy(orderDir(orderColumn))
-		.limit(limit)
-		.offset(offset);
-
 	// User library condition for stats
 	const userLibraryCondition = userId
 		? or(
@@ -82,6 +72,37 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
 		  )
 		: eq(books.libraryType, 'personal');
+
+	// Sorted in SQL over the whole list, so every page is in order. sort and order are never
+	// interpolated: direction is one of two literals, the column comes from the switch. The stat
+	// subqueries read unaliased FROM books because userLibraryCondition renders "books"."libraryType".
+	const dir = order === 'asc' ? sql`ASC` : sql`DESC`;
+	const byName = sql`narrators.name COLLATE NOCASE ASC`;
+	let orderTerms: SQL[];
+	switch (sort) {
+		case 'bookCount':
+			orderTerms = [sql`(SELECT COUNT(*) FROM books WHERE books.narratorId = narrators.id AND ${userLibraryCondition}) ${dir}`, byName, sql`narrators.id ASC`];
+			break;
+		case 'rating':
+			orderTerms = [sql`(SELECT ROUND(AVG(books.rating), 1) FROM books WHERE books.narratorId = narrators.id AND books.rating > 0 AND ${userLibraryCondition}) ${dir} NULLS LAST`, byName, sql`narrators.id ASC`];
+			break;
+		case 'createdAt':
+			orderTerms = [sql`narrators.createdAt ${dir} NULLS LAST`, sql`narrators.id ${dir}`];
+			break;
+		case 'updatedAt':
+			orderTerms = [sql`narrators.updatedAt ${dir} NULLS LAST`, sql`narrators.id ${dir}`];
+			break;
+		default:
+			orderTerms = [sql`narrators.name COLLATE NOCASE ${dir}`, sql`narrators.id ASC`];
+	}
+
+	const narratorsList = await db
+		.select()
+		.from(narrators)
+		.where(whereClause)
+		.orderBy(...orderTerms)
+		.limit(limit)
+		.offset(offset);
 
 	// Get stats for each narrator
 	const items = await Promise.all(
@@ -102,21 +123,6 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 			};
 		})
 	);
-
-	// If sorting by bookCount or rating, sort after fetching
-	if (sort === 'bookCount') {
-		items.sort((a, b) => {
-			const diff = a.bookCount - b.bookCount;
-			return order === 'asc' ? diff : -diff;
-		});
-	} else if (sort === 'rating') {
-		items.sort((a, b) => {
-			const rA = a.avgRating ?? 0;
-			const rB = b.avgRating ?? 0;
-			const diff = rA - rB;
-			return order === 'asc' ? diff : -diff;
-		});
-	}
 
 	// Get tags and cover books if including stats
 	if (includeStats && items.length > 0) {

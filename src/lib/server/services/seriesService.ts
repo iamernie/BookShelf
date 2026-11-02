@@ -1,5 +1,5 @@
 import { db, series, bookSeries, books, seriesStatuses, genres, statuses, bookAuthors, authors, bookTags, tags } from '$lib/server/db';
-import { eq, like, sql, desc, asc, and, isNotNull, ne, inArray, or } from 'drizzle-orm';
+import { eq, like, sql, desc, asc, and, isNotNull, ne, inArray, or, type SQL } from 'drizzle-orm';
 import type { BookCardData } from '$lib/types';
 import type { Series, NewSeries } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
@@ -72,11 +72,13 @@ export interface SeriesStats {
 	};
 }
 
+export type SeriesSort = 'title' | 'author' | 'bookCount' | 'progress' | 'rating' | 'createdAt' | 'updatedAt';
+
 export interface GetSeriesOptions {
 	page?: number;
 	limit?: number;
 	search?: string;
-	sort?: 'title' | 'bookCount' | 'createdAt';
+	sort?: SeriesSort;
 	order?: 'asc' | 'desc';
 	userId?: number; // Filter stats to user's library
 }
@@ -109,11 +111,7 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 		.where(whereClause);
 	const total = countResult[0]?.count ?? 0;
 
-	// Get series with book count
-	const orderColumn = sort === 'bookCount' ? sql`book_count` : sort === 'createdAt' ? series.createdAt : series.title;
-	const orderDir = order === 'desc' ? desc : asc;
-
-	// Get the "Read" status ID for completion calculations
+	// Get the "Read" status ID for completion calculations (the progress sort needs it too)
 	const readStatus = await db
 		.select({ id: statuses.id })
 		.from(statuses)
@@ -122,15 +120,46 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 	const readStatusId = readStatus[0]?.id;
 
 	// Build book count subquery that respects user library filter
-	const bookCountSubquery = userId
-		? sql<number>`(SELECT COUNT(*) FROM bookseries bs
+	const bookCountSubquery = sql<number>`(SELECT COUNT(*) FROM bookseries bs
 			INNER JOIN books b ON b.id = bs.bookId
-			WHERE bs.seriesId = ${series.id}
-			AND (b.libraryType = 'personal' OR b.id IN (SELECT bookId FROM user_books WHERE userId = ${userId})))`
-		: sql<number>`(SELECT COUNT(*) FROM bookseries bs
-			INNER JOIN books b ON b.id = bs.bookId
-			WHERE bs.seriesId = ${series.id}
-			AND b.libraryType = 'personal')`;
+			WHERE bs.seriesId = series.id AND ${libCond})`.as('book_count');
+
+	// sort and order are never interpolated: direction is one of two literals, the column comes from
+	// the switch. Each key matches what the card and row display; nulls last, series.id last.
+	const dir = order === 'desc' ? sql`DESC` : sql`ASC`;
+	const byTitle = sql`series.title COLLATE NOCASE ASC`;
+	const seriesBooksWhere = sql`FROM bookseries bs JOIN books b ON b.id = bs.bookId WHERE bs.seriesId = series.id AND ${libCond}`;
+	let orderTerms: SQL[];
+	switch (sort) {
+		case 'bookCount':
+			orderTerms = [sql`book_count ${dir}`, byTitle, sql`series.id ASC`];
+			break;
+		case 'progress':
+			// NULL for an empty series, so it sorts last instead of as 0%
+			orderTerms = [sql`(SELECT CASE WHEN COUNT(*) = 0 THEN NULL
+				ELSE ROUND(SUM(CASE WHEN b.statusId = ${readStatusId ?? 0} THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) END
+				${seriesBooksWhere}) ${dir} NULLS LAST`, byTitle, sql`series.id ASC`];
+			break;
+		case 'rating':
+			orderTerms = [sql`(SELECT ROUND(AVG(b.rating), 1) ${seriesBooksWhere} AND b.rating > 0) ${dir} NULLS LAST`, byTitle, sql`series.id ASC`];
+			break;
+		case 'author':
+			// Same pick as primaryAuthor below: most primary credits, then most credits, then author id
+			orderTerms = [sql`(SELECT a.name FROM bookauthors ba JOIN authors a ON a.id = ba.authorId
+				WHERE ba.bookId IN (SELECT bs.bookId ${seriesBooksWhere})
+				GROUP BY ba.authorId
+				ORDER BY SUM(CASE WHEN ba.isPrimary = 1 THEN 1 ELSE 0 END) DESC, COUNT(*) DESC, ba.authorId ASC
+				LIMIT 1) COLLATE NOCASE ${dir} NULLS LAST`, byTitle, sql`series.id ASC`];
+			break;
+		case 'createdAt':
+			orderTerms = [sql`series.createdAt ${dir} NULLS LAST`, sql`series.id ${dir}`];
+			break;
+		case 'updatedAt':
+			orderTerms = [sql`series.updatedAt ${dir} NULLS LAST`, sql`series.id ${dir}`];
+			break;
+		default:
+			orderTerms = [sql`series.title COLLATE NOCASE ${dir}`, sql`series.id ASC`];
+	}
 
 	const basicItems = await db
 		.select({
@@ -155,7 +184,7 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 		.leftJoin(seriesStatuses, eq(series.statusId, seriesStatuses.id))
 		.leftJoin(genres, eq(series.genreId, genres.id))
 		.where(whereClause)
-		.orderBy(orderDir(orderColumn))
+		.orderBy(...orderTerms)
 		.limit(limit)
 		.offset(offset);
 
@@ -208,7 +237,8 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 					.groupBy(bookAuthors.authorId)
 					.orderBy(
 						desc(sql`SUM(CASE WHEN ${bookAuthors.isPrimary} = 1 THEN 1 ELSE 0 END)`),
-						desc(sql`COUNT(*)`)
+						desc(sql`COUNT(*)`),
+						asc(bookAuthors.authorId)
 					)
 					.limit(1);
 

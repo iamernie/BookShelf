@@ -1,5 +1,5 @@
 import { db, books, bookAuthors, bookSeries, bookTags, authors, series, statuses, genres, formats, narrators, tags, userBooks, userBookTags, metadataSuggestions, readingSessions, bookdropQueue, absSyncAttention } from '$lib/server/db';
-import { eq, like, sql, desc, asc, and, or, inArray, isNull, ne } from 'drizzle-orm';
+import { eq, like, sql, desc, asc, and, or, inArray, isNull, ne, type SQL } from 'drizzle-orm';
 import type { Book, NewBook } from '$lib/server/db/schema';
 import { applyAbsTagParity } from './absService';
 import { carryEbookHashes } from './ebookHashService';
@@ -43,12 +43,73 @@ export interface GetBooksOptions {
 	tagId?: number;
 	authorId?: number;
 	seriesId?: number;
-	sort?: 'title' | 'createdAt' | 'rating' | 'completedDate' | 'series' | 'status' | 'format' | 'genre';
+	sort?: BookSort;
 	order?: 'asc' | 'desc';
 	libraryType?: 'personal' | 'public' | 'all';
 	userId?: number; // Required for per-user library filtering - shows books owned by user and shared with user
 	filterMode?: 'and' | 'or'; // How to combine filter conditions (default: 'and')
 	absLinked?: boolean; // false = only books not yet linked to an Audiobookshelf item
+}
+
+export type BookSort = 'title' | 'createdAt' | 'updatedAt' | 'rating' | 'completedDate' | 'series' | 'status' | 'format' | 'genre' | 'author';
+
+/** Workflow order for the Status sort; any other status follows by sortOrder, then id. No status sorts last. */
+export const STATUS_SORT_KEYS = ['CURRENT', 'NEXT', 'ON_HOLD', 'UNREAD', 'READ', 'DNF'] as const;
+
+/**
+ * Which junction row is a book's primary author or series. Every query that picks "the primary"
+ * uses this, so the sort key, the displayed name and the book number all come from the same row.
+ * NULL isPrimary/displayOrder read as false/0; the junction id breaks remaining ties.
+ */
+export function primaryJunctionOrder(alias: 'ba' | 'bs' | 'bookauthors' | 'bookseries') {
+	return sql.raw(`COALESCE(${alias}.isPrimary, 0) DESC, COALESCE(${alias}.displayOrder, 0) ASC, ${alias}.id ASC`);
+}
+
+/**
+ * ORDER BY terms for getBooks. sort and order are never interpolated: the direction is one of two
+ * literal fragments and the column comes from the switch, so anything unexpected falls back to the
+ * createdAt / desc defaults. Nulls go last in both directions and every sort ends on books.id.
+ */
+function bookSortOrder(sort: string, order: string): SQL[] {
+	const dir = order === 'asc' ? sql`ASC` : sql`DESC`;
+	const title = sql`books.title COLLATE NOCASE ASC`;
+	const primarySeries = (col: 's.title' | 's.id' | 'bs.bookNum') =>
+		sql`(SELECT ${sql.raw(col)} FROM bookseries bs JOIN series s ON s.id = bs.seriesId WHERE bs.bookId = books.id ORDER BY ${primaryJunctionOrder('bs')} LIMIT 1)`;
+	// Series title (the direction applies here only), then series id so same-titled series don't
+	// interleave, then the number from the same junction row, ascending; standalones last
+	const seriesTerms = (seriesDir: SQL) => [
+		sql`${primarySeries('s.title')} COLLATE NOCASE ${seriesDir} NULLS LAST`,
+		sql`${primarySeries('s.id')} ASC NULLS LAST`,
+		sql`${primarySeries('bs.bookNum')} ASC NULLS LAST`
+	];
+	switch (sort) {
+		case 'title':
+			return [sql`books.title COLLATE NOCASE ${dir}`, sql`books.id ASC`];
+		case 'updatedAt':
+			return [sql`books.updatedAt ${dir} NULLS LAST`, sql`books.id ${dir}`];
+		case 'rating':
+			// Personal rating only; provider rating orders the unrated tail and never blends into the key
+			return [sql`NULLIF(books.rating, 0) ${dir} NULLS LAST`, sql`books.providerRating DESC NULLS LAST`, title, sql`books.id ASC`];
+		case 'completedDate':
+			return [sql`NULLIF(books.completedDate, '') ${dir} NULLS LAST`, sql`books.id ${dir}`];
+		case 'author': {
+			const primaryAuthor = sql`(SELECT a.name FROM bookauthors ba JOIN authors a ON a.id = ba.authorId WHERE ba.bookId = books.id ORDER BY ${primaryJunctionOrder('ba')} LIMIT 1)`;
+			return [sql`${primaryAuthor} COLLATE NOCASE ${dir} NULLS LAST`, ...seriesTerms(sql`ASC`), title, sql`books.id ASC`];
+		}
+		case 'series':
+			return [...seriesTerms(dir), title, sql`books.id ASC`];
+		case 'status': {
+			const ranks = sql.join(STATUS_SORT_KEYS.map((key, i) => sql`WHEN ${key} THEN ${i}`), sql` `);
+			const rank = sql`(SELECT CASE st.key ${ranks} ELSE 100 + COALESCE(st.sortOrder, 0) END FROM statuses st WHERE st.id = books.statusId)`;
+			return [sql`${rank} ${dir} NULLS LAST`, sql`books.statusId ${dir} NULLS LAST`, title, sql`books.id ASC`];
+		}
+		case 'format':
+			return [sql`(SELECT f.name FROM formats f WHERE f.id = books.formatId) COLLATE NOCASE ${dir} NULLS LAST`, title, sql`books.id ASC`];
+		case 'genre':
+			return [sql`(SELECT g.name FROM genres g WHERE g.id = books.genreId) COLLATE NOCASE ${dir} NULLS LAST`, title, sql`books.id ASC`];
+		default:
+			return [sql`books.createdAt ${dir} NULLS LAST`, sql`books.id ${dir}`];
+	}
 }
 
 export async function getBooks(options: GetBooksOptions = {}): Promise<{
@@ -155,60 +216,11 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 		.where(whereClause);
 	const total = countResult[0]?.count ?? 0;
 
-	// Get books with sorting
-	const orderDir = order === 'asc' ? asc : desc;
-
-	// For related field sorting, we need subqueries
-	let orderExpression;
-	switch (sort) {
-		case 'title':
-			orderExpression = orderDir(books.title);
-			break;
-		case 'rating':
-			orderExpression = orderDir(books.rating);
-			break;
-		case 'completedDate':
-			orderExpression = orderDir(books.completedDate);
-			break;
-		case 'series':
-			// Sort by primary series title (via subquery)
-			orderExpression = orderDir(sql`(
-				SELECT s.title FROM bookseries bs
-				JOIN series s ON bs.seriesId = s.id
-				WHERE bs.bookId = books.id AND bs.isPrimary = 1
-				LIMIT 1
-			)`);
-			break;
-		case 'status':
-			// Sort by status name (via subquery)
-			orderExpression = orderDir(sql`(
-				SELECT st.name FROM statuses st
-				WHERE st.id = books.statusId
-			)`);
-			break;
-		case 'format':
-			// Sort by format name (via subquery)
-			orderExpression = orderDir(sql`(
-				SELECT f.name FROM formats f
-				WHERE f.id = books.formatId
-			)`);
-			break;
-		case 'genre':
-			// Sort by genre name (via subquery)
-			orderExpression = orderDir(sql`(
-				SELECT g.name FROM genres g
-				WHERE g.id = books.genreId
-			)`);
-			break;
-		default:
-			orderExpression = orderDir(books.createdAt);
-	}
-
 	const booksList = await db
 		.select()
 		.from(books)
 		.where(whereClause)
-		.orderBy(orderExpression)
+		.orderBy(...bookSortOrder(sort, order))
 		.limit(limit)
 		.offset(offset);
 
@@ -222,7 +234,8 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 				isPrimary: bookAuthors.isPrimary
 			}).from(bookAuthors)
 				.innerJoin(authors, eq(bookAuthors.authorId, authors.id))
-				.where(eq(bookAuthors.bookId, book.id)),
+				.where(eq(bookAuthors.bookId, book.id))
+				.orderBy(primaryJunctionOrder('bookauthors')),
 			db.select({
 				id: series.id,
 				title: series.title,
@@ -231,7 +244,8 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 				comments: series.comments
 			}).from(bookSeries)
 				.innerJoin(series, eq(bookSeries.seriesId, series.id))
-				.where(eq(bookSeries.bookId, book.id)),
+				.where(eq(bookSeries.bookId, book.id))
+				.orderBy(primaryJunctionOrder('bookseries')),
 			db.select({
 				id: tags.id,
 				name: tags.name,
@@ -565,6 +579,7 @@ export async function getBooksCardData(bookIds: number[]): Promise<{
 	id: number;
 	title: string;
 	coverImageUrl: string | null;
+	originalCoverUrl: string | null;
 	rating: number | null;
 	bookNum: number | null;
 	ebookPath: string | null;
@@ -597,7 +612,7 @@ export async function getBooksCardData(bookIds: number[]): Promise<{
 			}).from(bookAuthors)
 				.innerJoin(authors, eq(bookAuthors.authorId, authors.id))
 				.where(eq(bookAuthors.bookId, book.id))
-				.orderBy(desc(bookAuthors.isPrimary), asc(bookAuthors.displayOrder)),
+				.orderBy(primaryJunctionOrder('bookauthors')),
 			db.select({
 				id: series.id,
 				title: series.title,
@@ -606,7 +621,7 @@ export async function getBooksCardData(bookIds: number[]): Promise<{
 			}).from(bookSeries)
 				.innerJoin(series, eq(bookSeries.seriesId, series.id))
 				.where(eq(bookSeries.bookId, book.id))
-				.orderBy(desc(bookSeries.isPrimary), asc(bookSeries.displayOrder)),
+				.orderBy(primaryJunctionOrder('bookseries')),
 			db.select({
 				id: tags.id,
 				name: tags.name,
@@ -621,13 +636,15 @@ export async function getBooksCardData(bookIds: number[]): Promise<{
 		]);
 
 		// Get primary author and series
-		const primaryAuthor = bookAuthorsData.find(a => a.isPrimary) || bookAuthorsData[0];
-		const primarySeries = bookSeriesData.find(s => s.isPrimary) || bookSeriesData[0];
+		// Rows are ordered by primaryJunctionOrder, so the first is the primary
+		const primaryAuthor = bookAuthorsData[0];
+		const primarySeries = bookSeriesData[0];
 
 		return {
 			id: book.id,
 			title: book.title,
 			coverImageUrl: book.coverImageUrl,
+			originalCoverUrl: book.originalCoverUrl,
 			rating: book.rating,
 			bookNum: primarySeries?.bookNum ?? null,
 			ebookPath: book.ebookPath,

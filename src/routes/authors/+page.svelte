@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { untrack } from 'svelte';
 	import AuthorCard from '$lib/components/author/AuthorCard.svelte';
+	import AuthorRow from '$lib/components/author/AuthorRow.svelte';
+	import ListHeader from '$lib/components/ui/ListHeader.svelte';
+	import SortSelect from '$lib/components/ui/SortSelect.svelte';
+	import ViewToggle from '$lib/components/ui/ViewToggle.svelte';
+	import PageSizeSelect from '$lib/components/ui/PageSizeSelect.svelte';
 	import AuthorModal from '$lib/components/author/AuthorModal.svelte';
 	import { Search, Plus, ChevronLeft, ChevronRight, Download, Users } from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import type { Author } from '$lib/server/db/schema';
+	import { BROWSE_SURFACES, applySort, nextSort, saveBrowsePrefs, type BrowseView, type SortOrder } from '$lib/utils/browse';
 
 	interface AuthorWithStats {
 		id: number;
@@ -23,6 +30,8 @@
 
 	let searchInput = $state(data.search);
 	let showAddModal = $state(false);
+	// Starts in the saved view; toggling saves it without navigating
+	let viewMode = $state<BrowseView>(untrack(() => data.view));
 
 	let totalPages = $derived(Math.ceil(data.total / data.limit));
 
@@ -40,6 +49,31 @@
 	function goToPage(pageNum: number) {
 		const params = new URLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
+		goto(`/authors?${params.toString()}`);
+	}
+
+	function applySortChoice(sort: string, order: SortOrder) {
+		saveBrowsePrefs('authors', { sort, order });
+		const params = new URLSearchParams($page.url.searchParams);
+		applySort(params, sort, order);
+		goto(`/authors?${params.toString()}`);
+	}
+
+	function handleSort(field: string) {
+		const next = nextSort('authors', { sort: data.sort, order: data.order }, field);
+		applySortChoice(next.sort, next.order);
+	}
+
+	function setView(view: BrowseView) {
+		viewMode = view;
+		saveBrowsePrefs('authors', { view });
+	}
+
+	function setLimit(limit: number) {
+		saveBrowsePrefs('authors', { limit });
+		const params = new URLSearchParams($page.url.searchParams);
+		params.set('limit', String(limit));
+		params.delete('page');
 		goto(`/authors?${params.toString()}`);
 	}
 
@@ -125,13 +159,33 @@
 		</div>
 	</div>
 
-	<!-- Authors grid -->
-	{#if data.items.length > 0}
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-			{#each data.items as author (author.id)}
-				<AuthorCard {author} onclick={() => openAuthor(author)} />
-			{/each}
+	<!-- View, sort and page size -->
+	{#if data.total > 0}
+		<div class="flex flex-wrap items-center justify-end gap-2 mb-4">
+			<SortSelect surface="authors" sort={data.sort} order={data.order} label="Sort authors by" onchange={applySortChoice} />
+			<ViewToggle view={viewMode} views={BROWSE_SURFACES.authors.views} onchange={setView} />
+			<PageSizeSelect surface="authors" limit={data.limit} onchange={setLimit} />
 		</div>
+	{/if}
+
+	<!-- Authors list or grid -->
+	{#if data.items.length > 0}
+		{#if viewMode === 'list'}
+			<div class="card overflow-hidden">
+				<ListHeader gridClass="list-grid-authors" columns={BROWSE_SURFACES.authors.columns} sortField={data.sort} sortOrder={data.order} onSort={handleSort} />
+				<ul class="divide-y" style="border-color: var(--border-color);" data-sveltekit-preload-data="tap">
+					{#each data.items as author (author.id)}
+						<AuthorRow {author} />
+					{/each}
+				</ul>
+			</div>
+		{:else}
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+				{#each data.items as author (author.id)}
+					<AuthorCard {author} onclick={() => openAuthor(author)} />
+				{/each}
+			</div>
+		{/if}
 
 		<!-- Pagination -->
 		{#if totalPages > 1}

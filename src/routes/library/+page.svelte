@@ -20,6 +20,7 @@
 			id: book.id,
 			title: book.title,
 			coverImageUrl: book.coverImageUrl,
+			originalCoverUrl: book.originalCoverUrl,
 			rating: book.rating,
 			authorName: book.authors[0] || null,
 			seriesName: null,
@@ -114,7 +115,7 @@
 
 	// Handle column header sort click (for list view)
 	type SortField = 'title' | 'series' | 'status' | 'format' | 'rating' | 'genre' | 'createdAt' | 'completedDate';
-	function handleHeaderSort(field: SortField) {
+	function handleHeaderSort(field: string) {
 		setSort(field);
 	}
 

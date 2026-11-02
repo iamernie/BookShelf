@@ -349,7 +349,7 @@
 		{/if}
 
 		<!-- Series Number Badge (hidden when selectable to avoid checkbox overlap) -->
-		{#if !selectable && book.seriesName && book.bookNum}
+		{#if !selectable && book.seriesName && book.bookNum != null}
 			<div class="absolute {topBadgeClass} left-1 bg-black/70 text-white px-1.5 py-0.5 rounded text-[10px] font-medium">
 				#{book.bookNum}
 			</div>
@@ -418,7 +418,7 @@
 		{#if showSeries && book.seriesName}
 			<p class="text-[10px] truncate" style="color: var(--text-muted);">
 				{book.seriesName}
-				{#if book.bookNum}
+				{#if book.bookNum != null}
 					#{book.bookNum}
 				{/if}
 			</p>

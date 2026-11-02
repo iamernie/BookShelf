@@ -93,27 +93,30 @@
 			{/if}
 		</div>
 		<div class="title-info">
-			<div class="title-line">
-				<h3 class="book-title">{book.title}</h3>
-				{#if prerelease}
-					<span class="prerelease-chip" title={formatReleaseTooltip(book.releaseDate)}>Pre-release</span>
-				{/if}
-				{#if absListenUrl}
-					<a
-						href={absListenUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="listen-link"
-						title="Listen on Audiobookshelf"
-						aria-label="Listen on Audiobookshelf"
-						onclick={(e) => e.stopPropagation()}
-					>
-						<Headphones class="w-3 h-3" />
-					</a>
-				{/if}
-			</div>
-			{#if showAuthor && book.authorName}
-				<span class="book-author">{book.authorName}</span>
+			<!-- The title truncates alone; fixed-width chips sit on line 2, before the truncating author -->
+			<h3 class="book-title">{book.title}</h3>
+			{#if (showAuthor && book.authorName) || prerelease || absListenUrl}
+				<div class="meta-line">
+					{#if prerelease}
+						<span class="prerelease-chip" title={formatReleaseTooltip(book.releaseDate)}>Pre-release</span>
+					{/if}
+					{#if absListenUrl}
+						<a
+							href={absListenUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="listen-link"
+							title="Listen on Audiobookshelf"
+							aria-label="Listen on Audiobookshelf"
+							onclick={(e) => e.stopPropagation()}
+						>
+							<Headphones class="w-3 h-3" />
+						</a>
+					{/if}
+					{#if showAuthor && book.authorName}
+						<span class="book-author">{book.authorName}</span>
+					{/if}
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -123,7 +126,7 @@
 		<div class="col col-series">
 			{#if book.seriesName}
 				<span class="series-name">{book.seriesName}</span>
-				{#if book.bookNum}
+				{#if book.bookNum != null}
 					<span class="book-num">#{book.bookNum}</span>
 				{/if}
 			{:else}
@@ -330,7 +333,7 @@
 		line-height: 1.25;
 	}
 
-	.title-line {
+	.meta-line {
 		display: flex;
 		align-items: center;
 		gap: 0.375rem;
@@ -366,6 +369,7 @@
 	}
 
 	.book-author {
+		min-width: 0;
 		font-size: 0.75rem;
 		color: var(--text-muted);
 		white-space: nowrap;

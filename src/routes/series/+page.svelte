@@ -1,17 +1,25 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import SeriesCard from '$lib/components/series/SeriesCard.svelte';
+	import SeriesRow from '$lib/components/series/SeriesRow.svelte';
+	import ListHeader from '$lib/components/ui/ListHeader.svelte';
+	import SortSelect from '$lib/components/ui/SortSelect.svelte';
+	import ViewToggle from '$lib/components/ui/ViewToggle.svelte';
+	import PageSizeSelect from '$lib/components/ui/PageSizeSelect.svelte';
 	import SeriesModal from '$lib/components/series/SeriesModal.svelte';
 	import { Search, Plus, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import type { Series } from '$lib/server/db/schema';
+	import { BROWSE_SURFACES, applySort, nextSort, saveBrowsePrefs, type BrowseView, type SortOrder } from '$lib/utils/browse';
 
 	let { data } = $props();
 
 	let searchInput = $state(data.search);
 	let showAddModal = $state(false);
+	// Starts in the saved view; toggling saves it without navigating
+	let viewMode = $state<BrowseView>(untrack(() => data.view));
 
 	let totalPages = $derived(Math.ceil(data.total / data.limit));
 
@@ -37,6 +45,31 @@
 	function goToPage(pageNum: number) {
 		const params = new URLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
+		goto(`/series?${params.toString()}`);
+	}
+
+	function applySortChoice(sort: string, order: SortOrder) {
+		saveBrowsePrefs('series', { sort, order });
+		const params = new URLSearchParams($page.url.searchParams);
+		applySort(params, sort, order);
+		goto(`/series?${params.toString()}`);
+	}
+
+	function handleSort(field: string) {
+		const next = nextSort('series', { sort: data.sort, order: data.order }, field);
+		applySortChoice(next.sort, next.order);
+	}
+
+	function setView(view: BrowseView) {
+		viewMode = view;
+		saveBrowsePrefs('series', { view });
+	}
+
+	function setLimit(limit: number) {
+		saveBrowsePrefs('series', { limit });
+		const params = new URLSearchParams($page.url.searchParams);
+		params.set('limit', String(limit));
+		params.delete('page');
 		goto(`/series?${params.toString()}`);
 	}
 
@@ -97,21 +130,39 @@
 		</div>
 	</div>
 
-	<!-- Results info -->
-	<p class="results-info">
-		{data.total} {data.total === 1 ? 'series' : 'series'}
-		{#if data.search}
-			matching "{data.search}"
-		{/if}
-	</p>
-
-	<!-- Series grid -->
-	{#if data.items.length > 0}
-		<div class="series-grid">
-			{#each data.items as seriesItem (seriesItem.id)}
-				<SeriesCard series={seriesItem} onclick={() => openSeries(seriesItem)} />
-			{/each}
+	<!-- Results info + view, sort and page size -->
+	<div class="browse-toolbar">
+		<p class="results-info">
+			{data.total} {data.total === 1 ? 'series' : 'series'}
+			{#if data.search}
+				matching "{data.search}"
+			{/if}
+		</p>
+		<div class="toolbar-controls">
+			<SortSelect surface="series" sort={data.sort} order={data.order} label="Sort series by" onchange={applySortChoice} />
+			<ViewToggle view={viewMode} views={BROWSE_SURFACES.series.views} onchange={setView} />
+			<PageSizeSelect surface="series" limit={data.limit} onchange={setLimit} />
 		</div>
+	</div>
+
+	<!-- Series list or grid -->
+	{#if data.items.length > 0}
+		{#if viewMode === 'list'}
+			<div class="card overflow-hidden">
+				<ListHeader gridClass="list-grid-series" columns={BROWSE_SURFACES.series.columns} sortField={data.sort} sortOrder={data.order} onSort={handleSort} />
+				<ul class="divide-y" style="border-color: var(--border-color);" data-sveltekit-preload-data="tap">
+					{#each data.items as seriesItem (seriesItem.id)}
+						<SeriesRow series={seriesItem} />
+					{/each}
+				</ul>
+			</div>
+		{:else}
+			<div class="series-grid">
+				{#each data.items as seriesItem (seriesItem.id)}
+					<SeriesCard series={seriesItem} onclick={() => openSeries(seriesItem)} />
+				{/each}
+			</div>
+		{/if}
 
 		<!-- Pagination -->
 		{#if totalPages > 1}
@@ -236,10 +287,25 @@
 		opacity: 0.9;
 	}
 
+	.browse-toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.toolbar-controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
 	.results-info {
 		font-size: 0.875rem;
 		color: var(--text-secondary);
-		margin-bottom: 1rem;
 	}
 
 	.series-grid {

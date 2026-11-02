@@ -84,6 +84,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			id: books.id,
 			title: books.title,
 			coverImageUrl: books.coverImageUrl,
+			originalCoverUrl: books.originalCoverUrl,
 			rating: books.rating,
 			libraryType: books.libraryType,
 			pageCount: books.pageCount,

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ArrowUp, ArrowDown } from 'lucide-svelte';
 
-	type SortField = 'title' | 'series' | 'status' | 'format' | 'rating' | 'genre' | 'createdAt' | 'completedDate';
+	type SortField = 'title' | 'author' | 'series' | 'status' | 'format' | 'rating' | 'genre' | 'createdAt' | 'updatedAt' | 'completedDate';
 
 	let {
 		selectable = false,
@@ -9,6 +9,7 @@
 		showStatus = true,
 		showTags = true,
 		allSelected = false,
+		sortableAuthor = false,
 		sortField = null,
 		sortOrder = 'asc',
 		onSelectAll,
@@ -19,7 +20,9 @@
 		showStatus?: boolean;
 		showTags?: boolean;
 		allSelected?: boolean;
-		sortField?: SortField | null;
+		/** Adds an Author sort button to the title cell; only surfaces whose server sorts by author set it */
+		sortableAuthor?: boolean;
+		sortField?: string | null;
 		sortOrder?: 'asc' | 'desc';
 		onSelectAll?: () => void;
 		onSort?: (field: SortField) => void;
@@ -46,23 +49,44 @@
 		</div>
 	{/if}
 
-	<button
-		type="button"
-		class="col col-title"
-		class:sortable
-		class:active={sortField === 'title'}
-		onclick={() => handleSort('title')}
-		disabled={!sortable}
-	>
-		<span>Title</span>
-		{#if sortField === 'title'}
-			{#if sortOrder === 'asc'}
-				<ArrowUp class="sort-icon" />
-			{:else}
-				<ArrowDown class="sort-icon" />
+	<!-- Title (and Author) share one grid column, so the cell is a div holding the buttons -->
+	<div class="col col-title">
+		<button
+			type="button"
+			class="sort-btn"
+			class:sortable
+			class:active={sortField === 'title'}
+			onclick={() => handleSort('title')}
+			disabled={!sortable}
+		>
+			<span>Title</span>
+			{#if sortField === 'title'}
+				{#if sortOrder === 'asc'}
+					<ArrowUp class="sort-icon" />
+				{:else}
+					<ArrowDown class="sort-icon" />
+				{/if}
 			{/if}
+		</button>
+		{#if sortableAuthor && sortable}
+			<span class="title-sep" aria-hidden="true">/</span>
+			<button
+				type="button"
+				class="sort-btn sortable"
+				class:active={sortField === 'author'}
+				onclick={() => handleSort('author')}
+			>
+				<span>Author</span>
+				{#if sortField === 'author'}
+					{#if sortOrder === 'asc'}
+						<ArrowUp class="sort-icon" />
+					{:else}
+						<ArrowDown class="sort-icon" />
+					{/if}
+				{/if}
+			</button>
 		{/if}
-	</button>
+	</div>
 
 	{#if showSeries}
 		<button
@@ -213,24 +237,51 @@
 		letter-spacing: inherit;
 	}
 
-	button.col {
+	.sort-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		background: none;
+		border: none;
+		padding: 0;
+		margin: 0;
+		font: inherit;
+		color: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+	}
+
+	.col-title {
+		gap: 0.375rem;
+		min-width: 0;
+	}
+
+	.title-sep {
+		opacity: 0.5;
+	}
+
+	button.col,
+	.sort-btn {
 		cursor: default;
 	}
 
-	button.col.sortable {
+	button.col.sortable,
+	.sort-btn.sortable {
 		cursor: pointer;
 		transition: color 0.15s;
 	}
 
-	button.col.sortable:hover {
+	button.col.sortable:hover,
+	.sort-btn.sortable:hover {
 		color: var(--text-primary);
 	}
 
-	button.col.active {
+	button.col.active,
+	.sort-btn.active {
 		color: var(--accent);
 	}
 
-	.sort-icon {
+	.list-header :global(.sort-icon) {
 		width: 0.75rem;
 		height: 0.75rem;
 		flex-shrink: 0;

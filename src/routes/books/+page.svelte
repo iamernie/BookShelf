@@ -2,13 +2,17 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { BookOpen, Plus, Grid, List, Search, ChevronLeft, ChevronRight, SlidersHorizontal, SquareCheck, Library } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { BookOpen, Plus, Search, ChevronLeft, ChevronRight, SlidersHorizontal, SquareCheck } from 'lucide-svelte';
 	import BookCard from '$lib/components/book/BookCard.svelte';
 	import BookGrid from '$lib/components/book/BookGrid.svelte';
 	import BookRow from '$lib/components/book/BookRow.svelte';
 	import BookListHeader from '$lib/components/book/BookListHeader.svelte';
 	import BookModal from '$lib/components/book/BookModal.svelte';
 	import BookFilters from '$lib/components/book/BookFilters.svelte';
+	import ViewToggle from '$lib/components/ui/ViewToggle.svelte';
+	import SortSelect from '$lib/components/ui/SortSelect.svelte';
+	import PageSizeSelect from '$lib/components/ui/PageSizeSelect.svelte';
 	import BulkActionBar from '$lib/components/bulk/BulkActionBar.svelte';
 	import BulkTagModal from '$lib/components/bulk/BulkTagModal.svelte';
 	import BulkStatusModal from '$lib/components/bulk/BulkStatusModal.svelte';
@@ -17,6 +21,7 @@
 	import { selectedBooks, hasSelection, selectedIds } from '$lib/stores/selection';
 	import type { BookWithRelations } from '$lib/server/services/bookService';
 	import type { BookCardData } from '$lib/types';
+	import { BROWSE_SURFACES, applySort, nextSort, saveBrowsePrefs, type BrowseView, type SortOrder } from '$lib/utils/browse';
 
 	// Convert BookWithRelations to BookCardData for row/card components
 	function toBookCardData(book: BookWithRelations): BookCardData {
@@ -24,10 +29,12 @@
 			id: book.id,
 			title: book.title,
 			coverImageUrl: book.coverImageUrl,
+			originalCoverUrl: book.originalCoverUrl,
 			rating: book.rating,
+			// authors and series arrive primary-first
 			authorName: book.authors[0]?.name || null,
 			seriesName: book.series[0]?.title || null,
-			bookNum: book.series[0]?.bookNum || null,
+			bookNum: book.series[0]?.bookNum ?? null,
 			ebookPath: book.ebookPath,
 			absItemId: book.absItemId,
 			releaseDate: book.releaseDate,
@@ -40,7 +47,8 @@
 
 	let { data } = $props();
 
-	let viewMode = $state<'grid' | 'list' | 'series'>('grid');
+	// Starts in the saved view; toggling saves it without navigating
+	let viewMode = $state<BrowseView>(untrack(() => data.view));
 	let searchInput = $state('');
 	let showAddModal = $state(false);
 	let showFilters = $state(false);
@@ -223,23 +231,29 @@
 		selectMode = false;
 	}
 
-	// Map header column names to backend sort fields
-	type SortField = 'title' | 'series' | 'status' | 'format' | 'rating' | 'genre' | 'createdAt' | 'completedDate';
-
-	function handleSort(field: SortField) {
+	// One handler for the dropdown and the headers: always writes sort AND order, saves the choice
+	function applySortChoice(sort: string, order: SortOrder) {
+		saveBrowsePrefs('books', { sort, order });
 		const params = new URLSearchParams($page.url.searchParams);
-		const currentSort = data.sort;
-		const currentOrder = data.order;
+		applySort(params, sort, order);
+		goto(`/books?${params.toString()}`);
+	}
 
-		// If clicking the same field, toggle the order; otherwise, set new field with default order
-		if (currentSort === field) {
-			params.set('order', currentOrder === 'asc' ? 'desc' : 'asc');
-		} else {
-			params.set('sort', field);
-			// Default to desc for rating, asc for title, desc for others
-			params.set('order', field === 'title' ? 'asc' : 'desc');
-		}
-		params.delete('page'); // Reset to first page
+	function handleSort(field: string) {
+		const next = nextSort('books', { sort: data.sort, order: data.order }, field);
+		applySortChoice(next.sort, next.order);
+	}
+
+	function setView(view: BrowseView) {
+		viewMode = view;
+		saveBrowsePrefs('books', { view });
+	}
+
+	function setLimit(limit: number) {
+		saveBrowsePrefs('books', { limit });
+		const params = new URLSearchParams($page.url.searchParams);
+		params.set('limit', String(limit));
+		params.delete('page');
 		goto(`/books?${params.toString()}`);
 	}
 
@@ -390,57 +404,10 @@
 					</form>
 
 					<!-- Sort -->
-					<select
-						class="select py-1.5 text-sm flex-shrink-0"
-						value={`${data.sort}-${data.order}`}
-						onchange={(e) => {
-							const [sort, order] = e.currentTarget.value.split('-');
-							const params = new URLSearchParams($page.url.searchParams);
-							params.set('sort', sort);
-							params.set('order', order);
-							params.delete('page');
-							goto(`/books?${params.toString()}`);
-						}}
-					>
-						<option value="createdAt-desc">Recently Added</option>
-						<option value="createdAt-asc">Oldest Added</option>
-						<option value="title-asc">Title A-Z</option>
-						<option value="title-desc">Title Z-A</option>
-						<option value="rating-desc">Highest Rated</option>
-						<option value="rating-asc">Lowest Rated</option>
-						<option value="completedDate-desc">Recently Completed</option>
-					</select>
+					<SortSelect surface="books" sort={data.sort} order={data.order} label="Sort books by" onchange={applySortChoice} />
 
 					<!-- View Toggle -->
-					<div class="flex items-center gap-0.5 rounded-md p-0.5 flex-shrink-0" style="background-color: var(--bg-tertiary);">
-						<button
-							type="button"
-							class="p-1.5 rounded transition-colors"
-							style="background-color: {viewMode === 'grid' ? 'var(--bg-secondary)' : 'transparent'}; color: {viewMode === 'grid' ? 'var(--text-primary)' : 'var(--text-muted)'};"
-							onclick={() => viewMode = 'grid'}
-							title="Grid view"
-						>
-							<Grid class="w-4 h-4" />
-						</button>
-						<button
-							type="button"
-							class="p-1.5 rounded transition-colors"
-							style="background-color: {viewMode === 'series' ? 'var(--bg-secondary)' : 'transparent'}; color: {viewMode === 'series' ? 'var(--text-primary)' : 'var(--text-muted)'};"
-							onclick={() => viewMode = 'series'}
-							title="Series view"
-						>
-							<Library class="w-4 h-4" />
-						</button>
-						<button
-							type="button"
-							class="p-1.5 rounded transition-colors"
-							style="background-color: {viewMode === 'list' ? 'var(--bg-secondary)' : 'transparent'}; color: {viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-muted)'};"
-							onclick={() => viewMode = 'list'}
-							title="List view"
-						>
-							<List class="w-4 h-4" />
-						</button>
-					</div>
+					<ViewToggle view={viewMode} views={BROWSE_SURFACES.books.views} onchange={setView} />
 
 					<!-- Spacer -->
 					<div class="flex-1 hidden sm:block"></div>
@@ -454,22 +421,7 @@
 					</span>
 
 					<!-- Items per page -->
-					<select
-						class="select py-1.5 text-sm flex-shrink-0"
-						style="width: auto;"
-						value={data.limit}
-						onchange={(e) => {
-							const params = new URLSearchParams($page.url.searchParams);
-							params.set('limit', e.currentTarget.value);
-							params.delete('page');
-							goto(`/books?${params.toString()}`);
-						}}
-					>
-						<option value="12">12</option>
-						<option value="24">24</option>
-						<option value="48">48</option>
-						<option value="96">96</option>
-					</select>
+					<PageSizeSelect surface="books" limit={data.limit} onchange={setLimit} />
 
 					<!-- Inline Pagination -->
 					{#if totalPages > 1}
@@ -581,6 +533,7 @@
 							sortField={data.sort}
 							sortOrder={data.order}
 							onSort={handleSort}
+							sortableAuthor
 						/>
 						<div class="divide-y" style="border-color: var(--border-color);">
 							{#each data.items as book (book.id)}

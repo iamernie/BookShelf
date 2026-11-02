@@ -1,18 +1,23 @@
 import type { PageServerLoad } from './$types';
-import { getAuthors } from '$lib/server/services/authorService';
+import { redirect } from '@sveltejs/kit';
+import { getAuthors, type AuthorSort } from '$lib/server/services/authorService';
+import { browseCookieName, pastEndRedirect, resolveBrowse } from '$lib/utils/browse';
 
-export const load: PageServerLoad = async ({ url, locals }) => {
-	const page = parseInt(url.searchParams.get('page') || '1');
+export const load: PageServerLoad = async ({ url, locals, cookies }) => {
+	// URL params win; the saved browse cookie fills in sort, order, limit and the view
+	const { view, sort, order, limit, page } = resolveBrowse('authors', url.searchParams, cookies.get(browseCookieName('authors')));
 	const search = url.searchParams.get('search') || undefined;
-	const sort = (url.searchParams.get('sort') as 'name' | 'bookCount' | 'createdAt') || 'name';
-	const order = (url.searchParams.get('order') as 'asc' | 'desc') || 'asc';
 	const userId = locals.user?.id;
 
-	const result = await getAuthors({ page, limit: 24, search, sort, order, userId });
+	const result = await getAuthors({ page, limit, search, sort: sort as AuthorSort, order, userId });
+
+	const pastEnd = pastEndRedirect(url, { page, limit, total: result.total, count: result.items.length });
+	if (pastEnd) redirect(302, pastEnd);
 
 	return {
 		...result,
 		search: search || '',
+		view,
 		sort,
 		order
 	};

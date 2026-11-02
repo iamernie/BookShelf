@@ -1,75 +1,98 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { Search, Plus, Mic } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { Search, Plus, Mic, ChevronLeft, ChevronRight, X } from 'lucide-svelte';
 	import NarratorCard from '$lib/components/narrator/NarratorCard.svelte';
+	import NarratorRow from '$lib/components/narrator/NarratorRow.svelte';
 	import NarratorModal from '$lib/components/narrator/NarratorModal.svelte';
+	import ListHeader from '$lib/components/ui/ListHeader.svelte';
+	import SortSelect from '$lib/components/ui/SortSelect.svelte';
+	import ViewToggle from '$lib/components/ui/ViewToggle.svelte';
+	import PageSizeSelect from '$lib/components/ui/PageSizeSelect.svelte';
 	import { toasts } from '$lib/stores/toast';
+	import { BROWSE_SURFACES, applySort, nextSort, saveBrowsePrefs, type BrowseView, type SortOrder } from '$lib/utils/browse';
 
-	interface TagInfo {
-		id: number;
-		name: string;
-		color: string | null;
-		icon: string | null;
-	}
+	let { data } = $props();
 
-	interface NarratorWithStats {
-		id: number;
-		name: string;
-		bio: string | null;
-		photoUrl: string | null;
-		bookCount: number;
-		avgRating: number | null;
-		coverBook?: { id: number; title: string; coverImageUrl: string | null } | null;
-		tags?: TagInfo[];
-		createdAt: string | null;
-		updatedAt: string | null;
-	}
-
-	let narrators = $state<NarratorWithStats[]>([]);
-	let loading = $state(true);
-	let search = $state('');
-	let total = $state(0);
+	// Seeded for the server render; the $effect below keeps it in step on Back and other navigations
+	let searchInput = $state(untrack(() => data.search));
+	// Starts in the saved view; toggling saves it without navigating
+	let viewMode = $state<BrowseView>(untrack(() => data.view));
 
 	// Modal state - only for adding new narrators
 	let showAddModal = $state(false);
 
-	async function loadNarrators() {
-		loading = true;
-		try {
-			const params = new URLSearchParams();
-			if (search) params.set('search', search);
-			params.set('includeStats', 'true');
+	// Keep the box in step with the URL, including Back
+	$effect(() => {
+		searchInput = data.search;
+	});
 
-			const response = await fetch(`/api/narrators?${params}`);
-			if (!response.ok) throw new Error('Failed to load narrators');
+	let totalPages = $derived(Math.ceil(data.total / data.limit));
 
-			const data = await response.json();
-			narrators = data.items;
-			total = data.total;
-		} catch (err) {
-			console.error('Error loading narrators:', err);
-			toasts.error('Failed to load narrators');
-		} finally {
-			loading = false;
-		}
+	function navigate(params: URLSearchParams) {
+		const qs = params.toString();
+		goto(qs ? `/narrators?${qs}` : '/narrators');
 	}
 
-	function openNarrator(narrator: NarratorWithStats) {
-		// Navigate to the detail page
+	function handleSearch() {
+		const params = new URLSearchParams($page.url.searchParams);
+		if (searchInput) {
+			params.set('search', searchInput);
+		} else {
+			params.delete('search');
+		}
+		params.delete('page');
+		navigate(params);
+	}
+
+	function clearTag() {
+		const params = new URLSearchParams($page.url.searchParams);
+		params.delete('tag');
+		params.delete('page');
+		navigate(params);
+	}
+
+	function goToPage(pageNum: number) {
+		const params = new URLSearchParams($page.url.searchParams);
+		params.set('page', pageNum.toString());
+		navigate(params);
+	}
+
+	function applySortChoice(sort: string, order: SortOrder) {
+		saveBrowsePrefs('narrators', { sort, order });
+		const params = new URLSearchParams($page.url.searchParams);
+		applySort(params, sort, order);
+		navigate(params);
+	}
+
+	function handleSort(field: string) {
+		const next = nextSort('narrators', { sort: data.sort, order: data.order }, field);
+		applySortChoice(next.sort, next.order);
+	}
+
+	function setView(view: BrowseView) {
+		viewMode = view;
+		saveBrowsePrefs('narrators', { view });
+	}
+
+	function setLimit(limit: number) {
+		saveBrowsePrefs('narrators', { limit });
+		const params = new URLSearchParams($page.url.searchParams);
+		params.set('limit', String(limit));
+		params.delete('page');
+		navigate(params);
+	}
+
+	function openNarrator(narrator: { id: number }) {
 		goto(`/narrators/${narrator.id}`);
 	}
 
-	function openAddModal() {
-		showAddModal = true;
-	}
-
-	async function saveNewNarrator(data: { name: string; bio?: string | null; url?: string | null }) {
+	async function saveNewNarrator(narratorData: { name: string; bio?: string | null; url?: string | null }) {
 		const response = await fetch('/api/narrators', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data)
+			body: JSON.stringify(narratorData)
 		});
 
 		if (!response.ok) {
@@ -79,16 +102,8 @@
 
 		toasts.success('Narrator created');
 		showAddModal = false;
-		await loadNarrators();
+		await invalidateAll();
 	}
-
-	function handleSearch() {
-		loadNarrators();
-	}
-
-	onMount(() => {
-		loadNarrators();
-	});
 </script>
 
 <svelte:head>
@@ -103,27 +118,32 @@
 				<Mic class="w-7 h-7" />
 				Narrators
 			</h1>
-			<p class="mt-1" style="color: var(--text-muted);">{total} narrators</p>
+			<p class="mt-1" style="color: var(--text-muted);">
+				{data.total} {data.total === 1 ? 'narrator' : 'narrators'}
+				{#if data.search}
+					matching "{data.search}"
+				{/if}
+			</p>
 		</div>
 
 		<button
 			type="button"
 			class="btn-accent flex items-center gap-2"
-			onclick={openAddModal}
+			onclick={() => (showAddModal = true)}
 		>
 			<Plus class="w-5 h-5" />
 			Add Narrator
 		</button>
 	</div>
 
-	<!-- Search -->
-	<div class="mb-6">
-		<form onsubmit={(e) => { e.preventDefault(); handleSearch(); }} class="flex gap-2">
+	<!-- Search, then view, sort and page size -->
+	<div class="flex flex-wrap items-center gap-2 mb-6">
+		<form onsubmit={(e) => { e.preventDefault(); handleSearch(); }} class="flex gap-2 flex-1 min-w-[16rem]">
 			<div class="relative flex-1 max-w-md">
 				<Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5" style="color: var(--text-muted);" />
 				<input
 					type="text"
-					bind:value={search}
+					bind:value={searchInput}
 					placeholder="Search narrators..."
 					class="input w-full pl-10"
 				/>
@@ -135,25 +155,34 @@
 				Search
 			</button>
 		</form>
+
+		{#if data.tag}
+			<button type="button" class="btn-ghost flex items-center gap-1 text-sm" onclick={clearTag} title="Clear tag filter">
+				Tag: {data.tag.name}
+				<X class="w-3.5 h-3.5" />
+			</button>
+		{/if}
+
+		<div class="flex flex-wrap items-center gap-2">
+			<SortSelect surface="narrators" sort={data.sort} order={data.order} label="Sort narrators by" onchange={applySortChoice} />
+			<ViewToggle view={viewMode} views={BROWSE_SURFACES.narrators.views} onchange={setView} />
+			<PageSizeSelect surface="narrators" limit={data.limit} onchange={setLimit} />
+		</div>
 	</div>
 
-	<!-- Narrators Grid -->
-	{#if loading}
-		<div class="flex justify-center py-12">
-			<div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-		</div>
-	{:else if narrators.length === 0}
+	<!-- Narrators list or grid -->
+	{#if data.items.length === 0}
 		<div class="text-center py-12">
 			<Mic class="w-12 h-12 mx-auto mb-4" style="color: var(--text-muted);" />
 			<h3 class="text-lg font-medium mb-2" style="color: var(--text-primary);">No narrators found</h3>
 			<p class="mb-4" style="color: var(--text-muted);">
-				{search ? 'Try a different search term' : 'Get started by creating your first narrator'}
+				{data.search || data.tag ? 'Try a different search term' : 'Get started by creating your first narrator'}
 			</p>
-			{#if !search}
+			{#if !data.search && !data.tag}
 				<button
 					type="button"
 					class="btn-accent inline-flex items-center gap-2"
-					onclick={openAddModal}
+					onclick={() => (showAddModal = true)}
 				>
 					<Plus class="w-5 h-5" />
 					Add Narrator
@@ -161,11 +190,51 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-			{#each narrators as narrator (narrator.id)}
-				<NarratorCard {narrator} onclick={() => openNarrator(narrator)} />
-			{/each}
-		</div>
+		{#if viewMode === 'list'}
+			<div class="card overflow-hidden">
+				<ListHeader gridClass="list-grid-narrators" columns={BROWSE_SURFACES.narrators.columns} sortField={data.sort} sortOrder={data.order} onSort={handleSort} />
+				<ul class="divide-y" style="border-color: var(--border-color);" data-sveltekit-preload-data="tap">
+					{#each data.items as narrator (narrator.id)}
+						<NarratorRow {narrator} />
+					{/each}
+				</ul>
+			</div>
+		{:else}
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+				{#each data.items as narrator (narrator.id)}
+					<NarratorCard {narrator} onclick={() => openNarrator(narrator)} />
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Pagination -->
+		{#if totalPages > 1}
+			<div class="flex items-center justify-center gap-2 mt-8">
+				<button
+					type="button"
+					class="btn-ghost p-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+					disabled={data.page <= 1}
+					onclick={() => goToPage(data.page - 1)}
+					aria-label="Previous page"
+				>
+					<ChevronLeft class="w-5 h-5" />
+				</button>
+
+				<span class="px-4 py-2 text-sm" style="color: var(--text-secondary);">
+					Page {data.page} of {totalPages}
+				</span>
+
+				<button
+					type="button"
+					class="btn-ghost p-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+					disabled={data.page >= totalPages}
+					onclick={() => goToPage(data.page + 1)}
+					aria-label="Next page"
+				>
+					<ChevronRight class="w-5 h-5" />
+				</button>
+			</div>
+		{/if}
 	{/if}
 </div>
 
