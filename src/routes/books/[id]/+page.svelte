@@ -34,6 +34,7 @@
 	import { toasts } from '$lib/stores/toast';
 	import { formatDate } from '$lib/utils/date';
 	import { applyMetadataResult, metadataApplyToast, parseSeriesNumber, type MetadataResult } from '$lib/utils/bookMetadataApply';
+	import { confirmDiscard, guardNavigation } from '$lib/utils/unsavedChanges';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import LucideIcon from '$lib/components/ui/LucideIcon.svelte';
 	import InlineTagEditor from '$lib/components/tag/InlineTagEditor.svelte';
@@ -221,6 +222,22 @@
 	let editSummaryValue = $state('');
 	let editNotesValue = $state('');
 	let editSeriesNotesValue = $state('');
+	let seriesNotesOriginal = '';
+
+	// One predicate per editor, so cancelling a clean one doesn't ask about another
+	function summaryDirty() {
+		return editingSummary && editSummaryValue !== (data.book.summary || '');
+	}
+
+	function notesDirty() {
+		return editingNotes && editNotesValue !== (data.book.comments || '');
+	}
+
+	function seriesNotesDirty() {
+		return editingSeriesNotes !== null && editSeriesNotesValue !== seriesNotesOriginal;
+	}
+
+	guardNavigation(() => summaryDirty() || notesDirty() || seriesNotesDirty());
 
 	// AI Recommendations state
 	interface AIRecommendation {
@@ -300,7 +317,9 @@
 	}
 
 	function startEditSeriesNotes(seriesId: number, currentNotes: string | null) {
-		editSeriesNotesValue = currentNotes || '';
+		if (seriesNotesDirty() && !confirmDiscard()) return;
+		seriesNotesOriginal = currentNotes || '';
+		editSeriesNotesValue = seriesNotesOriginal;
 		editingSeriesNotes = seriesId;
 	}
 
@@ -347,10 +366,12 @@
 	}
 
 	function cancelSummaryEdit() {
+		if (summaryDirty() && !confirmDiscard()) return;
 		editingSummary = false;
 	}
 
 	function cancelNotesEdit() {
+		if (notesDirty() && !confirmDiscard()) return;
 		editingNotes = false;
 	}
 
@@ -377,6 +398,7 @@
 	}
 
 	function cancelSeriesNotesEdit() {
+		if (seriesNotesDirty() && !confirmDiscard()) return;
 		editingSeriesNotes = null;
 	}
 
@@ -396,6 +418,10 @@
 			} else {
 				toasts.success('Book deleted');
 			}
+			// The book is gone, so an open editor has nothing left to protect
+			editingSummary = false;
+			editingNotes = false;
+			editingSeriesNotes = null;
 			goto('/books');
 		} else {
 			const err = await res.json();
@@ -685,6 +711,7 @@
 				{#if data.book.ebookPath}
 					<a
 						href="/api/ebooks/{data.book.id}/download"
+						download
 						class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm mb-3"
 					>
 						<Download class="w-3.5 h-3.5" />
@@ -1254,6 +1281,7 @@
 										</a>
 										<a
 											href="/api/ebooks/{data.book.id}/download"
+											download
 											class="flex items-center gap-2 px-3 py-2 rounded-lg"
 											style="background: var(--bg-tertiary); color: var(--text-primary);"
 											title="Download"

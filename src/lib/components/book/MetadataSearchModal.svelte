@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { X, Search, Loader2, Check, ExternalLink, Star, Book, Database } from 'lucide-svelte';
 	import { fade, scale } from 'svelte/transition';
+	import { pushLayer } from '$lib/utils/layers';
 
 	interface MetadataResult {
 		provider: string;
@@ -35,6 +36,13 @@
 	}
 
 	let { open, initialTitle = '', initialAuthor = '', initialIsbn = '', onClose, onApply }: Props = $props();
+
+	$effect(() => {
+		if (open) return pushLayer(() => onClose());
+	});
+
+	// A drag that starts in an input and ends on the backdrop isn't a backdrop click
+	let pressStartedOnBackdrop = false;
 
 	// Search state
 	let searchTitle = $state(initialTitle);
@@ -215,7 +223,8 @@
 	<div
 		class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
 		transition:fade={{ duration: 150 }}
-		onclick={onClose}
+		onmousedown={(e) => { pressStartedOnBackdrop = e.target === e.currentTarget; }}
+		onclick={(e) => { if (e.target === e.currentTarget && pressStartedOnBackdrop) onClose(); }}
 		role="dialog"
 		aria-modal="true"
 	>

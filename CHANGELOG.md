@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.24.2] - 2026-11-02
+
+### Fixed
+- Pressing Esc now closes only what's on top. It closes an open dropdown or the metadata search first, and leaves the form behind it alone.
+- Leaving a book form with unsaved changes now asks "Discard changes?". This covers the book edit page, Add Book, and the inline Summary, Notes and Series Notes editors, whether you leave with Back, Cancel, a sidebar or navbar link, or the browser's back button. Closing or reloading the tab shows your browser's own warning.
+- The Author, Series, Genre, Tag, Narrator, Format, Status and Magic Shelf windows, and the ebook upload window, now ask before discarding what you typed.
+- Dragging to select text and letting go outside a window no longer closes it.
+- Saving never asks, and leaving a form you haven't changed stays instant.
+
 ## [2.24.1] - 2026-11-01
 
 ### Upgrading: share your library before you upgrade

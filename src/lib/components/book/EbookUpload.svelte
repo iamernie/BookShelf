@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { Upload, Book, User, FileText, Check, Loader2, AlertCircle, X } from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
+	import { confirmDiscard, trackDirty } from '$lib/utils/unsavedChanges';
 
 	interface Props {
 		onComplete?: (bookId: number) => void;
 		onClose?: () => void;
 		libraryType?: 'personal' | 'public';
+		/** True while the preview holds edits the import hasn't saved */
+		dirty?: boolean;
 	}
 
-	let { onComplete, onClose, libraryType = 'public' }: Props = $props();
+	let { onComplete, onClose, libraryType = 'public', dirty = $bindable(false) }: Props = $props();
 
 	// States
 	type UploadStage = 'idle' | 'uploading' | 'preview' | 'importing' | 'done' | 'error';
@@ -36,6 +39,13 @@
 	let authorName = $state('');
 	let description = $state('');
 	let genreId = $state<number | null>(null);
+
+	// The extracted values are the baseline, so only the user's own edits count
+	const form = trackDirty(() => ({ title: title.trim(), authorName: authorName.trim(), genreId }));
+
+	$effect(() => {
+		dirty = stage === 'preview' && form.isDirty();
+	});
 
 	// Options for dropdowns
 	let genres = $state<Array<{ id: number; name: string }>>([]);
@@ -132,6 +142,7 @@
 				title = queueItem.parsedMetadata?.title || queueItem.filename.replace(/\.[^.]+$/, '');
 				authorName = queueItem.parsedMetadata?.authors?.[0] || '';
 				description = queueItem.parsedMetadata?.description || '';
+				form.capture();
 			}
 
 			stage = 'preview';
@@ -179,6 +190,8 @@
 	}
 
 	async function handleCancel() {
+		if (stage === 'preview' && form.isDirty() && !confirmDiscard()) return;
+
 		if (queueItem && stage === 'preview') {
 			try {
 				await fetch(`/api/bookdrop/${queueItem.id}`, { method: 'DELETE' });

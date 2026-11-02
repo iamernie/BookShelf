@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import {
@@ -10,6 +11,8 @@
 	import { toInputDate, isPrerelease, formatReleaseTooltip } from '$lib/utils/date';
 	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
 	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
+	import { pushLayer } from '$lib/utils/layers';
+	import { guardedClose, guardNavigation, sortedIds, trackDirty } from '$lib/utils/unsavedChanges';
 
 	interface FormOptions {
 		statuses: { id: number; name: string; color: string | null }[];
@@ -556,50 +559,89 @@
 		}
 	}
 
+	function buildPayload() {
+		return {
+			title: title.trim(),
+			summary: summary.trim() || null,
+			comments: comments.trim() || null,
+			rating: rating ? parseFloat(rating) : null,
+			providerRating: providerRating ? parseFloat(providerRating) : null,
+			providerRatingSource: providerRatingSource.trim() || null,
+			providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
+			coverImageUrl: coverImageUrl.trim() || null,
+			originalCoverUrl: originalCoverUrl.trim() || null,
+			statusId: statusId ? parseInt(statusId) : null,
+			genreId: selectedGenre?.id ?? null,
+			formatId: formatId ? parseInt(formatId) : null,
+			narratorId: selectedNarrator?.id ?? null,
+			releaseDate: releaseDate || null,
+			startReadingDate: startReadingDate || null,
+			completedDate: completedDate || null,
+			isbn10: isbn10.trim() || null,
+			isbn13: isbn13.trim() || null,
+			asin: asin.trim() || null,
+			goodreadsId: goodreadsId.trim() || null,
+			googleBooksId: googleBooksId.trim() || null,
+			pageCount: pageCount ? parseInt(pageCount) : null,
+			booksContained: booksContained ? parseInt(booksContained) : 1,
+			publisher: publisher.trim() || null,
+			publishYear: publishYear ? parseInt(publishYear) : null,
+			edition: edition.trim() || null,
+			language: language.trim() || 'English',
+			purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
+			authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
+			series: selectedSeries.map(s => ({
+				id: s.id,
+				bookNum: s.bookNum ? parseFloat(s.bookNum) : null,
+				bookNumEnd: s.bookNumEnd ? parseFloat(s.bookNumEnd) : null
+			})),
+			tagIds: selectedTagIds
+		};
+	}
+
+	const form = trackDirty(() => {
+		const payload = buildPayload();
+		return {
+			...payload,
+			tagIds: sortedIds(payload.tagIds),
+			authorSearch,
+			authorRole,
+			seriesSearch,
+			seriesBookNum: seriesBookNum || '', // a cleared number input holds null
+			narratorSearch,
+			genreSearch
+		};
+	});
+	// Declared after the booksContained effect, which can change the value on mount
+	onMount(() => form.capture());
+
+	const isDirty = () => currentMode !== 'view' && form.isDirty();
+	const requestClose = guardedClose(isDirty, () => onClose(), () => saving);
+	guardNavigation(isDirty);
+
+	function closeDropdowns() {
+		showAuthorDropdown = false;
+		showSeriesDropdown = false;
+		showNarratorDropdown = false;
+		showGenreDropdown = false;
+	}
+
+	const anyDropdownOpen = $derived(showAuthorDropdown || showSeriesDropdown || showNarratorDropdown || showGenreDropdown);
+	$effect(() => {
+		if (anyDropdownOpen) return pushLayer(closeDropdowns);
+	});
+
 	async function handleSave() {
 		if (!title.trim()) return;
 		saving = true;
+		// onSave can navigate on its own, after saving alone stops covering it
+		form.markSubmitted();
 		try {
-			await onSave({
-				title: title.trim(),
-				summary: summary.trim() || null,
-				comments: comments.trim() || null,
-				rating: rating ? parseFloat(rating) : null,
-				providerRating: providerRating ? parseFloat(providerRating) : null,
-				providerRatingSource: providerRatingSource.trim() || null,
-				providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
-				coverImageUrl: coverImageUrl.trim() || null,
-				originalCoverUrl: originalCoverUrl.trim() || null,
-				statusId: statusId ? parseInt(statusId) : null,
-				genreId: selectedGenre?.id ?? null,
-				formatId: formatId ? parseInt(formatId) : null,
-				narratorId: selectedNarrator?.id ?? null,
-				releaseDate: releaseDate || null,
-				startReadingDate: startReadingDate || null,
-				completedDate: completedDate || null,
-				isbn10: isbn10.trim() || null,
-				isbn13: isbn13.trim() || null,
-				asin: asin.trim() || null,
-				goodreadsId: goodreadsId.trim() || null,
-				googleBooksId: googleBooksId.trim() || null,
-				pageCount: pageCount ? parseInt(pageCount) : null,
-				booksContained: booksContained ? parseInt(booksContained) : 1,
-				publisher: publisher.trim() || null,
-				publishYear: publishYear ? parseInt(publishYear) : null,
-				edition: edition.trim() || null,
-				language: language.trim() || 'English',
-				purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
-				authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
-				series: selectedSeries.map(s => ({
-					id: s.id,
-					bookNum: s.bookNum ? parseFloat(s.bookNum) : null,
-					bookNumEnd: s.bookNumEnd ? parseFloat(s.bookNumEnd) : null
-				})),
-				tagIds: selectedTagIds
-			});
+			await onSave(buildPayload());
 			onClose();
 		} catch {
 			// onSave has already toasted the error; keep the modal open for correction
+			form.markSubmitted(false);
 		} finally {
 			saving = false;
 		}
@@ -625,7 +667,7 @@
 	const authorRoles = ['Author', 'Co-Author', 'Editor', 'Translator', 'Illustrator', 'Contributor', 'Foreword By', 'Afterword By'];
 </script>
 
-<Modal open={true} onClose={onClose} title={currentMode === 'add' ? 'Add Book' : book?.title || 'Book'} size="xl">
+<Modal open={true} onClose={requestClose} title={currentMode === 'add' ? 'Add Book' : book?.title || 'Book'} size="xl">
 	{#if currentMode === 'view' && book}
 		<!-- View Mode -->
 		<div class="p-6 space-y-6">
@@ -1568,7 +1610,7 @@
 						<button
 							type="button"
 							class="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-							onclick={() => currentMode === 'add' ? onClose() : currentMode = 'view'}
+							onclick={() => currentMode === 'add' ? requestClose() : currentMode = 'view'}
 						>
 							Cancel
 						</button>
@@ -1591,11 +1633,10 @@
 
 <!-- Click outside handlers for dropdowns -->
 {#if showAuthorDropdown || showSeriesDropdown || showNarratorDropdown || showGenreDropdown}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 	<div
 		class="fixed inset-0 z-10"
-		onclick={() => { showAuthorDropdown = false; showSeriesDropdown = false; showNarratorDropdown = false; showGenreDropdown = false; }}
-		onkeydown={(e) => { if (e.key === 'Escape') { showAuthorDropdown = false; showSeriesDropdown = false; showNarratorDropdown = false; showGenreDropdown = false; } }}
+		onclick={closeDropdowns}
 	></div>
 {/if}
 

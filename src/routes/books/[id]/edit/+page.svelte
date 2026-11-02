@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import {
 		ArrowLeft,
@@ -28,6 +28,8 @@
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { toInputDate } from '$lib/utils/date';
+	import { pushLayer } from '$lib/utils/layers';
+	import { guardNavigation, sortedIds, trackDirty } from '$lib/utils/unsavedChanges';
 	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
@@ -464,7 +466,11 @@
 				if (!formatId) {
 					const ebookFormatId = data.formatId
 						?? options.formats.find((f: { id: number; name: string }) => f.name.toLowerCase().includes('ebook'))?.id;
-					if (ebookFormatId) formatId = ebookFormatId.toString();
+					if (ebookFormatId) {
+						formatId = ebookFormatId.toString();
+						// The server already saved this one, so it isn't an unsaved change
+						form.adopt({ formatId: parseInt(formatId) });
+					}
 				}
 				toasts.success('Ebook uploaded successfully');
 			} else {
@@ -510,51 +516,100 @@
 	const canLinkAbs = !!data.absBaseUrl && data.isAdmin;
 	let absItemId = $state<string | null>(book.absItemId ?? null);
 
+	function buildPayload() {
+		return {
+			title: title.trim(),
+			summary: summary.trim() || null,
+			comments: comments.trim() || null,
+			rating: rating ? parseFloat(rating) : null,
+			providerRating: providerRating ? parseFloat(providerRating) : null,
+			providerRatingSource: providerRatingSource.trim() || null,
+			providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
+			coverImageUrl: coverImageUrl.trim() || null,
+			originalCoverUrl: originalCoverUrl.trim() || null,
+			statusId: statusId ? parseInt(statusId) : null,
+			genreId: genreId ? parseInt(genreId) : null,
+			formatId: formatId ? parseInt(formatId) : null,
+			narratorId: selectedNarrator?.id ?? null,
+			releaseDate: releaseDate || null,
+			startReadingDate: startReadingDate || null,
+			completedDate: completedDate || null,
+			isbn10: isbn10.trim() || null,
+			isbn13: isbn13.trim() || null,
+			asin: asin.trim() || null,
+			goodreadsId: goodreadsId.trim() || null,
+			googleBooksId: googleBooksId.trim() || null,
+			pageCount: pageCount ? parseInt(pageCount) : null,
+			publisher: publisher.trim() || null,
+			publishYear: publishYear ? parseInt(publishYear) : null,
+			edition: edition.trim() || null,
+			language: language.trim() || 'English',
+			purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
+			authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
+			series: selectedSeries.map(s => ({
+				id: s.id,
+				bookNum: s.bookNum ? parseFloat(s.bookNum) : null,
+				bookNumEnd: s.isOmnibus && s.bookNumEnd ? parseFloat(s.bookNumEnd) : null
+			})),
+			tagIds: selectedTagIds
+		};
+	}
+
+	// Unsaved picker text: Save doesn't persist it, but leaving does lose it
+	function pickerText() {
+		return {
+			authorSearch,
+			seriesSearch,
+			seriesBookNum: seriesBookNum || '', // a cleared number input holds null
+			narratorSearch
+		};
+	}
+
+	// Tag order doesn't change what's saved, so sort a copy here and leave the payload alone
+	function snapshotOf(payload: ReturnType<typeof buildPayload>) {
+		return { ...payload, tagIds: sortedIds(payload.tagIds) };
+	}
+
+	const form = trackDirty(() => ({
+		...snapshotOf(buildPayload()),
+		mediaSourceIds: sortedIds(selectedMediaSourceIds),
+		...pickerText()
+	}));
+	onMount(() => form.capture());
+	guardNavigation(form.isDirty);
+
+	function closeDropdowns() {
+		showAuthorDropdown = false;
+		showSeriesDropdown = false;
+		showNarratorDropdown = false;
+	}
+
+	const anyDropdownOpen = $derived(showAuthorDropdown || showSeriesDropdown || showNarratorDropdown);
+	$effect(() => {
+		if (anyDropdownOpen) return pushLayer(closeDropdowns);
+	});
+
+	$effect(() => {
+		if (showAddSourceModal) return pushLayer(() => { showAddSourceModal = false; });
+	});
+
 	async function handleSave() {
 		if (!title.trim()) return;
 		saving = true;
+		// The baseline adopts what was sent, so anything typed during the PUT stays dirty
+		const payload = buildPayload();
+		const picker = pickerText();
+		const mediaSourceIds = [...selectedMediaSourceIds];
 		try {
 			const res = await fetch(`/api/books/${book.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					title: title.trim(),
-					summary: summary.trim() || null,
-					comments: comments.trim() || null,
-					rating: rating ? parseFloat(rating) : null,
-					providerRating: providerRating ? parseFloat(providerRating) : null,
-					providerRatingSource: providerRatingSource.trim() || null,
-					providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
-					coverImageUrl: coverImageUrl.trim() || null,
-					originalCoverUrl: originalCoverUrl.trim() || null,
-					statusId: statusId ? parseInt(statusId) : null,
-					genreId: genreId ? parseInt(genreId) : null,
-					formatId: formatId ? parseInt(formatId) : null,
-					narratorId: selectedNarrator?.id ?? null,
-					releaseDate: releaseDate || null,
-					startReadingDate: startReadingDate || null,
-					completedDate: completedDate || null,
-					isbn10: isbn10.trim() || null,
-					isbn13: isbn13.trim() || null,
-					asin: asin.trim() || null,
-					goodreadsId: goodreadsId.trim() || null,
-					googleBooksId: googleBooksId.trim() || null,
-					pageCount: pageCount ? parseInt(pageCount) : null,
-					publisher: publisher.trim() || null,
-					publishYear: publishYear ? parseInt(publishYear) : null,
-					edition: edition.trim() || null,
-					language: language.trim() || 'English',
-					purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
-					authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
-					series: selectedSeries.map(s => ({
-						id: s.id,
-						bookNum: s.bookNum ? parseFloat(s.bookNum) : null,
-						bookNumEnd: s.isOmnibus && s.bookNumEnd ? parseFloat(s.bookNumEnd) : null
-					})),
-					tagIds: selectedTagIds
-				})
+				body: JSON.stringify(payload)
 			});
 			if (res.ok) {
+				// Before goto: the guard runs after finally has cleared saving
+				form.adopt({ ...snapshotOf(payload), ...picker });
+
 				// Also save media sources
 				let mediaSourcesSaved = false;
 				try {
@@ -562,7 +617,7 @@
 						method: 'PUT',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({
-							sources: selectedMediaSourceIds.map(id => ({ mediaSourceId: id }))
+							sources: mediaSourceIds.map(id => ({ mediaSourceId: id }))
 						})
 					});
 					mediaSourcesSaved = mediaRes.ok;
@@ -574,6 +629,7 @@
 					toasts.error('Book saved, but media sources failed to save');
 					return;
 				}
+				form.adopt({ mediaSourceIds: sortedIds(mediaSourceIds) });
 
 				toasts.success('Book saved');
 				await tick(); // Ensure toast is added before navigation
@@ -599,7 +655,7 @@
 	<button
 		type="button"
 		class="fixed inset-0 z-10"
-		onclick={() => { showAuthorDropdown = false; showSeriesDropdown = false; showNarratorDropdown = false; }}
+		onclick={closeDropdowns}
 		aria-label="Close dropdown"
 	></button>
 {/if}
@@ -812,6 +868,7 @@
 											placeholder="Search authors..."
 											bind:value={authorSearch}
 											onfocus={() => showAuthorDropdown = true}
+											oninput={() => showAuthorDropdown = true}
 											class="w-full px-3 py-2 rounded-md text-sm"
 											style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
 										/>
@@ -1586,11 +1643,11 @@
 
 <!-- Add Custom Media Source Modal -->
 {#if showAddSourceModal}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		style="background: rgba(0, 0, 0, 0.6);"
 		onclick={(e) => { if (e.target === e.currentTarget) showAddSourceModal = false; }}
-		onkeydown={(e) => { if (e.key === 'Escape') showAddSourceModal = false; }}
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"

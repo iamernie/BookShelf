@@ -5,6 +5,7 @@
 	 */
 	import LucideIcon from './LucideIcon.svelte';
 	import { X } from 'lucide-svelte';
+	import { pushLayer } from '$lib/utils/layers';
 
 	// Common Lucide icons for selection
 	const DEFAULT_ICONS = [
@@ -90,6 +91,11 @@
 			handleClose();
 		}
 	}
+
+	// Dropdown mode sits inside FormatModal, so it must close before the modal does
+	$effect(() => {
+		if (isOpen) return pushLayer(handleClose);
+	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />

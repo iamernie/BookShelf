@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import { guardedClose, trackDirty } from '$lib/utils/unsavedChanges';
 	import { Folder, BookOpen, Star, Edit2, Trash2, AlertCircle } from 'lucide-svelte';
 	import type { Genre } from '$lib/server/db/schema';
 
@@ -45,17 +47,26 @@
 	let icon = $state(genre?.icon || '');
 	let displayOrder = $state(genre?.displayOrder ?? 0);
 
+	function buildPayload() {
+		return {
+			name: name.trim(),
+			description: description.trim() || null,
+			color: color || null,
+			icon: icon.trim() || null,
+			displayOrder
+		};
+	}
+
+	const form = trackDirty(buildPayload);
+	onMount(() => form.capture());
+
+	const requestClose = guardedClose(() => currentMode !== 'view' && form.isDirty(), () => onClose(), () => saving);
+
 	async function handleSave() {
 		if (!name.trim()) return;
 		saving = true;
 		try {
-			await onSave({
-				name: name.trim(),
-				description: description.trim() || null,
-				color: color || null,
-				icon: icon.trim() || null,
-				displayOrder
-			});
+			await onSave(buildPayload());
 			onClose();
 		} finally {
 			saving = false;
@@ -82,7 +93,7 @@
 	}
 </script>
 
-<Modal open={true} onClose={onClose} title={currentMode === 'add' ? 'Add Genre' : genre?.name || 'Genre'} size="md">
+<Modal open={true} onClose={requestClose} title={currentMode === 'add' ? 'Add Genre' : genre?.name || 'Genre'} size="md">
 	{#if currentMode === 'view' && genre}
 		<!-- View Mode -->
 		<div class="p-6 space-y-6">
@@ -253,7 +264,7 @@
 				<button
 					type="button"
 					class="btn-secondary"
-					onclick={() => currentMode === 'add' ? onClose() : currentMode = 'view'}
+					onclick={() => currentMode === 'add' ? requestClose() : currentMode = 'view'}
 				>
 					Cancel
 				</button>

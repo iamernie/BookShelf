@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { X, Library, Eye, BookOpen } from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
+	import { pushLayer } from '$lib/utils/layers';
+	import { guardedClose, trackDirty } from '$lib/utils/unsavedChanges';
 	import ShelfRuleBuilder from './ShelfRuleBuilder.svelte';
 	import type { FilterConfig, FilterGroup } from '$lib/server/services/magicShelfService';
 
@@ -74,6 +77,24 @@
 		'#6f42c1', '#e83e8c'
 	];
 
+	function buildPayload() {
+		return {
+			name: name.trim(),
+			description: description.trim() || null,
+			iconColor,
+			filterJson: filterConfig,
+			sortField,
+			sortOrder,
+			isPublic
+		};
+	}
+
+	const form = trackDirty(buildPayload);
+	onMount(() => form.capture());
+
+	const requestClose = guardedClose(form.isDirty, () => onClose(), () => loading);
+	$effect(() => pushLayer(requestClose));
+
 	async function handleSubmit() {
 		if (!name.trim()) {
 			toasts.warning('Please enter a name for the shelf');
@@ -88,15 +109,7 @@
 			const res = await fetch(url, {
 				method,
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					name: name.trim(),
-					description: description.trim() || null,
-					iconColor,
-					filterJson: filterConfig,
-					sortField,
-					sortOrder,
-					isPublic
-				})
+				body: JSON.stringify(buildPayload())
 			});
 
 			if (res.ok) {
@@ -140,18 +153,16 @@
 	});
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center p-4"
 	role="dialog"
 	aria-modal="true"
-	onkeydown={(e) => e.key === 'Escape' && onClose()}
 >
 	<!-- Backdrop -->
 	<button
 		type="button"
 		class="absolute inset-0 bg-black/50"
-		onclick={onClose}
+		onclick={requestClose}
 		aria-label="Close modal"
 	></button>
 
@@ -172,7 +183,7 @@
 				type="button"
 				class="p-1 rounded hover:bg-black/10 transition-colors"
 				style="color: var(--text-muted);"
-				onclick={onClose}
+				onclick={requestClose}
 			>
 				<X class="w-5 h-5" />
 			</button>
@@ -294,7 +305,7 @@
 				<button
 					type="button"
 					class="btn-ghost px-4 py-2"
-					onclick={onClose}
+					onclick={requestClose}
 					disabled={loading}
 				>
 					Cancel

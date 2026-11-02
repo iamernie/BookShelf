@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import { guardedClose, trackDirty } from '$lib/utils/unsavedChanges';
 	import { BookOpen, Edit2, AlertTriangle, Lock } from 'lucide-svelte';
 
 	let {
@@ -21,11 +23,20 @@
 
 	let name = $state(status?.name || '');
 
+	function buildPayload() {
+		return { name: name.trim() };
+	}
+
+	const form = trackDirty(buildPayload);
+	onMount(() => form.capture());
+
+	const requestClose = guardedClose(() => currentMode !== 'view' && form.isDirty(), () => onClose(), () => saving);
+
 	async function handleSave() {
 		if (!name.trim()) return;
 		saving = true;
 		try {
-			await onSave({ name: name.trim() });
+			await onSave(buildPayload());
 			onClose();
 		} finally {
 			saving = false;
@@ -33,7 +44,7 @@
 	}
 </script>
 
-<Modal open={true} onClose={onClose} title={status?.name || 'Status'} size="md">
+<Modal open={true} onClose={requestClose} title={status?.name || 'Status'} size="md">
 	{#if currentMode === 'view' && status}
 		<!-- View Mode -->
 		<div class="p-6 space-y-6">

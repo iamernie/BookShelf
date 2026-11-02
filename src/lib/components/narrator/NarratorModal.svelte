@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import { guardedClose, trackDirty } from '$lib/utils/unsavedChanges';
 	import { Mic, BookOpen, Star, Edit2, Trash2, AlertCircle, ExternalLink } from 'lucide-svelte';
 
 	let {
@@ -27,15 +29,24 @@
 	let bio = $state(narrator?.bio || '');
 	let url = $state(narrator?.url || '');
 
+	function buildPayload() {
+		return {
+			name: name.trim(),
+			bio: bio.trim() || null,
+			url: url.trim() || null
+		};
+	}
+
+	const form = trackDirty(buildPayload);
+	onMount(() => form.capture());
+
+	const requestClose = guardedClose(() => currentMode !== 'view' && form.isDirty(), () => onClose(), () => saving);
+
 	async function handleSave() {
 		if (!name.trim()) return;
 		saving = true;
 		try {
-			await onSave({
-				name: name.trim(),
-				bio: bio.trim() || null,
-				url: url.trim() || null
-			});
+			await onSave(buildPayload());
 			onClose();
 		} finally {
 			saving = false;
@@ -62,7 +73,7 @@
 	}
 </script>
 
-<Modal open={true} onClose={onClose} title={currentMode === 'add' ? 'Add Narrator' : narrator?.name || 'Narrator'} size="md">
+<Modal open={true} onClose={requestClose} title={currentMode === 'add' ? 'Add Narrator' : narrator?.name || 'Narrator'} size="md">
 	{#if currentMode === 'view' && narrator}
 		<!-- View Mode -->
 		<div class="p-6 space-y-6">
@@ -194,7 +205,7 @@
 				<button
 					type="button"
 					class="btn-secondary"
-					onclick={() => currentMode === 'add' ? onClose() : currentMode = 'view'}
+					onclick={() => currentMode === 'add' ? requestClose() : currentMode = 'view'}
 				>
 					Cancel
 				</button>

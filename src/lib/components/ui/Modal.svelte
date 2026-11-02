@@ -2,6 +2,7 @@
 	import { X } from 'lucide-svelte';
 	import { fade, scale } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
+	import { pushLayer } from '$lib/utils/layers';
 
 	let {
 		open = false,
@@ -25,20 +26,21 @@
 		full: 'max-w-6xl'
 	};
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			onClose();
-		}
-	}
-</script>
+	// An effect on open, not an action: an action's teardown would wait out the outro
+	$effect(() => {
+		if (open) return pushLayer(() => onClose());
+	});
 
-<svelte:window onkeydown={handleKeydown} />
+	// A drag that starts in an input and ends on the backdrop isn't a backdrop click
+	let pressStartedOnBackdrop = false;
+</script>
 
 {#if open}
 	<div
 		class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
 		transition:fade={{ duration: 150 }}
-		onclick={onClose}
+		onmousedown={(e) => { pressStartedOnBackdrop = e.target === e.currentTarget; }}
+		onclick={(e) => { if (e.target === e.currentTarget && pressStartedOnBackdrop) onClose(); }}
 		role="dialog"
 		aria-modal="true"
 	>

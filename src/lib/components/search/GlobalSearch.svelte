@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Search, BookOpen, User, Library, Mic, X, Loader2 } from 'lucide-svelte';
+	import { pushLayer } from '$lib/utils/layers';
 
 	interface AutocompleteResult {
 		books: { id: number; title: string; coverImageUrl: string | null; author: string | null; series: string | null; type: 'book'; url: string }[];
@@ -91,8 +92,6 @@
 				// Go to advanced search with query
 				navigateTo(`/search?title=${encodeURIComponent(query)}`);
 			}
-		} else if (e.key === 'Escape') {
-			onClose();
 		}
 	}
 
@@ -112,6 +111,8 @@
 		// Focus input on mount
 		inputRef?.focus();
 	});
+
+	$effect(() => pushLayer(() => onClose()));
 </script>
 
 <!-- Backdrop -->

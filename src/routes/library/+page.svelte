@@ -7,6 +7,7 @@
 	import BookListHeader from '$lib/components/book/BookListHeader.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EbookUpload from '$lib/components/book/EbookUpload.svelte';
+	import { guardedClose } from '$lib/utils/unsavedChanges';
 	import { Library, BookOpen, Search, Plus, Check, Grid, List, Upload, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import type { BookCardData } from '$lib/types';
@@ -41,6 +42,7 @@
 	let viewMode = $state<'grid' | 'list'>('grid');
 	let addingBookId = $state<number | null>(null);
 	let showUploadModal = $state(false);
+	let uploadDirty = $state(false);
 
 	function handleUploadComplete(bookId: number) {
 		invalidateAll();
@@ -50,6 +52,8 @@
 		showUploadModal = false;
 		invalidateAll();
 	}
+
+	const requestCloseUpload = guardedClose(() => uploadDirty, closeUploadModal);
 
 	// Filter library tabs based on public library setting
 	const libraryTabs = $derived(
@@ -502,8 +506,9 @@
 </div>
 
 <!-- Upload Modal -->
-<Modal open={showUploadModal} title="Upload Ebook" size="lg" onClose={closeUploadModal}>
+<Modal open={showUploadModal} title="Upload Ebook" size="lg" onClose={requestCloseUpload}>
 	<EbookUpload
+		bind:dirty={uploadDirty}
 		libraryType="public"
 		onComplete={handleUploadComplete}
 		onClose={closeUploadModal}

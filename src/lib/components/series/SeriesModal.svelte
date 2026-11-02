@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import { guardedClose, trackDirty } from '$lib/utils/unsavedChanges';
 	import { Library, BookOpen, Edit2, Trash2, Star, TrendingUp, AlertTriangle } from 'lucide-svelte';
 	import type { Series } from '$lib/server/db/schema';
 	import type { SeriesStats } from '$lib/server/services/seriesService';
@@ -32,16 +34,25 @@
 	let numBooks = $state(series?.numBooks?.toString() || '');
 	let comments = $state(series?.comments || '');
 
+	function buildPayload() {
+		return {
+			title: title.trim(),
+			description: description.trim() || null,
+			numBooks: numBooks ? parseInt(numBooks) : null,
+			comments: comments.trim() || null
+		};
+	}
+
+	const form = trackDirty(buildPayload);
+	onMount(() => form.capture());
+
+	const requestClose = guardedClose(() => currentMode !== 'view' && form.isDirty(), () => onClose(), () => saving);
+
 	async function handleSave() {
 		if (!title.trim()) return;
 		saving = true;
 		try {
-			await onSave({
-				title: title.trim(),
-				description: description.trim() || null,
-				numBooks: numBooks ? parseInt(numBooks) : null,
-				comments: comments.trim() || null
-			});
+			await onSave(buildPayload());
 			onClose();
 		} finally {
 			saving = false;
@@ -60,7 +71,7 @@
 	}
 </script>
 
-<Modal open={true} onClose={onClose} title={currentMode === 'add' ? 'Add Series' : series?.title || 'Series'} size="lg">
+<Modal open={true} onClose={requestClose} title={currentMode === 'add' ? 'Add Series' : series?.title || 'Series'} size="lg">
 	{#if currentMode === 'view' && series}
 		<!-- View Mode -->
 		<div class="modal-content">
@@ -280,7 +291,7 @@
 				<button
 					type="button"
 					class="btn-cancel"
-					onclick={() => currentMode === 'add' ? onClose() : currentMode = 'view'}
+					onclick={() => currentMode === 'add' ? requestClose() : currentMode = 'view'}
 				>
 					Cancel
 				</button>

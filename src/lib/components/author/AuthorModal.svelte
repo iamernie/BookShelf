@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import { guardedClose, trackDirty } from '$lib/utils/unsavedChanges';
 	import { goto } from '$app/navigation';
 	import {
 		User,
@@ -88,21 +90,30 @@
 	let wikipediaUrl = $state(author?.wikipediaUrl || '');
 	let comments = $state(author?.comments || '');
 
+	function buildPayload() {
+		return {
+			name: name.trim(),
+			bio: bio.trim() || null,
+			birthDate: birthDate || null,
+			deathDate: deathDate || null,
+			birthPlace: birthPlace.trim() || null,
+			photoUrl: photoUrl.trim() || null,
+			website: website.trim() || null,
+			wikipediaUrl: wikipediaUrl.trim() || null,
+			comments: comments.trim() || null
+		};
+	}
+
+	const form = trackDirty(buildPayload);
+	onMount(() => form.capture());
+
+	const requestClose = guardedClose(() => currentMode !== 'view' && form.isDirty(), () => onClose(), () => saving);
+
 	async function handleSave() {
 		if (!name.trim()) return;
 		saving = true;
 		try {
-			await onSave({
-				name: name.trim(),
-				bio: bio.trim() || null,
-				birthDate: birthDate || null,
-				deathDate: deathDate || null,
-				birthPlace: birthPlace.trim() || null,
-				photoUrl: photoUrl.trim() || null,
-				website: website.trim() || null,
-				wikipediaUrl: wikipediaUrl.trim() || null,
-				comments: comments.trim() || null
-			});
+			await onSave(buildPayload());
 			onClose();
 		} finally {
 			saving = false;
@@ -165,6 +176,7 @@
 		try {
 			// If author exists, import via API
 			if (author?.id) {
+				const wasClean = !form.isDirty();
 				const res = await fetch(`/api/authors/${author.id}/wikipedia`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -188,6 +200,8 @@
 					if (preview.photoUrl) photoUrl = preview.photoUrl;
 					if (preview.website) website = preview.website;
 					if (preview.wikipediaUrl) wikipediaUrl = preview.wikipediaUrl;
+					// The server already saved these
+					if (wasClean) form.capture();
 
 					toasts.success('Data imported successfully');
 					showWikiSearch = false;
@@ -225,7 +239,7 @@
 
 <Modal
 	open={true}
-	onClose={onClose}
+	onClose={requestClose}
 	title={currentMode === 'add' ? 'Add Author' : author?.name || 'Author'}
 	size="lg"
 >
@@ -551,7 +565,7 @@
 				<button
 					type="button"
 					class="btn-secondary"
-					onclick={() => (currentMode === 'add' ? onClose() : (currentMode = 'view'))}
+					onclick={() => (currentMode === 'add' ? requestClose() : (currentMode = 'view'))}
 				>
 					Cancel
 				</button>

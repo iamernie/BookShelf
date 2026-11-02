@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import {
 		Upload, FileText, BookOpen, ChevronLeft, X, Loader2,
 		Library, User, Search, Info, AlignLeft, Image, Fingerprint,
@@ -9,6 +10,8 @@
 	import { toasts } from '$lib/stores/toast';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
+	import { pushLayer } from '$lib/utils/layers';
+	import { confirmDiscard, guardNavigation, sortedIds, trackDirty } from '$lib/utils/unsavedChanges';
 
 	let { data } = $props();
 
@@ -368,6 +371,7 @@
 	}
 
 	function goBackToUpload() {
+		if (form.isDirty() && !confirmDiscard()) return;
 		step = 'upload';
 		uploadedFile = null;
 		mediaType = null;
@@ -384,7 +388,11 @@
 		providerRatingSource = '';
 		providerRatingCount = '';
 		selectedAuthors = [];
+		authorSearch = '';
+		authorRole = 'Author';
 		selectedSeries = [];
+		seriesSearch = '';
+		seriesBookNum = '';
 		selectedNarrator = null;
 		narratorSearch = '';
 		genreId = '';
@@ -532,6 +540,70 @@
 		}
 	}
 
+	function buildPayload() {
+		return {
+			title: title.trim(),
+			summary: summary.trim() || null,
+			rating: rating ? parseFloat(rating) : null,
+			providerRating: providerRating ? parseFloat(providerRating) : null,
+			providerRatingSource: providerRatingSource || null,
+			providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
+			coverImageUrl: null,
+			originalCoverUrl: coverUrl.trim() || null,
+			genreId: genreId ? parseInt(genreId) : null,
+			formatId: formatId ? parseInt(formatId) : null,
+			statusId: statusId ? parseInt(statusId) : null,
+			narratorId: selectedNarrator?.id ?? null,
+			isbn13: isbn13.trim() || null,
+			isbn10: isbn10.trim() || null,
+			asin: asin.trim() || null,
+			goodreadsId: goodreadsId.trim() || null,
+			googleBooksId: googleBooksId.trim() || null,
+			publisher: publisher.trim() || null,
+			publishYear: publishYear ? parseInt(publishYear) : null,
+			pageCount: pageCount ? parseInt(pageCount) : null,
+			language: language || 'English',
+			releaseDate: releaseDate || null,
+			startReadingDate: startReadingDate || null,
+			completedDate: completedDate || null,
+			authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
+			series: selectedSeries.map(s => ({
+				id: s.id,
+				bookNum: s.bookNum ? parseFloat(s.bookNum) : null,
+				bookNumEnd: s.bookNumEnd ? parseFloat(s.bookNumEnd) : null
+			})),
+			tagIds: selectedTagIds
+		};
+	}
+
+	// libraryType stays out of the snapshot: it changes with the URL while this component is reused
+	const form = trackDirty(() => {
+		const payload = buildPayload();
+		return {
+			...payload,
+			tagIds: sortedIds(payload.tagIds),
+			authorSearch,
+			authorRole,
+			seriesSearch,
+			seriesBookNum: seriesBookNum || '', // a cleared number input holds null
+			narratorSearch,
+			uploadedFile: uploadedFile?.name ?? ''
+		};
+	});
+	onMount(() => form.capture());
+	guardNavigation(form.isDirty);
+
+	function closeDropdowns() {
+		showAuthorDropdown = false;
+		showSeriesDropdown = false;
+		showNarratorDropdown = false;
+	}
+
+	const anyDropdownOpen = $derived(showAuthorDropdown || showSeriesDropdown || showNarratorDropdown);
+	$effect(() => {
+		if (anyDropdownOpen) return pushLayer(closeDropdowns);
+	});
+
 	async function handleSubmit() {
 		console.log('[library/add] handleSubmit called');
 		console.log('[library/add] title:', title);
@@ -562,6 +634,7 @@
 					toasts.success('Ebook added to existing book!');
 				}
 
+				form.markSubmitted();
 				goto(`/books/${bookId}`);
 				return;
 			} catch (err: any) {
@@ -584,37 +657,7 @@
 		try {
 			// Create the book
 			const bookData = {
-				title: title.trim(),
-				summary: summary.trim() || null,
-				rating: rating ? parseFloat(rating) : null,
-				providerRating: providerRating ? parseFloat(providerRating) : null,
-				providerRatingSource: providerRatingSource || null,
-				providerRatingCount: providerRatingCount ? parseInt(providerRatingCount) : null,
-				coverImageUrl: null,
-				originalCoverUrl: coverUrl.trim() || null,
-				genreId: genreId ? parseInt(genreId) : null,
-				formatId: formatId ? parseInt(formatId) : null,
-				statusId: statusId ? parseInt(statusId) : null,
-				narratorId: selectedNarrator?.id ?? null,
-				isbn13: isbn13.trim() || null,
-				isbn10: isbn10.trim() || null,
-				asin: asin.trim() || null,
-				goodreadsId: goodreadsId.trim() || null,
-				googleBooksId: googleBooksId.trim() || null,
-				publisher: publisher.trim() || null,
-				publishYear: publishYear ? parseInt(publishYear) : null,
-				pageCount: pageCount ? parseInt(pageCount) : null,
-				language: language || 'English',
-				releaseDate: releaseDate || null,
-				startReadingDate: startReadingDate || null,
-				completedDate: completedDate || null,
-				authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
-				series: selectedSeries.map(s => ({
-					id: s.id,
-					bookNum: s.bookNum ? parseFloat(s.bookNum) : null,
-					bookNumEnd: s.bookNumEnd ? parseFloat(s.bookNumEnd) : null
-				})),
-				tagIds: selectedTagIds,
+				...buildPayload(),
 				libraryType: data.isPublic ? 'public' : 'personal'
 			};
 
@@ -670,6 +713,7 @@
 
 			submitStatus = 'done';
 			toasts.success(data.isPublic ? 'Added to public library!' : 'Book added!');
+			form.markSubmitted();
 			goto(`/books/${newBook.id}`);
 
 		} catch (err: any) {
@@ -1626,7 +1670,7 @@
 	<button
 		type="button"
 		class="fixed inset-0 z-10"
-		onclick={() => { showAuthorDropdown = false; showSeriesDropdown = false; showNarratorDropdown = false; }}
+		onclick={closeDropdowns}
 		aria-label="Close dropdown"
 	></button>
 {/if}

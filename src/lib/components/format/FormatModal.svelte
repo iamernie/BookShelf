@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
+	import { guardedClose, trackDirty } from '$lib/utils/unsavedChanges';
 	import IconPicker from '$lib/components/ui/IconPicker.svelte';
 	import LucideIcon from '$lib/components/ui/LucideIcon.svelte';
 	import { BookOpen, Edit2, Trash2, AlertCircle, ArrowRight } from 'lucide-svelte';
@@ -49,11 +51,20 @@
 
 	const bookCount = $derived(format?.bookCount ?? books.length);
 
+	function buildPayload() {
+		return { name: name.trim(), icon, color };
+	}
+
+	const form = trackDirty(buildPayload);
+	onMount(() => form.capture());
+
+	const requestClose = guardedClose(() => currentMode !== 'view' && form.isDirty(), () => onClose(), () => saving);
+
 	async function handleSave() {
 		if (!name.trim()) return;
 		saving = true;
 		try {
-			await onSave({ name: name.trim(), icon, color });
+			await onSave(buildPayload());
 			onClose();
 		} finally {
 			saving = false;
@@ -98,7 +109,7 @@
 	}
 </script>
 
-<Modal open={true} onClose={onClose} title={currentMode === 'add' ? 'Add Format' : format?.name || 'Format'} size="sm">
+<Modal open={true} onClose={requestClose} title={currentMode === 'add' ? 'Add Format' : format?.name || 'Format'} size="sm">
 	{#if showDeleteConfirm && format}
 		<!-- Delete Confirmation with Reassignment -->
 		<div class="p-6 space-y-4">
@@ -293,7 +304,7 @@
 				<button
 					type="button"
 					class="btn-secondary"
-					onclick={() => currentMode === 'add' ? onClose() : currentMode = 'view'}
+					onclick={() => currentMode === 'add' ? requestClose() : currentMode = 'view'}
 				>
 					Cancel
 				</button>
