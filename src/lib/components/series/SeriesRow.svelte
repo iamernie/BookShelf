@@ -25,6 +25,8 @@
 	);
 
 	const complete = $derived(series.bookCount > 0 && series.completionPercentage === 100);
+	// A stored Finished status already says it (as SeriesCard); the derived Complete would only repeat it
+	const storedFinished = $derived(series.statusName?.trim().toLowerCase() === 'finished');
 </script>
 
 <li>
@@ -55,7 +57,11 @@
 
 		<div class="cell hide-640">
 			{#if complete}
-				<span class="complete">Complete</span>
+				{#if storedFinished}
+					<span class="empty-cell">—</span>
+				{:else}
+					<span class="complete">Complete</span>
+				{/if}
 			{:else if series.nextBook}
 				{#if series.nextBook.bookNum != null}
 					<span class="num">#{series.nextBook.bookNum}</span>

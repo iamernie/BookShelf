@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, books, bookAuthors, bookSeries, bookTags, userBooks, userBookTags, metadataSuggestions, readingSessions, bookdropQueue } from '$lib/server/db';
 import { eq, inArray } from 'drizzle-orm';
+import { recomputeSeriesStatuses } from '$lib/server/services/statusService';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
@@ -58,6 +59,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 	}
 
+	const memberOf = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(inArray(bookSeries.bookId, bookIds));
+
 	// Delete related records (should cascade, but being explicit)
 	await db.delete(bookAuthors).where(inArray(bookAuthors.bookId, bookIds));
 	await db.delete(bookSeries).where(inArray(bookSeries.bookId, bookIds));
@@ -70,6 +73,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	// Delete books
 	const result = await db.delete(books).where(inArray(books.id, bookIds));
+	await recomputeSeriesStatuses(memberOf.map((r) => r.seriesId));
 
 	return json({
 		success: true,

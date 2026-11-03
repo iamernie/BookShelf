@@ -1,4 +1,4 @@
-import { db, statuses, books, users, userBooks } from '$lib/server/db';
+import { db, statuses, books, users, userBooks, series, seriesStatuses, bookSeries } from '$lib/server/db';
 import { eq, asc, sql, and, inArray } from 'drizzle-orm';
 import { todayInAppTz } from '$lib/server/utils/appTime';
 import { notifyBookCompleted, checkAndNotifySeriesCompletion } from './notificationService';
@@ -103,6 +103,62 @@ export async function getStatusByKey(key: string): Promise<StatusType | null> {
 export async function getDefaultOwnerId(): Promise<number | null> {
 	const [user] = await db.select({ id: users.id }).from(users).where(eq(users.role, 'admin')).orderBy(asc(users.id)).limit(1);
 	return user?.id ?? null;
+}
+
+// ============================================
+// Series status follows its books (2.27.3)
+// ============================================
+
+/**
+ * Keep series.statusId in step with its owned (personal library) books: any unsettled book
+ * makes it Ongoing, all Done or DNF makes it Finished. A series with no owned books, or one
+ * parked by hand, is left alone; only differing values are written. Statuses resolve by key
+ * or name, so a library without those rows changes nothing. Returns the series it changed.
+ */
+export async function recomputeSeriesStatuses(seriesIds: number[]): Promise<number> {
+	const ids = [...new Set(seriesIds.filter((id) => Number.isInteger(id)))];
+	if (ids.length === 0) return 0;
+
+	const [seriesStatusRows, settledRows] = await Promise.all([
+		db.select({ id: seriesStatuses.id, name: seriesStatuses.name, key: seriesStatuses.key }).from(seriesStatuses),
+		db.select({ id: statuses.id }).from(statuses).where(inArray(statuses.key, ['READ', 'DNF']))
+	]);
+	const find = (word: string) =>
+		seriesStatusRows.find((s) => s.key?.toUpperCase() === word.toUpperCase() || s.name.trim().toLowerCase() === word)?.id ?? null;
+	const finishedId = find('finished');
+	const ongoingId = find('ongoing');
+	const parkedId = find('parked');
+	if (finishedId === null || ongoingId === null) return 0;
+	const settledIds = settledRows.map((s) => s.id);
+	const settled = settledIds.length > 0
+		? sql<number>`SUM(CASE WHEN ${inArray(books.statusId, settledIds)} THEN 1 ELSE 0 END)`
+		: sql<number>`0`;
+
+	const rows = await db
+		.select({ id: series.id, statusId: series.statusId, owned: sql<number>`COUNT(${books.id})`, settled })
+		.from(series)
+		.innerJoin(bookSeries, eq(bookSeries.seriesId, series.id))
+		.innerJoin(books, and(eq(books.id, bookSeries.bookId), eq(books.libraryType, 'personal')))
+		.where(inArray(series.id, ids))
+		.groupBy(series.id);
+
+	let changed = 0;
+	for (const row of rows) {
+		if (row.owned === 0 || (parkedId !== null && row.statusId === parkedId)) continue;
+		const target = Number(row.settled) >= row.owned ? finishedId : ongoingId;
+		if (row.statusId === target) continue;
+		await db.update(series).set({ statusId: target }).where(eq(series.id, row.id));
+		changed++;
+	}
+	return changed;
+}
+
+/** recomputeSeriesStatuses for every series the books belong to; books with no series are skipped */
+export async function recomputeSeriesStatusesForBooks(bookIds: number[]): Promise<number> {
+	const ids = [...new Set(bookIds.filter((id) => Number.isInteger(id)))];
+	if (ids.length === 0) return 0;
+	const rows = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(inArray(bookSeries.bookId, ids));
+	return recomputeSeriesStatuses(rows.map((r) => r.seriesId));
 }
 
 // ============================================
@@ -231,6 +287,8 @@ export async function applyStatusChange(
 
 		if (isRead && userId !== null) completions.push({ userId, id: row.id, title: row.title, completedDate });
 	}
+
+	if (result.changed.length > 0) await recomputeSeriesStatusesForBooks(result.changed);
 
 	if (opts.notify !== false && completions.length > 0) {
 		// ABS backfills old finishes; only a finish dated today is news

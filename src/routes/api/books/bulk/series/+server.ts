@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, bookSeries } from '$lib/server/db';
 import { eq, and, inArray } from 'drizzle-orm';
+import { recomputeSeriesStatuses } from '$lib/server/services/statusService';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -58,6 +59,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				updated++;
 			}
 		}
+		await recomputeSeriesStatuses([seriesId]);
 
 		return json({
 			success: true,
@@ -75,6 +77,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		}
 
+		await recomputeSeriesStatuses([seriesId]);
+
 		return json({
 			success: true,
 			updated,
@@ -82,6 +86,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 	} else {
 		// Clear all series from books
+		const cleared = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(inArray(bookSeries.bookId, bookIds));
 		for (const bookId of bookIds) {
 			const result = await db
 				.delete(bookSeries)
@@ -90,6 +95,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				updated++;
 			}
 		}
+		await recomputeSeriesStatuses(cleared.map((r) => r.seriesId));
 
 		return json({
 			success: true,

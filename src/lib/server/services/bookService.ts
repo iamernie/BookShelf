@@ -3,6 +3,7 @@ import { eq, like, sql, desc, asc, and, or, inArray, isNull, ne, type SQL } from
 import type { Book, NewBook } from '$lib/server/db/schema';
 import { applyAbsTagParity } from './absService';
 import { carryEbookHashes } from './ebookHashService';
+import { recomputeSeriesStatuses, recomputeSeriesStatusesForBooks } from './statusService';
 
 /** One Audiobookshelf item links to at most one book */
 export class AbsItemAlreadyLinkedError extends Error {
@@ -409,6 +410,8 @@ export async function createBook(data: CreateBookData): Promise<Book> {
 		});
 	}
 
+	await recomputeSeriesStatusesForBooks([newBook.id]);
+
 	return newBook;
 }
 
@@ -455,8 +458,11 @@ export async function updateBook(id: number, data: Partial<CreateBookData>): Pro
 		}
 	}
 
-	// Update series relations if provided
+	// Update series relations if provided; the series it leaves get their status recomputed too
+	const leftSeries: number[] = [];
 	if (bookSeriesList !== undefined) {
+		const old = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(eq(bookSeries.bookId, id));
+		leftSeries.push(...old.map((r) => r.seriesId));
 		await db.delete(bookSeries).where(eq(bookSeries.bookId, id));
 		if (bookSeriesList.length > 0) {
 			await db.insert(bookSeries).values(
@@ -489,11 +495,16 @@ export async function updateBook(id: number, data: Partial<CreateBookData>): Pro
 		}
 	}
 
+	await recomputeSeriesStatuses(leftSeries);
+	await recomputeSeriesStatusesForBooks([id]);
+
 	return updated;
 }
 
 export async function deleteBook(id: number): Promise<boolean> {
 	const [linked] = await db.select({ absItemId: books.absItemId, title: books.title }).from(books).where(eq(books.id, id)).limit(1);
+
+	const memberOf = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(eq(bookSeries.bookId, id));
 
 	// Delete related records first (foreign key constraints)
 	await db.delete(bookAuthors).where(eq(bookAuthors.bookId, id));
@@ -508,6 +519,7 @@ export async function deleteBook(id: number): Promise<boolean> {
 	// Now delete the book
 	const result = await db.delete(books).where(eq(books.id, id));
 	if (result.changes > 0 && linked?.absItemId) await tombstoneAbsItem(linked.absItemId, linked.title);
+	await recomputeSeriesStatuses(memberOf.map((r) => r.seriesId));
 	return result.changes > 0;
 }
 

@@ -1859,6 +1859,36 @@ function runMigrations() {
 		console.error('[db] Failed to backfill series numBooks from Audible:', e);
 	}
 
+	// Series status follows its books (2.27.3), as recomputeSeriesStatuses in statusService: owned
+	// (personal) books all Done/DNF -> Finished, any other -> Ongoing; no owned books or Parked stay
+	// as they are. Every boot, only series whose status differs
+	try {
+		const seriesStatusId = (word: string) => (sqlite.prepare(
+			'SELECT id FROM seriesstatuses WHERE UPPER(key) = UPPER(?) OR LOWER(TRIM(name)) = ? ORDER BY id LIMIT 1'
+		).get(word, word) as { id: number } | undefined)?.id ?? null;
+		const finishedId = seriesStatusId('finished');
+		const ongoingId = seriesStatusId('ongoing');
+		const parkedId = seriesStatusId('parked');
+		let synced = 0;
+		if (finishedId !== null && ongoingId !== null) {
+			const owned = `SELECT COUNT(*) FROM bookseries bs JOIN books b ON b.id = bs.bookId
+				WHERE bs.seriesId = series.id AND b.libraryType = 'personal'`;
+			const unsettled = `${owned} AND (b.statusId IS NULL OR b.statusId NOT IN (SELECT id FROM statuses WHERE key IN ('READ', 'DNF')))`;
+			const target = `CASE WHEN (${unsettled}) > 0 THEN ${ongoingId} ELSE ${finishedId} END`;
+			const notParked = parkedId === null ? '' : `AND statusId IS NOT ${parkedId}`;
+			const where = `(${owned}) > 0 ${notParked} AND statusId IS NOT (${target})`;
+			const stale = sqlite.prepare(`SELECT COUNT(*) as count FROM series WHERE ${where}`).get() as { count: number };
+			if (stale.count > 0) {
+				ensureBackup();
+				synced = sqlite.prepare(`UPDATE series SET statusId = ${target} WHERE ${where}`).run().changes;
+				if (synced > 0) migrationsMade = true;
+			}
+		}
+		console.log(`[db] Synced series status on ${synced} series`);
+	} catch (e) {
+		console.error('[db] Failed to sync series status from its books:', e);
+	}
+
 	// Seed the interval with every column set: setSetting omits createdAt, which an aged
 	// settings table (createdAt NOT NULL, no default) rejects on the first save of a new key
 	try {

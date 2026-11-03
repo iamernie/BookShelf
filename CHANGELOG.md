@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.27.3] - 2026-11-03
+
+### Added
+- Series status now keeps itself up to date: a series turns Ongoing while any of your books in it is unread, and Finished once you've read (or DNF'd) them all. Parked series and series with none of your books are left alone, and a Finished series no longer shows a second "Complete!" chip.
+
 ## [2.27.2] - 2026-11-03
 
 ### Added

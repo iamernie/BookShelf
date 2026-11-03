@@ -38,6 +38,9 @@
 			? Math.min(100, Math.max(0, Math.round((series.readBooks / Math.max(series.numBooks!, series.bookCount)) * 100)))
 			: series.completionPercentage
 	);
+
+	// A stored Finished status already says it; the derived Complete! would only repeat it
+	const storedFinished = $derived(series.statusName?.trim().toLowerCase() === 'finished');
 </script>
 
 <button
@@ -105,10 +108,12 @@
 					{/if}
 				</div>
 			{:else if series.completionPercentage === 100}
-				<div class="card-next complete">
-					<CheckCircle class="w-3 h-3" />
-					<strong>Complete!</strong>
-				</div>
+				{#if !storedFinished}
+					<div class="card-next complete">
+						<CheckCircle class="w-3 h-3" />
+						<strong>Complete!</strong>
+					</div>
+				{/if}
 			{:else if series.nextBook}
 				<div class="card-next" title="Next: {series.nextBook.title}">
 					<span class="label">Next:</span>
