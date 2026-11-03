@@ -17,7 +17,9 @@
 		Tags,
 		Grid,
 		List,
-		SquareCheck
+		SquareCheck,
+		Headphones,
+		RefreshCw
 	} from 'lucide-svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import BookCard from '$lib/components/book/BookCard.svelte';
@@ -27,6 +29,7 @@
 	import BulkTagModal from '$lib/components/bulk/BulkTagModal.svelte';
 	import BulkStatusModal from '$lib/components/bulk/BulkStatusModal.svelte';
 	import BulkDeleteModal from '$lib/components/bulk/BulkDeleteModal.svelte';
+	import AudibleSuggestionRow from '$lib/components/series/AudibleSuggestionRow.svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { selectedBooks, selectedIds } from '$lib/stores/selection';
 
@@ -184,6 +187,29 @@
 			}
 		} finally {
 			savingTag = false;
+		}
+	}
+
+	// Admin: refresh this series from Audible now (runs in the background)
+	let refreshingAudible = $state(false);
+	async function refreshAudible() {
+		refreshingAudible = true;
+		try {
+			const res = await fetch('/api/admin/audible-suggest/refresh', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ seriesId: data.series.id })
+			});
+			const body = await res.json().catch(() => null);
+			if (res.status === 202) {
+				toasts.success('Checking Audible for this series. Reload in a minute to see the result.');
+			} else {
+				toasts.error(body?.message || 'Could not start the Audible check');
+			}
+		} catch {
+			toasts.error('Could not start the Audible check');
+		} finally {
+			refreshingAudible = false;
 		}
 	}
 
@@ -487,10 +513,12 @@
 					</div>
 				{/if}
 
-				<a href="/books?add=true&seriesId={data.series.id}" class="btn-primary">
-					<Plus class="w-4 h-4" />
-					Add Book
-				</a>
+				{#if data.canAddBooks}
+					<a href="/books?add=true&seriesId={data.series.id}" class="btn-primary">
+						<Plus class="w-4 h-4" />
+						Add Book
+					</a>
+				{/if}
 			</div>
 		</div>
 
@@ -534,12 +562,61 @@
 			<div class="empty-state">
 				<BookOpen class="w-12 h-12" />
 				<p>No books in this series yet</p>
-				<a href="/books?add=true&seriesId={data.series.id}" class="btn-primary">
-					Add First Book
-				</a>
+				{#if data.canAddBooks}
+					<a href="/books?add=true&seriesId={data.series.id}" class="btn-primary">
+						Add First Book
+					</a>
+				{/if}
 			</div>
 		{/if}
 	</div>
+
+	<!-- What's next on Audible: books in the series this user doesn't own yet (saved list, no network) -->
+	{#if data.audible}
+		{@const audible = data.audible}
+		<div class="audible-section">
+			<div class="books-header">
+				<h2 class="section-title">
+					<Headphones class="w-5 h-5" />
+					What's next on Audible
+					{#if audible.state === 'ready' && audible.suggestions.length > 0}
+						({audible.suggestions.length})
+					{/if}
+				</h2>
+				{#if data.isAdmin}
+					<button type="button" class="btn-secondary" onclick={refreshAudible} disabled={refreshingAudible} title="Check Audible for this series now">
+						<RefreshCw class="w-4 h-4" />
+						Refresh
+					</button>
+				{/if}
+			</div>
+			{#if audible.state === 'ready'}
+				{#if audible.audibleSeriesTitle || audible.ownedThrough !== null}
+					<p class="audible-meta">
+						{#if audible.audibleSeriesTitle}On Audible as <em>{audible.audibleSeriesTitle}</em>{/if}{#if audible.audibleSeriesTitle && audible.ownedThrough !== null} · {/if}{#if audible.ownedThrough !== null}you own through #{audible.ownedThrough}{/if}
+					</p>
+				{/if}
+				{#if audible.lastRefreshFailed}
+					<p class="audible-meta warn">The last check couldn't refresh this list; showing the saved copy.</p>
+				{/if}
+				{#if audible.suggestions.length > 0}
+					<div class="suggestion-list">
+						{#each audible.suggestions as suggestion (suggestion.asin)}
+							<AudibleSuggestionRow {suggestion} seriesId={data.series.id} canAdd={data.canAddBooks} />
+						{/each}
+					</div>
+				{:else}
+					<p class="audible-empty">All caught up — you own every book Audible lists.</p>
+				{/if}
+			{:else if audible.state === 'unchecked'}
+				<p class="audible-empty">No Audible data yet.</p>
+			{:else if audible.state === 'no_match'}
+				<p class="audible-empty">No Audible data for this series.</p>
+			{:else}
+				<p class="audible-empty">Couldn't reach Audible on the last check.</p>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <!-- Bulk Action Bar -->
@@ -1190,6 +1267,37 @@
 
 	.books-list > :global(*:not(:last-child)) {
 		border-bottom: 1px solid var(--border-color);
+	}
+
+	/* What's next on Audible */
+	.audible-section {
+		margin-top: 2rem;
+	}
+
+	.suggestion-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.audible-meta {
+		margin: 0 0 0.75rem;
+		font-size: 0.8rem;
+		color: var(--text-muted);
+	}
+
+	.audible-meta.warn {
+		color: var(--warning, #b58105);
+	}
+
+	.audible-empty {
+		margin: 0;
+		padding: 1rem;
+		font-size: 0.875rem;
+		color: var(--text-muted);
+		border: 1px dashed var(--border-color);
+		border-radius: 0.5rem;
+		text-align: center;
 	}
 
 	/* Empty State */

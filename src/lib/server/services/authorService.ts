@@ -446,6 +446,22 @@ export async function createAuthor(data: NewAuthor): Promise<Author> {
 	return newAuthor;
 }
 
+/**
+ * Author id for a name, matched by the duplicate name key so 'J.N. Chaney' reuses 'J. N. Chaney'
+ * (lowest id wins, like the Audiobookshelf create path); creates the author when none matches.
+ * Empty name returns null.
+ */
+export async function findOrCreateAuthorByName(name: string): Promise<number | null> {
+	const trimmed = name.trim();
+	const key = duplicateNameKey(trimmed);
+	if (!key) return null;
+	const rows = await db.select({ id: authors.id, name: authors.name }).from(authors).orderBy(asc(authors.id));
+	const existing = rows.find((r) => duplicateNameKey(r.name ?? '') === key);
+	if (existing) return existing.id;
+	const created = await createAuthor({ name: trimmed });
+	return created.id;
+}
+
 export async function updateAuthor(id: number, data: Partial<NewAuthor>): Promise<Author | null> {
 	const now = new Date().toISOString();
 	const [updated] = await db

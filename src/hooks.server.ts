@@ -7,6 +7,7 @@ import { createLogger, logRequest, logError } from '$lib/server/services/loggerS
 import { checkSetupNeeded } from '$lib/server/services/setupService';
 import { migrationStatus } from '$lib/server/db';
 import { startAbsSyncScheduler } from '$lib/server/services/absSyncService';
+import { startAudibleSuggestScheduler } from '$lib/server/services/audibleSuggestService';
 
 const log = createLogger('hooks');
 
@@ -16,6 +17,11 @@ export const init: ServerInit = () => {
 		startAbsSyncScheduler();
 	} catch (e) {
 		log.error('Failed to start Audiobookshelf sync scheduler', { error: e instanceof Error ? e.message : String(e) });
+	}
+	try {
+		startAudibleSuggestScheduler();
+	} catch (e) {
+		log.error('Failed to start Audible series refresh scheduler', { error: e instanceof Error ? e.message : String(e) });
 	}
 };
 

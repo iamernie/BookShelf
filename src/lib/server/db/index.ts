@@ -311,6 +311,7 @@ function runMigrations() {
 		'Creating API tokens table',
 		'Creating widget instances table',
 		'Creating Audiobookshelf sync tables',
+		'Creating Audible series suggestion tables',
 		'Finalizing'
 	];
 
@@ -1774,6 +1775,86 @@ function runMigrations() {
 	}
 
 	completeStep('Creating Audiobookshelf sync tables');
+
+	// ========== Audible series suggestions (2.27.0) ==========
+	updateStatus('Creating Audible series suggestion tables...');
+
+	if (tableExists('series')) {
+		safeAddColumn('series', 'audibleAsin', 'TEXT');
+		safeAddColumn('series', 'audibleSeriesTitle', 'TEXT');
+		safeAddColumn('series', 'audibleStatus', 'TEXT');
+		safeAddColumn('series', 'audibleCheckedAt', 'TEXT');
+		safeAddColumn('series', 'audibleRefreshedAt', 'TEXT');
+		safeAddColumn('series', 'audibleRefreshError', 'TEXT');
+	}
+
+	safeCreateTable('audible_series_books', `
+		CREATE TABLE audible_series_books (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			seriesId INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+			asin TEXT NOT NULL,
+			sequence REAL,
+			sequenceRaw TEXT,
+			title TEXT NOT NULL,
+			subtitle TEXT,
+			authors TEXT NOT NULL,
+			narrators TEXT NOT NULL,
+			runtimeMin INTEGER,
+			coverUrl TEXT,
+			releaseDate TEXT,
+			fetchedAt TEXT NOT NULL
+		)
+	`);
+
+	safeCreateTable('audible_refresh_runs', `
+		CREATE TABLE audible_refresh_runs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			triggerType TEXT NOT NULL CHECK (triggerType IN ('manual','scheduled')),
+			status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','succeeded','partial','failed','abandoned')),
+			triggeredBy INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			scopeSeriesId INTEGER,
+			startedAt TEXT NOT NULL,
+			finishedAt TEXT,
+			durationMs INTEGER,
+			seriesChecked INTEGER NOT NULL DEFAULT 0,
+			seriesMatched INTEGER NOT NULL DEFAULT 0,
+			seriesNoMatch INTEGER NOT NULL DEFAULT 0,
+			seriesFailed INTEGER NOT NULL DEFAULT 0,
+			productsCached INTEGER NOT NULL DEFAULT 0,
+			requests INTEGER NOT NULL DEFAULT 0,
+			details TEXT,
+			error TEXT
+		)
+	`);
+
+	// Separate statements: safeCreateTable skips its whole SQL once the table exists
+	try {
+		sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_audible_series_books_series_asin ON audible_series_books(seriesId, asin)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS idx_audible_series_books_asin ON audible_series_books(asin)');
+		// The cross-request / cross-restart lock: at most one running row
+		sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS audible_refresh_runs_single_running ON audible_refresh_runs(status) WHERE status = 'running'");
+		sqlite.exec('CREATE INDEX IF NOT EXISTS audible_refresh_runs_started ON audible_refresh_runs(startedAt)');
+	} catch (e) {
+		console.error('[db] Failed to create Audible series suggestion indexes:', e);
+	}
+
+	// Seed the interval with every column set: setSetting omits createdAt, which an aged
+	// settings table (createdAt NOT NULL, no default) rejects on the first save of a new key
+	try {
+		const seeded = sqlite.prepare(
+			`INSERT OR IGNORE INTO settings (key, value, type, category, label, description, isSystem, createdAt, updatedAt)
+			 VALUES ('integration.audible_suggest_interval_minutes', '0', 'number', 'integrations', ?, ?, 0, datetime('now'), datetime('now'))`
+		).run(
+			'Audible Series Check Interval',
+			// Same text as DEFAULT_SETTINGS in settingsService (this module can't import it)
+			'Minutes between scheduled Audible series checks: 0 (off, Refresh Now only), 360, 720, 1440 or 10080. Uses audible.com only'
+		);
+		if (seeded.changes > 0) migrationsMade = true;
+	} catch (e) {
+		console.error('[db] Failed to seed the Audible series check interval:', e);
+	}
+
+	completeStep('Creating Audible series suggestion tables');
 
 	// ========== Migrate owned books to user_books table ==========
 	// For users who own books (via ownerId), ensure those books appear in their personal library (user_books)

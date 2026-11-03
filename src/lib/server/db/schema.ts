@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // ============================================
 // Core Tables
@@ -88,6 +88,14 @@ export const series = sqliteTable('series', {
 	comments: text('comments'),
 	statusId: integer('statusId').references(() => seriesStatuses.id),
 	genreId: integer('genreId').references(() => genres.id),
+	// Audible series suggestions (2.27.0). audibleStatus describes the match only:
+	// matched | no_match | failed (the title+author search could not be completed); NULL = never checked
+	audibleAsin: text('audibleAsin'),
+	audibleSeriesTitle: text('audibleSeriesTitle'),
+	audibleStatus: text('audibleStatus'),
+	audibleCheckedAt: text('audibleCheckedAt'), // last attempt of either pass (match or book list)
+	audibleRefreshedAt: text('audibleRefreshedAt'), // last book list fetched in full
+	audibleRefreshError: text('audibleRefreshError'), // why the last book list refresh failed; NULL after a good one
 	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
 	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
 });
@@ -799,6 +807,61 @@ export const absSyncAttention = sqliteTable('abs_sync_attention', {
 });
 
 // ============================================
+// Audible series suggestions (2.27.0)
+// ============================================
+
+// Saved copy of the books Audible lists in a matched series; read by the series page, never fetched on load
+export const audibleSeriesBooks = sqliteTable(
+	'audible_series_books',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		seriesId: integer('seriesId').notNull().references(() => series.id, { onDelete: 'cascade' }),
+		asin: text('asin').notNull(), // normalized (trimmed, upper case)
+		sequence: real('sequence'), // parsed start; NULL when unnumbered
+		sequenceRaw: text('sequenceRaw'), // as Audible sent it, e.g. "1-10"
+		title: text('title').notNull(),
+		subtitle: text('subtitle'),
+		authors: text('authors').notNull(), // JSON string[]
+		narrators: text('narrators').notNull(), // JSON string[]
+		runtimeMin: integer('runtimeMin'),
+		coverUrl: text('coverUrl'), // remote, hotlinked
+		releaseDate: text('releaseDate'),
+		fetchedAt: text('fetchedAt').notNull()
+	},
+	(table) => [
+		uniqueIndex('idx_audible_series_books_series_asin').on(table.seriesId, table.asin),
+		index('idx_audible_series_books_asin').on(table.asin)
+	]
+);
+
+// One row per refresh run; the partial unique index on status='running' is the cross-request lock
+export const audibleRefreshRuns = sqliteTable(
+	'audible_refresh_runs',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		triggerType: text('triggerType').notNull(), // manual | scheduled
+		status: text('status').notNull().default('running'), // running | succeeded | partial | failed | abandoned
+		triggeredBy: integer('triggeredBy').references(() => users.id, { onDelete: 'set null' }),
+		scopeSeriesId: integer('scopeSeriesId'), // single-series refresh; never anchors the schedule or counts in the failure streak
+		startedAt: text('startedAt').notNull(),
+		finishedAt: text('finishedAt'),
+		durationMs: integer('durationMs'),
+		seriesChecked: integer('seriesChecked').notNull().default(0),
+		seriesMatched: integer('seriesMatched').notNull().default(0),
+		seriesNoMatch: integer('seriesNoMatch').notNull().default(0),
+		seriesFailed: integer('seriesFailed').notNull().default(0),
+		productsCached: integer('productsCached').notNull().default(0),
+		requests: integer('requests').notNull().default(0),
+		details: text('details'), // JSON {series:[...], budgetExhausted}, null when empty
+		error: text('error')
+	},
+	(table) => [
+		uniqueIndex('audible_refresh_runs_single_running').on(table.status).where(sql`${table.status} = 'running'`),
+		index('audible_refresh_runs_started').on(table.startedAt)
+	]
+);
+
+// ============================================
 // KOReader Sync Tables
 // ============================================
 
@@ -1011,6 +1074,10 @@ export type NewWidgetInstance = typeof widgetInstances.$inferInsert;
 // Audiobookshelf sync types
 export type AbsSyncRun = typeof absSyncRuns.$inferSelect;
 export type AbsSyncAttention = typeof absSyncAttention.$inferSelect;
+
+// Audible series suggestion types
+export type AudibleSeriesBook = typeof audibleSeriesBooks.$inferSelect;
+export type AudibleRefreshRun = typeof audibleRefreshRuns.$inferSelect;
 
 // Library type values
 export type LibraryType = 'personal' | 'public';

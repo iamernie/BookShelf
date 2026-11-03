@@ -9,7 +9,7 @@
 	import ViewToggle from '$lib/components/ui/ViewToggle.svelte';
 	import PageSizeSelect from '$lib/components/ui/PageSizeSelect.svelte';
 	import SeriesModal from '$lib/components/series/SeriesModal.svelte';
-	import { Search, Plus, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { Search, Plus, ChevronLeft, ChevronRight, Headphones } from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import type { Series } from '$lib/server/db/schema';
 	import { BROWSE_SURFACES, applySort, nextSort, saveBrowsePrefs, type BrowseView, type SortOrder } from '$lib/utils/browse';
@@ -117,6 +117,11 @@
 					class="search-input"
 				/>
 			</form>
+
+			<a href="/series/next-up" class="btn-secondary" title="The next book on Audible for each series you're reading">
+				<Headphones class="w-4 h-4" />
+				Next Up
+			</a>
 
 			<!-- Add button -->
 			<button
@@ -285,6 +290,23 @@
 
 	.btn-primary:hover {
 		opacity: 0.9;
+	}
+
+	.btn-secondary {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		background-color: var(--bg-secondary);
+		color: var(--text-primary);
+		border: 1px solid var(--border-color);
+		border-radius: 0.5rem;
+		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	.btn-secondary:hover {
+		background-color: var(--bg-hover);
 	}
 
 	.browse-toolbar {

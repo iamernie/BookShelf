@@ -20,7 +20,7 @@ import {
 const AUDIBLE_API_URL = 'https://api.audible.com/1.0/catalog/products';
 
 // Browser-like user agent to avoid being blocked
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0';
+export const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0';
 
 // Simple in-memory cache (15 min TTL)
 const cache = new Map<string, { data: unknown; timestamp: number }>();
@@ -35,7 +35,7 @@ interface AudibleNarrator {
 	name: string;
 }
 
-interface AudibleSeries {
+export interface AudibleSeries {
 	asin?: string;
 	title: string;
 	sequence?: string;
@@ -54,7 +54,7 @@ interface AudibleRating {
 	};
 }
 
-interface AudibleProduct {
+export interface AudibleProduct {
 	asin: string;
 	title: string;
 	subtitle?: string;

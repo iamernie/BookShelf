@@ -61,3 +61,21 @@ export interface BookSeriesData {
 	bookNumEnd?: number | null;
 	isPrimary?: boolean;
 }
+
+/** A book Audible lists in a series that the user doesn't own yet (2.27.0) */
+export interface AudibleSuggestion {
+	asin: string;
+	title: string;
+	subtitle: string | null;
+	sequence: number | null;
+	/** As Audible numbers it ("3.5", "1-10"); null when unnumbered */
+	sequenceLabel: string | null;
+	/** An omnibus range: listed, but never "next" and never a gap */
+	isRange: boolean;
+	authors: string[];
+	narrators: string[];
+	runtimeMin: number | null;
+	coverUrl: string | null;
+	releaseDate: string | null;
+	audibleUrl: string;
+}

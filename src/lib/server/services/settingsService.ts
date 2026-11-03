@@ -400,6 +400,13 @@ export const DEFAULT_SETTINGS = {
 		category: 'integrations',
 		label: 'Audiobookshelf Schedule Anchor',
 		description: 'Last sync time carried over from before 2.23.0; seeds the first scheduled run (managed automatically)'
+	},
+	'integration.audible_suggest_interval_minutes': {
+		value: '0',
+		type: 'number',
+		category: 'integrations',
+		label: 'Audible Series Check Interval',
+		description: 'Minutes between scheduled Audible series checks: 0 (off, Refresh Now only), 360, 720, 1440 or 10080. Uses audible.com only'
 	}
 } as const;
 
@@ -414,6 +421,9 @@ export type SettingKey = keyof typeof DEFAULT_SETTINGS;
 // Allowed Audiobookshelf sync intervals in minutes (0 = off, Sync Now only)
 export const ABS_SYNC_INTERVALS = [0, 15, 30, 60, 360, 720, 1440] as const;
 
+// Allowed Audible series check intervals in minutes (0 = off, Refresh Now only; then 6 h, 12 h, daily, weekly)
+export const AUDIBLE_SUGGEST_INTERVALS = [0, 360, 720, 1440, 10080] as const;
+
 /**
  * Validate setting values that have a fixed shape before they are saved.
  * Returns an error message, or null when everything is acceptable.
@@ -422,6 +432,11 @@ export async function validateSettingValues(values: Partial<Record<SettingKey, s
 	const interval = values['integration.abs_sync_interval_minutes'];
 	if (interval !== undefined && !(ABS_SYNC_INTERVALS as readonly number[]).includes(Number(interval))) {
 		return `Audiobookshelf sync interval must be one of ${ABS_SYNC_INTERVALS.join(', ')} minutes`;
+	}
+
+	const audibleInterval = values['integration.audible_suggest_interval_minutes'];
+	if (audibleInterval !== undefined && !(AUDIBLE_SUGGEST_INTERVALS as readonly number[]).includes(Number(audibleInterval))) {
+		return `Audible series check interval must be one of ${AUDIBLE_SUGGEST_INTERVALS.join(', ')} minutes`;
 	}
 
 	const owner = values['integration.abs_owner_user_id'];

@@ -386,10 +386,15 @@
 											<Hash class="w-5 h-5" style="color: var(--accent);" />
 											Up Next in Series
 										</h2>
-										<a href="/series" class="text-sm flex items-center gap-1 hover:underline" style="color: var(--accent);">
-											All series
-											<ChevronRight class="w-4 h-4" />
-										</a>
+										<div class="flex items-center gap-3">
+											<a href="/series/next-up" class="text-sm flex items-center gap-1 hover:underline" style="color: var(--accent);">
+												Next on Audible
+											</a>
+											<a href="/series" class="text-sm flex items-center gap-1 hover:underline" style="color: var(--accent);">
+												All series
+												<ChevronRight class="w-4 h-4" />
+											</a>
+										</div>
 									</div>
 									<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
 										{#each data.upNextInSeries.slice(0, 3) as item}
@@ -457,10 +462,15 @@
 							<Hash class="w-5 h-5" style="color: var(--accent);" />
 							Up Next in Series
 						</h2>
-						<a href="/series" class="text-sm flex items-center gap-1 hover:underline" style="color: var(--accent);">
-							All series
-							<ChevronRight class="w-4 h-4" />
-						</a>
+						<div class="flex items-center gap-3">
+							<a href="/series/next-up" class="text-sm flex items-center gap-1 hover:underline" style="color: var(--accent);">
+								Next on Audible
+							</a>
+							<a href="/series" class="text-sm flex items-center gap-1 hover:underline" style="color: var(--accent);">
+								All series
+								<ChevronRight class="w-4 h-4" />
+							</a>
+						</div>
 					</div>
 					<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
 						{#each data.upNextInSeries.slice(0, 6) as item}

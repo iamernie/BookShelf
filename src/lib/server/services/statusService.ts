@@ -109,7 +109,7 @@ export async function getDefaultOwnerId(): Promise<number | null> {
 // Status changes: the one place a book's status moves
 // ============================================
 
-export type StatusChangeSource = 'book_edit' | 'bulk' | 'abs_sync' | 'api_v1';
+export type StatusChangeSource = 'book_edit' | 'bulk' | 'abs_sync' | 'api_v1' | 'series_suggestion';
 
 export interface ApplyStatusChangeOptions {
 	source: StatusChangeSource;

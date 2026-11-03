@@ -15,7 +15,10 @@ function getUserLibraryCondition(userId: number | undefined, bookTableAlias: str
 	return sql.raw(`(${bookTableAlias}.libraryType = 'personal' OR ${bookTableAlias}.id IN (SELECT bookId FROM user_books WHERE userId = ${userId}))`);
 }
 
-export interface SeriesCardData extends Series {
+// The Audible suggestion columns (2.27.0) are server bookkeeping, not card data
+type SeriesAudibleColumns = 'audibleAsin' | 'audibleSeriesTitle' | 'audibleStatus' | 'audibleCheckedAt' | 'audibleRefreshedAt' | 'audibleRefreshError';
+
+export interface SeriesCardData extends Omit<Series, SeriesAudibleColumns> {
 	bookCount: number;
 	readBooks: number;
 	completionPercentage: number;

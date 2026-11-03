@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.27.0] - 2026-11-02
+
+### Added
+- Series pages now show "What's next on Audible": every book in the series you don't have yet, in series order, including gaps, with the book number, narrator, runtime and a link to Audible. Tap + to add one with its title, authors, narrator, ASIN, book number, runtime and release date filled in, and its status set to Next (or Wishlist, if your library has that status). Adding a book you already have gives you the one you already have. Books someone else owns privately don't count as yours.
+- New Next Up page (Series → Next Up, or from Up Next in Series on the dashboard): one line per series you're reading, with the highest book you own and the next one on Audible.
+- Admin → Settings → Integrations: Audible series check with Refresh Now and a schedule (Off, every 6 or 12 hours, daily, weekly; Off by default). Suggestions come from a saved copy refreshed in the background, never on page load, and a cover is only downloaded when you add the book. Uses audible.com. Each check covers up to 25 series, so a large library fills in over several runs; series you're reading go first.
+
+### Fixed
+- Adding a narrator by name (for example through the API) now reuses an existing narrator whose name differs only by case, punctuation or spacing, such as "R.C. Bray" and "R. C. Bray", instead of creating a duplicate.
+- Viewers and guests no longer see Add Book on series pages.
+
 ## [2.26.0] - 2026-11-02
 
 ### Added

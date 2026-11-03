@@ -114,6 +114,59 @@
 		{ value: '1440', label: 'Every 24 hours' }
 	];
 
+	// Audible series suggestions
+	let audibleSuggest = $state(data.audibleSuggest);
+	let startingAudible = $state(false);
+	let audibleRefreshResult = $state<{ success: boolean; message: string } | null>(null);
+	const audibleRunning = $derived(startingAudible || !!audibleSuggest.running);
+	const audibleIntervalOptions = [
+		{ value: '0', label: 'Off (Refresh Now only)' },
+		{ value: '360', label: 'Every 6 hours' },
+		{ value: '720', label: 'Every 12 hours' },
+		{ value: '1440', label: 'Daily' },
+		{ value: '10080', label: 'Weekly' }
+	];
+	const audibleNextRunLabel = $derived.by(() => {
+		if (!audibleSuggest.enabled) return 'Not scheduled (Audible metadata is off)';
+		if (audibleSuggest.schedule.nextRunAt === null) return 'Not scheduled (Refresh Now only)';
+		const next = new Date(audibleSuggest.schedule.nextRunAt);
+		if (next.getTime() <= Date.now()) return 'Due now (within a minute)';
+		return `≈ ${next.toLocaleString()}`;
+	});
+
+	async function loadAudibleSuggest() {
+		try {
+			const res = await fetch('/api/admin/audible-suggest');
+			if (res.ok) audibleSuggest = await res.json();
+		} catch {
+			// Keep the last known state
+		}
+	}
+
+	async function runAudibleRefreshNow() {
+		startingAudible = true;
+		audibleRefreshResult = null;
+		try {
+			const res = await fetch('/api/admin/audible-suggest/refresh', { method: 'POST' });
+			const result = await res.json();
+			audibleRefreshResult = res.status === 202
+				? { success: true, message: `Refresh #${result.runId} started` }
+				: { success: false, message: result.message || 'Refresh failed to start' };
+		} catch {
+			audibleRefreshResult = { success: false, message: 'Failed to start the refresh' };
+		} finally {
+			startingAudible = false;
+			await loadAudibleSuggest();
+		}
+	}
+
+	// Poll while a run is in flight
+	$effect(() => {
+		if (!audibleSuggest.running) return;
+		const timer = setInterval(loadAudibleSuggest, 5000);
+		return () => clearInterval(timer);
+	});
+
 	// Audiobookshelf manual linking
 	let absLinkStats = $state<{ linkedCount: number; unlinkedCount: number; unlinked: { id: number; title: string; author: string | null }[] } | null>(null);
 	let absLinkStatsError = $state('');
@@ -1332,6 +1385,94 @@
 					{#if absSyncResult}
 						<p class="mt-2 text-sm" style="color: {absSyncResult.success ? '#22c55e' : '#ef4444'};">
 							{absSyncResult.message}
+						</p>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Audible series suggestions -->
+			<div class="rounded-xl overflow-hidden" style="background: var(--bg-secondary);">
+				<div class="p-4 border-b flex items-center gap-3" style="border-color: var(--border-color);">
+					<div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--bg-tertiary);">
+						<Headphones class="w-5 h-5" style="color: var(--accent);" />
+					</div>
+					<div>
+						<h2 class="text-lg font-semibold" style="color: var(--text-primary);">Audible series suggestions</h2>
+						<p class="text-sm" style="color: var(--text-muted);">Series pages list the books Audible has that you don't, from a saved copy checked in the background (audible.com only). Pages never call Audible.</p>
+					</div>
+				</div>
+				<div class="divide-y" style="border-color: var(--border-color);">
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label for="integration.audible_suggest_interval_minutes" class="font-medium" style="color: var(--text-primary);">Check schedule</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">How often BookShelf checks Audible by itself. Each run checks up to 25 series, the least recently checked first, so a large library fills in over several runs. Takes effect without a restart.</p>
+						</div>
+						<div class="w-72">
+							<select
+								id="integration.audible_suggest_interval_minutes"
+								value={editedSettings['integration.audible_suggest_interval_minutes'] ?? '0'}
+								onchange={(e) => updateSetting('integration.audible_suggest_interval_minutes', (e.target as HTMLSelectElement).value)}
+								disabled={!data.isAdmin}
+								class="w-full px-3 py-2 rounded-lg text-sm"
+								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							>
+								{#each audibleIntervalOptions as option (option.value)}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="p-4 border-t" style="border-color: var(--border-color);">
+					<div class="flex flex-wrap gap-3 items-center">
+						<button
+							type="button"
+							class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+							style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							onclick={runAudibleRefreshNow}
+							disabled={audibleRunning || !data.isAdmin}
+						>
+							{#if audibleRunning}
+								<Loader2 class="w-4 h-4 animate-spin" />
+								Checking...
+							{:else}
+								<RefreshCw class="w-4 h-4" />
+								Refresh Now
+							{/if}
+						</button>
+						<span class="text-sm" style="color: var(--text-muted);">
+							{audibleSuggest.counts.withList} of {audibleSuggest.counts.series} series have an Audible list · {audibleSuggest.counts.noMatch} not on Audible · {audibleSuggest.counts.unchecked} not checked yet
+						</span>
+					</div>
+					<dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+						<dt style="color: var(--text-muted);">Last run</dt>
+						<dd>
+							{#if audibleSuggest.running}
+								<span class="flex items-center gap-1.5" style="color: var(--text-primary);">
+									<Loader2 class="w-4 h-4 animate-spin shrink-0" />
+									Running #{audibleSuggest.running.id} since {new Date(audibleSuggest.running.startedAt).toLocaleTimeString()}
+								</span>
+							{:else if !audibleSuggest.lastRun}
+								<span style="color: var(--text-muted);">No run recorded yet</span>
+							{:else}
+								{@const run = audibleSuggest.lastRun}
+								<span class="flex items-start gap-1.5" style="color: {run.status === 'succeeded' ? '#22c55e' : run.status === 'partial' ? '#f59e0b' : '#ef4444'};">
+									{#if run.status === 'succeeded'}<Check class="w-4 h-4 mt-0.5 shrink-0" />{:else}<AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />{/if}
+									<span>
+										#{run.id} {run.scopeSeriesId !== null ? 'one series' : run.triggerType} {run.status} {new Date(run.startedAt).toLocaleString()}{#if run.error}: {run.error}{/if}
+										<span style="color: var(--text-muted);">
+											· {run.seriesChecked} checked · {run.seriesMatched} listed · {run.seriesNoMatch} not on Audible · {run.seriesFailed} failed · {run.requests} requests{#if run.details?.budgetExhausted} · request limit reached, the rest wait for the next run{/if}{#if run.durationMs !== null} · {formatSyncDuration(run.durationMs)}{/if}
+										</span>
+									</span>
+								</span>
+							{/if}
+						</dd>
+						<dt style="color: var(--text-muted);">Next scheduled run</dt>
+						<dd style="color: var(--text-primary);">{audibleNextRunLabel}</dd>
+					</dl>
+					{#if audibleRefreshResult}
+						<p class="mt-2 text-sm" style="color: {audibleRefreshResult.success ? '#22c55e' : '#ef4444'};">
+							{audibleRefreshResult.message}
 						</p>
 					{/if}
 				</div>

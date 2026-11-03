@@ -6,6 +6,8 @@ import { getAllNarrators } from '$lib/server/services/narratorService';
 import { getAllFormats } from '$lib/server/services/formatService';
 import { getAllGenres } from '$lib/server/services/genreService';
 import { getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
+import { getSeriesSuggestions } from '$lib/server/services/audibleSuggestService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { db, seriesTags, tags } from '$lib/server/db';
 import { eq, asc } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
@@ -18,7 +20,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const userId = locals.user?.id;
 
-	const [result, allTags, allStatuses, authors, narrators, allSeries, formats, genres] = await Promise.all([
+	const [result, allTags, allStatuses, authors, narrators, allSeries, formats, genres, audible] = await Promise.all([
 		getSeriesWithBooks(id, userId),
 		getAllTags(),
 		getAllStatuses(),
@@ -26,7 +28,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		getAllNarrators(),
 		getAllSeries(),
 		getAllFormats(),
-		getAllGenres()
+		getAllGenres(),
+		// Saved Audible list only: never calls Audible on page load
+		userId ? getSeriesSuggestions(id, userId) : Promise.resolve(null)
 	]);
 
 	if (!result) {
@@ -51,6 +55,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		stats: result.stats,
 		tags: seriesTagsList,
 		allTags,
+		audible,
+		canAddBooks: hasPermission(locals.user ?? null, Permission.ADD_BOOKS),
+		isAdmin: locals.user?.role === 'admin',
 		options: {
 			tags: allTags,
 			statuses: allStatuses,

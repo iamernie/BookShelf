@@ -4,6 +4,7 @@ import { getAISettings } from '$lib/server/services/recommendationService';
 import { getEmailConfigStatus } from '$lib/server/services/emailService';
 import { getStatuses } from '$lib/server/services/statusService';
 import { getSyncOverview } from '$lib/server/services/absSyncService';
+import { getRefreshOverview } from '$lib/server/services/audibleSuggestService';
 import { db, users } from '$lib/server/db';
 import { asc, inArray } from 'drizzle-orm';
 
@@ -44,6 +45,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		settings: grouped,
 		absStatus,
+		audibleSuggest: await getRefreshOverview(),
 		aiSettings,
 		emailStatus,
 		statuses,

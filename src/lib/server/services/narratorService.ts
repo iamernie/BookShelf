@@ -282,12 +282,13 @@ export async function createNarrator(data: CreateNarratorData): Promise<Narrator
 	return newNarrator;
 }
 
-// Case-insensitive lookup by name; creates the narrator if missing. Empty name returns null.
+// Lookup by the duplicate name key ('R.C. Bray' reuses 'R. C. Bray', lowest id wins); creates the narrator if missing. Empty name returns null.
 export async function findOrCreateNarratorByName(name: string): Promise<number | null> {
 	const trimmed = name.trim();
-	if (!trimmed) return null;
-	const [existing] = await db.select({ id: narrators.id }).from(narrators)
-		.where(sql`LOWER(${narrators.name}) = LOWER(${trimmed})`).limit(1);
+	const key = duplicateNameKey(trimmed);
+	if (!key) return null;
+	const rows = await db.select({ id: narrators.id, name: narrators.name }).from(narrators).orderBy(asc(narrators.id));
+	const existing = rows.find((r) => duplicateNameKey(r.name ?? '') === key);
 	if (existing) return existing.id;
 	const created = await createNarrator({ name: trimmed });
 	return created.id;
