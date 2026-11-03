@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.27.1] - 2026-11-03
+
+### Added
+- Next Up now lists the earlier books in each series you're missing, under "+N earlier books you're missing", each with its own +. The list is open when there are one or two, and collapsed when there are more.
+- Series pages show the Audible book count, first-release year and total listening time under "What's next on Audible", for example "7 books · first released 2018 · 70h total".
+
+### Changed
+- Number of Books is now filled in from Audible for series matched to Audible, and replaced on every full Audible check and on every restart. A number you type yourself is kept only on series Audible hasn't matched or hasn't listed any books for. A backup is taken before a restart changes it.
+- When Audible lists the same book number more than once (a dramatized adaptation, an international edition or a not-yet-released placeholder), only one listing is kept: the one with a real runtime and release date, then not dramatized or abridged, then the longest. The next full check removes the extra listings already saved.
+
+### Fixed
+- Changing status or rating from a book card on the dashboard and the Books page now saves. Before, nothing happened.
+- If that change fails, you now see the error instead of nothing.
+- Next Up's count of earlier books no longer counts the book it already shows as next.
+
 ## [2.27.0] - 2026-11-02
 
 ### Added

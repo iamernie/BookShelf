@@ -596,6 +596,17 @@
 						{#if audible.audibleSeriesTitle}On Audible as <em>{audible.audibleSeriesTitle}</em>{/if}{#if audible.audibleSeriesTitle && audible.ownedThrough !== null} · {/if}{#if audible.ownedThrough !== null}you own through #{audible.ownedThrough}{/if}
 					</p>
 				{/if}
+				{#if audible.seriesInfo}
+					{@const info = audible.seriesInfo}
+					{@const parts = [
+						info.bookCount !== null ? `${info.bookCount} ${info.bookCount === 1 ? 'book' : 'books'}` : null,
+						info.firstReleaseYear !== null ? `first released ${info.firstReleaseYear}` : null,
+						info.totalRuntimeMin !== null ? (info.totalRuntimeMin < 60 ? `${info.totalRuntimeMin}m total` : `${Math.round(info.totalRuntimeMin / 60)}h total`) : null
+					].filter(Boolean)}
+					{#if parts.length > 0}
+						<p class="audible-meta">{parts.join(' · ')}</p>
+					{/if}
+				{/if}
 				{#if audible.lastRefreshFailed}
 					<p class="audible-meta warn">The last check couldn't refresh this list; showing the saved copy.</p>
 				{/if}

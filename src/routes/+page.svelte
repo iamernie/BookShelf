@@ -88,18 +88,28 @@
 		goto(`/books/${book.id}`);
 	}
 
-	async function handleQuickEdit(bookId: number, field: string, value: any) {
-		const res = await fetch(`/api/books/${bookId}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ [field]: value })
-		});
-		if (res.ok) {
-			toasts.success(`Updated ${field === 'statusId' ? 'status' : field}`);
-			invalidateAll();
-		} else {
-			const err = await res.json();
-			toasts.error(err.message || `Failed to update ${field}`);
+	async function handleQuickEdit(bookId: number, field: string, value: unknown) {
+		const label = field === 'statusId' ? 'status' : field;
+		try {
+			const res = await fetch(`/api/books/${bookId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ [field]: value })
+			});
+			if (res.ok) {
+				toasts.success(`Updated ${label}`);
+				invalidateAll();
+				return;
+			}
+			let message: string | null = null;
+			try {
+				message = ((await res.json()) as { message?: string } | null)?.message ?? null;
+			} catch {
+				// non-JSON error body
+			}
+			toasts.error(message || `Failed to update ${label} (HTTP ${res.status})`);
+		} catch {
+			toasts.error(`Failed to update ${label}`);
 		}
 	}
 

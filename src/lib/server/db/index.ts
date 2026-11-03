@@ -1838,6 +1838,27 @@ function runMigrations() {
 		console.error('[db] Failed to create Audible series suggestion indexes:', e);
 	}
 
+	// Number of Books follows the saved Audible list (2.27.1). Every boot, only series whose count
+	// differs; series with an ASIN but no saved rows keep their own number
+	try {
+		const where = `audibleAsin IS NOT NULL
+			AND EXISTS (SELECT 1 FROM audible_series_books a WHERE a.seriesId = series.id)
+			AND numBooks IS NOT (SELECT COUNT(*) FROM audible_series_books a WHERE a.seriesId = series.id)`;
+		const stale = sqlite.prepare(`SELECT COUNT(*) as count FROM series WHERE ${where}`).get() as { count: number };
+		if (stale.count > 0) {
+			ensureBackup();
+			const result = sqlite.prepare(
+				`UPDATE series SET numBooks = (SELECT COUNT(*) FROM audible_series_books a WHERE a.seriesId = series.id) WHERE ${where}`
+			).run();
+			if (result.changes > 0) {
+				console.log(`[db] Backfilled Number of Books from Audible on ${result.changes} series`);
+				migrationsMade = true;
+			}
+		}
+	} catch (e) {
+		console.error('[db] Failed to backfill series numBooks from Audible:', e);
+	}
+
 	// Seed the interval with every column set: setSetting omits createdAt, which an aged
 	// settings table (createdAt NOT NULL, no default) rejects on the first save of a new key
 	try {

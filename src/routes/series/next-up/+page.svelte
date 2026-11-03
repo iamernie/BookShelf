@@ -32,11 +32,18 @@
 						<span class="muted">
 							— {#if item.ownedThrough !== null}you own through #{item.ownedThrough} · {/if}next: {item.next.sequenceLabel ? `#${item.next.sequenceLabel} ${item.next.title}` : item.next.title}
 						</span>
-						{#if item.gaps > 0}
-							<span class="gaps">+{item.gaps} earlier {item.gaps === 1 ? 'gap' : 'gaps'}</span>
-						{/if}
 					</p>
 					<AudibleSuggestionRow suggestion={item.next} seriesId={item.seriesId} canAdd={data.canAddBooks} />
+					{#if item.missing.length > 0}
+						<details class="missing" open={item.missing.length <= 2}>
+							<summary>+{item.missing.length} earlier {item.missing.length === 1 ? 'book' : 'books'} you're missing</summary>
+							<div class="missing-list">
+								{#each item.missing as s (s.asin)}
+									<AudibleSuggestionRow suggestion={s} seriesId={item.seriesId} canAdd={data.canAddBooks} />
+								{/each}
+							</div>
+						</details>
+					{/if}
 				</section>
 			{/each}
 		</div>
@@ -122,13 +129,22 @@
 		color: var(--text-secondary);
 	}
 
-	.gaps {
-		margin-left: 0.375rem;
+	.missing summary {
+		display: inline-block;
+		cursor: pointer;
 		padding: 0.0625rem 0.375rem;
 		border-radius: 0.25rem;
 		font-size: 0.75rem;
 		color: var(--text-secondary);
 		background-color: var(--bg-tertiary);
+	}
+
+	.missing-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+		opacity: 0.85;
 	}
 
 	.empty,

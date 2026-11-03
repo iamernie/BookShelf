@@ -1,6 +1,8 @@
 /**
  * GET /api/series/[id]/audible - the series' Audible suggestions for the current user
- *   200 { state, audibleSeriesTitle, refreshedAt, lastRefreshFailed, ownedThrough, canAdd, suggestions, next, gaps }
+ *   200 { state, audibleSeriesTitle, refreshedAt, lastRefreshFailed, ownedThrough, canAdd, suggestions, next, missing, gaps, seriesInfo }
+ *   missing: unowned numbered books below ownedThrough other than next (gaps = missing.length);
+ *   seriesInfo: { bookCount, totalRuntimeMin, firstReleaseYear } from the saved list, null without one
  *   Reads the saved list only; never calls Audible. 404 for an unknown series.
  */
 

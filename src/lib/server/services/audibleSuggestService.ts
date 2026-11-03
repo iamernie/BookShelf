@@ -155,7 +155,18 @@ export interface SeriesSuggestions {
 	ownedThrough: number | null;
 	suggestions: SeriesSuggestion[];
 	next: SeriesSuggestion | null;
+	/** Unowned single numbered books below ownedThrough, minus next, in list order */
+	missing: SeriesSuggestion[];
+	/** missing.length */
 	gaps: number;
+	/** From the saved list; null when there is none */
+	seriesInfo: SeriesInfo | null;
+}
+
+export interface SeriesInfo {
+	bookCount: number | null;
+	totalRuntimeMin: number | null;
+	firstReleaseYear: number | null;
 }
 
 interface OwnedMember {
@@ -249,7 +260,27 @@ type SeriesAudibleFields = {
 	audibleStatus: string | null;
 	audibleRefreshedAt: string | null;
 	audibleRefreshError: string | null;
+	numBooks: number | null;
 };
+
+/**
+ * Badge numbers from the saved rows: the earliest release year that has already happened, and
+ * the runtime of the single books (a box set would count its books twice)
+ */
+function seriesInfoOf(s: SeriesAudibleFields, rows: AudibleSeriesBook[]): SeriesInfo | null {
+	if (rows.length === 0) return null;
+	const today = new Date().toISOString().slice(0, 10);
+	const thisYear = Number(today.slice(0, 4));
+	let firstReleaseYear: number | null = null;
+	let runtime = 0;
+	for (const r of rows) {
+		const year = r.releaseDate ? extractYear(r.releaseDate) : undefined;
+		const released = (r.releaseDate ?? '').slice(0, 10) <= today && (year ?? 0) <= thisYear;
+		if (year !== undefined && released && (firstReleaseYear === null || year < firstReleaseYear)) firstReleaseYear = year;
+		if (typeof r.runtimeMin === 'number' && Number.isFinite(r.runtimeMin) && parseSequence(r.sequenceRaw).end === null) runtime += r.runtimeMin;
+	}
+	return { bookCount: s.numBooks ?? rows.length, totalRuntimeMin: runtime > 0 ? runtime : null, firstReleaseYear };
+}
 
 function computeSuggestions(s: SeriesAudibleFields, cached: AudibleSeriesBook[], members: OwnedMember[]): SeriesSuggestions {
 	const rows = [...cached].sort(compareRows);
@@ -268,13 +299,13 @@ function computeSuggestions(s: SeriesAudibleFields, cached: AudibleSeriesBook[],
 	const singles = unowned.filter((r) => !r.isRange);
 	const through = ownedThrough as number | null;
 	let next: SeriesSuggestion | null;
-	let gaps = 0;
+	let missing: SeriesSuggestion[] = [];
 	if (through === null) {
 		next = singles[0] ?? null;
 	} else {
 		const below = singles.filter((r) => r.sequence !== null && r.sequence < through - SEQ_EPSILON);
-		gaps = below.length;
 		next = singles.find((r) => r.sequence !== null && r.sequence > through + SEQ_EPSILON) ?? below[0] ?? null;
+		missing = below.filter((r) => r !== next);
 	}
 
 	let st: SuggestionState;
@@ -291,7 +322,9 @@ function computeSuggestions(s: SeriesAudibleFields, cached: AudibleSeriesBook[],
 		ownedThrough: through,
 		suggestions: unowned,
 		next,
-		gaps
+		missing,
+		gaps: missing.length,
+		seriesInfo: seriesInfoOf(s, rows)
 	};
 }
 
@@ -303,7 +336,8 @@ export async function getSeriesSuggestions(seriesId: number, userId: number): Pr
 			audibleSeriesTitle: series.audibleSeriesTitle,
 			audibleStatus: series.audibleStatus,
 			audibleRefreshedAt: series.audibleRefreshedAt,
-			audibleRefreshError: series.audibleRefreshError
+			audibleRefreshError: series.audibleRefreshError,
+			numBooks: series.numBooks
 		})
 		.from(series)
 		.where(eq(series.id, seriesId))
@@ -327,6 +361,7 @@ export interface SeriesNextUpItem {
 	audibleSeriesTitle: string | null;
 	ownedThrough: number | null;
 	next: SeriesSuggestion;
+	missing: SeriesSuggestion[];
 	gaps: number;
 }
 
@@ -373,6 +408,7 @@ export async function getSeriesNextUp(userId: number): Promise<SeriesNextUp> {
 			audibleSeriesTitle: sug.audibleSeriesTitle,
 			ownedThrough: sug.ownedThrough,
 			next: sug.next,
+			missing: sug.missing,
 			gaps: sug.gaps
 		});
 	}
@@ -512,6 +548,7 @@ export interface RunSeriesDetail {
 	products?: number;
 	missing?: string[];
 	dedupedAbridged?: string[];
+	dedupedSequence?: string[];
 }
 
 export interface RunDetails {
@@ -784,8 +821,47 @@ function productToRow(seriesId: number, p: AudibleProduct, sequenceRaw: string |
 	};
 }
 
+/** Audible's "not released yet" date (2200-01-01 and the like) */
+const isPlaceholderDate = (d: string | null) => !!d && (extractYear(d) ?? 0) >= 2200;
+const hasRealData = (r: CacheRow) => !!r.runtimeMin && r.runtimeMin > 0 && !isPlaceholderDate(r.releaseDate);
+const isAltEdition = (r: CacheRow) => /dramatized|abridged/i.test(r.title);
+
+/**
+ * Which of two listings with the same number stays: real data over a placeholder stub, then
+ * not Dramatized/Abridged, then the longest, then the earliest real release, then the lowest ASIN
+ */
+function preferListing(a: CacheRow, b: CacheRow): number {
+	if (hasRealData(a) !== hasRealData(b)) return hasRealData(a) ? -1 : 1;
+	if (isAltEdition(a) !== isAltEdition(b)) return isAltEdition(a) ? 1 : -1;
+	const ra = a.runtimeMin ?? 0, rb = b.runtimeMin ?? 0;
+	if (ra !== rb) return rb - ra;
+	const da = a.releaseDate && !isPlaceholderDate(a.releaseDate) ? a.releaseDate : '￿';
+	const dbb = b.releaseDate && !isPlaceholderDate(b.releaseDate) ? b.releaseDate : '￿';
+	if (da !== dbb) return da < dbb ? -1 : 1;
+	return a.asin < b.asin ? -1 : a.asin > b.asin ? 1 : 0;
+}
+
+/** One row per number (a range only collapses with the same range); unnumbered rows all stay */
+function dedupeBySequence(rows: CacheRow[]): { rows: CacheRow[]; dropped: string[] } {
+	const best = new Map<string, CacheRow>();
+	for (const r of rows) {
+		if (r.sequence === null) continue;
+		const key = `${r.sequence}|${parseSequence(r.sequenceRaw).end ?? ''}`;
+		const cur = best.get(key);
+		if (!cur || preferListing(r, cur) < 0) best.set(key, r);
+	}
+	const kept = new Set(best.values());
+	const dropped: string[] = [];
+	const out = rows.filter((r) => {
+		if (r.sequence === null || kept.has(r)) return true;
+		dropped.push(r.asin);
+		return false;
+	});
+	return { rows: out, dropped };
+}
+
 type ListResult =
-	| { kind: 'saved'; complete: boolean; products: number; missing: string[]; dedupedAbridged: string[] }
+	| { kind: 'saved'; complete: boolean; products: number; missing: string[]; dedupedAbridged: string[]; dedupedSequence: string[] }
 	| { kind: 'empty'; hadCache: boolean };
 
 /**
@@ -819,11 +895,15 @@ async function refreshList(client: AudibleCatalogClient, seriesId: number, serie
 		if (drop) dedupedAbridged.push(r.asin);
 		return !drop;
 	});
+	// Then one listing per number: Audible lists dramatized, international and placeholder twins
+	const deduped = dedupeBySequence(rows);
+	rows = deduped.rows;
 
 	if (rows.length === 0) return { kind: 'empty', hadCache };
 
 	const complete = missing.length === 0;
-	const keep = [...rows.map((r) => r.asin), ...dedupedAbridged];
+	// Survivors only, so a whole fetch also clears twins saved by earlier versions
+	const keep = rows.map((r) => r.asin);
 	// Synchronous: better-sqlite3 transactions must not await
 	db.transaction((tx) => {
 		for (const r of rows) {
@@ -836,10 +916,15 @@ async function refreshList(client: AudibleCatalogClient, seriesId: number, serie
 			tx.delete(audibleSeriesBooks)
 				.where(and(eq(audibleSeriesBooks.seriesId, seriesId), notInArray(audibleSeriesBooks.asin, keep)))
 				.run();
+			// Number of Books follows Audible on a whole fetch only
+			tx.update(series)
+				.set({ numBooks: sql`(SELECT COUNT(*) FROM ${audibleSeriesBooks} WHERE ${audibleSeriesBooks.seriesId} = ${seriesId})` })
+				.where(eq(series.id, seriesId))
+				.run();
 		}
 		onSaved(tx, now);
 	});
-	return { kind: 'saved', complete, products: rows.length, missing, dedupedAbridged };
+	return { kind: 'saved', complete, products: rows.length, missing, dedupedAbridged, dedupedSequence: deduped.dropped };
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -929,7 +1014,8 @@ async function processSeries(ctx: RunContext, s: RunSeries): Promise<void> {
 		asin,
 		products: list.products,
 		...(list.missing.length ? { missing: list.missing } : {}),
-		...(list.dedupedAbridged.length ? { dedupedAbridged: list.dedupedAbridged } : {})
+		...(list.dedupedAbridged.length ? { dedupedAbridged: list.dedupedAbridged } : {}),
+		...(list.dedupedSequence.length ? { dedupedSequence: list.dedupedSequence } : {})
 	});
 	if (list.missing.length) log.warn('Audible left products out of a series lookup; kept their saved rows', { seriesId: s.id, missing: list.missing });
 }
