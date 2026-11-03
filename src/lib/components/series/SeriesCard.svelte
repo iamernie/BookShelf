@@ -29,6 +29,15 @@
 				? { name: series.inferredGenre.name, color: series.inferredGenre.color, icon: series.inferredGenre.icon, isInferred: true }
 				: null
 	);
+
+	// Whole-series total from Audible when known; owned can exceed it (non-Audible books), so the bar uses the larger
+	const hasTotal = $derived(series.numBooks != null && series.numBooks > 0);
+	const totalBooks = $derived(hasTotal ? series.numBooks! : series.bookCount);
+	const percent = $derived(
+		hasTotal
+			? Math.min(100, Math.max(0, Math.round((series.readBooks / Math.max(series.numBooks!, series.bookCount)) * 100)))
+			: series.completionPercentage
+	);
 </script>
 
 <button
@@ -65,16 +74,16 @@
 					<div class="progress-bar">
 						<div
 							class="progress-fill"
-							class:complete={series.completionPercentage === 100}
-							style="width: {series.completionPercentage}%"
+							class:complete={percent === 100}
+							style="width: {percent}%"
 						></div>
 					</div>
 					<div class="progress-text">
 						<span class="progress-count">
-							{series.readBooks} / {series.bookCount} books
+							{series.readBooks} / {totalBooks} books
 						</span>
 						<span class="progress-percent">
-							{series.completionPercentage}%
+							{percent}%
 						</span>
 					</div>
 				</div>

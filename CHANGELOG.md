@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.27.2] - 2026-11-03
+
+### Added
+- Series cards and list rows now show your progress out of the whole series on Audible when we know it, like 8 / 22 books, instead of only what you own.
+
 ## [2.27.1] - 2026-11-03
 
 ### Added

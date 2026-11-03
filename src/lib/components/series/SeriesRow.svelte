@@ -15,6 +15,15 @@
 				: null
 	);
 
+	// Whole-series total from Audible when known (as SeriesCard); the % uses the larger of total and owned
+	const hasTotal = $derived(series.numBooks != null && series.numBooks > 0);
+	const totalBooks = $derived(hasTotal ? series.numBooks! : series.bookCount);
+	const percent = $derived(
+		hasTotal
+			? Math.min(100, Math.max(0, Math.round((series.readBooks / Math.max(series.numBooks!, series.bookCount)) * 100)))
+			: series.completionPercentage
+	);
+
 	const complete = $derived(series.bookCount > 0 && series.completionPercentage === 100);
 </script>
 
@@ -38,9 +47,9 @@
 		</div>
 
 		<div class="cell">
-			<span class="count">{series.readBooks} / {series.bookCount}</span>
+			<span class="count">{series.readBooks} / {totalBooks}</span>
 			{#if series.bookCount > 0}
-				<span class="muted">{series.completionPercentage}%</span>
+				<span class="muted">{percent}%</span>
 			{/if}
 		</div>
 
