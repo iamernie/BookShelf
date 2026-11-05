@@ -23,9 +23,9 @@
 		<div class="text-center mb-8">
 			<div class="flex justify-center mb-4">
 				<img
-					src="/bookshelflogo.png"
+					src="/bookshelflogo-full.png"
 					alt="BookShelf Logo"
-					class="w-20 h-20 drop-shadow-lg"
+					class="w-48 h-auto drop-shadow-lg"
 				/>
 			</div>
 			<h1 class="text-2xl font-bold" style="color: var(--text-primary);">Complete Sign In</h1>

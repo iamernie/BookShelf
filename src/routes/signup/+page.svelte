@@ -172,9 +172,8 @@
 		<!-- Logo and Header -->
 		<div class="text-center mb-8">
 			<div class="flex justify-center mb-4">
-				<img src="/bookshelflogo.png" alt="BookShelf Logo" class="w-24 h-24 drop-shadow-lg" />
+				<img src="/bookshelflogo-full.png" alt="BookShelf Logo" class="w-56 h-auto drop-shadow-lg" />
 			</div>
-			<h1 class="text-3xl font-bold" style="color: var(--text-primary);">BookShelf</h1>
 			<p class="mt-2 text-sm" style="color: var(--text-secondary);">
 				Your personal library, organized
 			</p>

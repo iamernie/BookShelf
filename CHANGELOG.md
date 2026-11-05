@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-11-05
+
+### Changed
+- New logo everywhere: the favicon, app and install icons and the sidebar now use a new emblem (a bookshelf with an e-reader, headphones and an audiobook waveform under a gold arc on dark navy), and the sign-in, sign-up, password-reset, email-verification and sign-in-completion pages show the full logo with the BookShelf wordmark instead of the old square icon.
+
 ## [2.27.4] - 2026-11-05
 
 ### Fixed
