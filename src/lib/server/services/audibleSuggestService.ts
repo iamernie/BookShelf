@@ -45,6 +45,7 @@ import { findOrCreateAuthorByName } from './authorService';
 import { findOrCreateNarratorByName } from './narratorService';
 import { applyStatusChange, getStatusByKey } from './statusService';
 import { getRecommendationStatusId } from './recommendationService';
+import { getExcludedSeriesStatusIds } from './seriesService';
 import { downloadCoverImage } from './coverService';
 import { notifyBookAdded } from './notificationService';
 import { getSettingAs, AUDIBLE_SUGGEST_INTERVALS } from './settingsService';
@@ -383,13 +384,17 @@ export async function getSeriesNextUp(userId: number): Promise<SeriesNextUp> {
 	const result: SeriesNextUp = { items: [], caughtUp: 0, unchecked: 0 };
 	if (statusIds.length === 0) return result;
 
+	// Series set to DNF or Parked are skipped; a series with no status still counts
+	const excluded = await getExcludedSeriesStatusIds();
+	const statusCond = excluded.length > 0 ? or(isNull(series.statusId), notInArray(series.statusId, excluded)) : undefined;
+
 	const active = await db
 		.selectDistinct({ id: series.id, title: series.title })
 		.from(series)
 		.innerJoin(bookSeries, eq(bookSeries.seriesId, series.id))
 		.innerJoin(books, eq(books.id, bookSeries.bookId))
 		.innerJoin(userBooks, and(eq(userBooks.bookId, books.id), eq(userBooks.userId, userId)))
-		.where(inArray(books.statusId, statusIds))
+		.where(and(inArray(books.statusId, statusIds), statusCond))
 		.orderBy(sql`${series.title} COLLATE NOCASE`, asc(series.id));
 
 	for (const s of active) {

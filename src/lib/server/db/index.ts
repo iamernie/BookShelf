@@ -1859,9 +1859,35 @@ function runMigrations() {
 		console.error('[db] Failed to backfill series numBooks from Audible:', e);
 	}
 
+	// Seed the system series statuses with every column set. seriesstatuses was created but never
+	// seeded, so fresh installs had nothing to save or sync; rows matching by key or name are kept
+	try {
+		const seedSeriesStatus = sqlite.prepare(
+			`INSERT INTO seriesstatuses (name, key, isSystem, color, icon, createdAt, updatedAt)
+			 SELECT ?, ?, 1, ?, ?, datetime('now'), datetime('now')
+			 WHERE NOT EXISTS (SELECT 1 FROM seriesstatuses
+			   WHERE UPPER(COALESCE(key, '')) = UPPER(?) OR LOWER(TRIM(name)) = LOWER(?))`
+		);
+		let seededStatuses = 0;
+		for (const [name, key, color, icon] of [
+			['Ongoing', 'ONGOING', '#0d6efd', 'fas fa-pen-fancy'],
+			['Finished', 'FINISHED', '#198754', 'fas fa-check-circle'],
+			['Parked', 'PARKED', '#ffc107', 'fas fa-pause-circle'],
+			['DNF', 'DNF', '#dc3545', 'fas fa-ban']
+		]) {
+			seededStatuses += seedSeriesStatus.run(name, key, color, icon, key, name).changes;
+		}
+		if (seededStatuses > 0) {
+			console.log(`[db] Seeded ${seededStatuses} series statuses`);
+			migrationsMade = true;
+		}
+	} catch (e) {
+		console.error('[db] Failed to seed series statuses:', e);
+	}
+
 	// Series status follows its books (2.27.3), as recomputeSeriesStatuses in statusService: owned
-	// (personal) books all Done/DNF -> Finished, any other -> Ongoing; no owned books or Parked stay
-	// as they are. Every boot, only series whose status differs
+	// (personal) books all Done/DNF -> Finished, any other -> Ongoing; no owned books, Parked or DNF
+	// stay as they are. Every boot, only series whose status differs
 	try {
 		const seriesStatusId = (word: string) => (sqlite.prepare(
 			'SELECT id FROM seriesstatuses WHERE UPPER(key) = UPPER(?) OR LOWER(TRIM(name)) = ? ORDER BY id LIMIT 1'
@@ -1869,14 +1895,17 @@ function runMigrations() {
 		const finishedId = seriesStatusId('finished');
 		const ongoingId = seriesStatusId('ongoing');
 		const parkedId = seriesStatusId('parked');
+		const dnfId = seriesStatusId('dnf');
+		const keptIds = [parkedId, dnfId].filter((id): id is number => id !== null);
 		let synced = 0;
 		if (finishedId !== null && ongoingId !== null) {
 			const owned = `SELECT COUNT(*) FROM bookseries bs JOIN books b ON b.id = bs.bookId
 				WHERE bs.seriesId = series.id AND b.libraryType = 'personal'`;
 			const unsettled = `${owned} AND (b.statusId IS NULL OR b.statusId NOT IN (SELECT id FROM statuses WHERE key IN ('READ', 'DNF')))`;
 			const target = `CASE WHEN (${unsettled}) > 0 THEN ${ongoingId} ELSE ${finishedId} END`;
-			const notParked = parkedId === null ? '' : `AND statusId IS NOT ${parkedId}`;
-			const where = `(${owned}) > 0 ${notParked} AND statusId IS NOT (${target})`;
+			// NULL statusId must still sync, and NULL NOT IN (...) is never true
+			const notKept = keptIds.length === 0 ? '' : `AND (statusId IS NULL OR statusId NOT IN (${keptIds.join(', ')}))`;
+			const where = `(${owned}) > 0 ${notKept} AND statusId IS NOT (${target})`;
 			const stale = sqlite.prepare(`SELECT COUNT(*) as count FROM series WHERE ${where}`).get() as { count: number };
 			if (stale.count > 0) {
 				ensureBackup();

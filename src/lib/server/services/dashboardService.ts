@@ -4,12 +4,13 @@
  */
 
 import { db, books, authors, series, statuses, bookAuthors, bookSeries, genres, formats, tags, bookTags, settings, userBooks, magicShelves } from '$lib/server/db';
-import { eq, sql, desc, asc, and, isNotNull, isNull, ne, or, count, inArray } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, isNotNull, isNull, ne, or, count, inArray, notInArray } from 'drizzle-orm';
 import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import { getBooksCardData } from './bookService';
 import { getGoalForDashboard } from './goalsService';
 import { getDashboardConfig, getEnabledSections, type DashboardConfig, type DashboardSection, type FilterConfig } from './userPreferencesService';
 import { getShelfBooks } from './magicShelfService';
+import { getExcludedSeriesStatusIds } from './seriesService';
 import type { BookCardData } from '$lib/types';
 
 // Status keys
@@ -550,6 +551,10 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 		  )
 		: eq(books.libraryType, 'personal');
 
+	// Series set to DNF or Parked are skipped; a series with no status still counts
+	const excluded = await getExcludedSeriesStatusIds();
+	const statusCond = excluded.length > 0 ? or(isNull(series.statusId), notInArray(series.statusId, excluded)) : undefined;
+
 	// Find series where user has read at least one book
 	const seriesWithProgress = await db.selectDistinct({
 		seriesId: bookSeries.seriesId,
@@ -558,7 +563,7 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 		.from(bookSeries)
 		.innerJoin(series, eq(bookSeries.seriesId, series.id))
 		.innerJoin(books, eq(bookSeries.bookId, books.id))
-		.where(and(eq(books.statusId, readStatusId), libCond))
+		.where(and(eq(books.statusId, readStatusId), libCond, statusCond))
 		.limit(50); // Check up to 50 series
 
 	const results: UpNextInSeries[] = [];

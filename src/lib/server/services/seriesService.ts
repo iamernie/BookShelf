@@ -598,6 +598,30 @@ export async function getSeriesStatuses() {
 	return db.select().from(seriesStatuses).orderBy(asc(seriesStatuses.name));
 }
 
+/** Series statuses (DNF, Parked) whose series are kept out of Next Up and Up Next; empty when neither row exists */
+export async function getExcludedSeriesStatusIds(): Promise<number[]> {
+	// By key or name, as recomputeSeriesStatuses resolves them, so a row with no key still counts
+	const rows = await db.select({ id: seriesStatuses.id, name: seriesStatuses.name, key: seriesStatuses.key }).from(seriesStatuses);
+	return rows
+		.filter((s) => ['DNF', 'PARKED'].some((w) => s.key?.toUpperCase() === w || s.name?.trim().toUpperCase() === w))
+		.map((s) => s.id);
+}
+
+/**
+ * A statusId / genreId from a request body: null, undefined or '' clears it (id null); anything
+ * else must be the integer id of an existing seriesstatuses / genres row, otherwise valid is false
+ */
+export async function checkSeriesRefId(
+	value: unknown,
+	ref: 'status' | 'genre'
+): Promise<{ valid: boolean; id: number | null }> {
+	if (value === null || value === undefined || value === '') return { valid: true, id: null };
+	if (typeof value !== 'number' || !Number.isInteger(value)) return { valid: false, id: null };
+	const table = ref === 'status' ? seriesStatuses : genres;
+	const [row] = await db.select({ id: table.id }).from(table).where(eq(table.id, value)).limit(1);
+	return row ? { valid: true, id: row.id } : { valid: false, id: null };
+}
+
 /**
  * Find potential duplicate series based on normalized title matching
  */

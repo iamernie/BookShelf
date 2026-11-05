@@ -285,7 +285,7 @@
 										style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
 									>
 										<option value="">-</option>
-										{#each data.allStatuses as status}
+										{#each data.allSeriesStatuses as status}
 											<option value={status.id.toString()}>{status.name}</option>
 										{/each}
 									</select>

@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSeriesWithBooks, updateSeries, deleteSeries } from '$lib/server/services/seriesService';
+import { getSeriesWithBooks, updateSeries, deleteSeries, checkSeriesRefId } from '$lib/server/services/seriesService';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const id = parseInt(params.id);
@@ -52,11 +52,19 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (data.statusId !== undefined) {
-		updateData.statusId = data.statusId || null;
+		const status = await checkSeriesRefId(data.statusId, 'status');
+		if (!status.valid) {
+			throw error(400, { message: 'Unknown series status' });
+		}
+		updateData.statusId = status.id;
 	}
 
 	if (data.genreId !== undefined) {
-		updateData.genreId = data.genreId || null;
+		const genre = await checkSeriesRefId(data.genreId, 'genre');
+		if (!genre.valid) {
+			throw error(400, { message: 'Unknown genre' });
+		}
+		updateData.genreId = genre.id;
 	}
 
 	// Require at least one field to update

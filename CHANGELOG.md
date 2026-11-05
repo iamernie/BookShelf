@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.27.4] - 2026-11-05
+
+### Fixed
+- Saving a status on the series edit page no longer fails with Internal Server Error. The Status field was showing your book statuses (Unread, Done, DNF...) while saving a series status, so picking DNF stored an id that is not a series status and the save crashed, and picking Done quietly wrote "Finished" instead. The field now lists series statuses, and saving an unknown status or genre returns a clear message instead of a server error.
+
+### Added
+- You can now mark a series DNF. A series set to DNF or Parked keeps that status (the automatic Ongoing/Finished upkeep leaves both alone) and stops appearing in Up Next in Series and Next Up until you change it yourself.
+- New installs start with the series statuses (Ongoing, Finished, Parked, DNF) already there; before, the list was empty and every status save failed.
+
 ## [2.27.3] - 2026-11-03
 
 ### Added

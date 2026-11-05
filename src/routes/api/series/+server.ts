@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getAllSeries, createSeries } from '$lib/server/services/seriesService';
+import { getAllSeries, createSeries, checkSeriesRefId } from '$lib/server/services/seriesService';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
@@ -24,13 +24,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, { message: 'Title is required' });
 	}
 
+	const status = await checkSeriesRefId(data.statusId, 'status');
+	if (!status.valid) {
+		throw error(400, { message: 'Unknown series status' });
+	}
+
+	const genre = await checkSeriesRefId(data.genreId, 'genre');
+	if (!genre.valid) {
+		throw error(400, { message: 'Unknown genre' });
+	}
+
 	const newSeries = await createSeries({
 		title: data.title.trim(),
 		description: data.description?.trim() || null,
 		numBooks: data.numBooks || null,
 		comments: data.comments?.trim() || null,
-		statusId: data.statusId || null,
-		genreId: data.genreId || null
+		statusId: status.id,
+		genreId: genre.id
 	});
 
 	return json(newSeries, { status: 201 });

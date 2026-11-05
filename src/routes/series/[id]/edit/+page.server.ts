@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getSeriesWithBooks } from '$lib/server/services/seriesService';
-import { db, seriesTags, tags, statuses, genres } from '$lib/server/db';
+import { db, seriesTags, tags, seriesStatuses, genres } from '$lib/server/db';
 import { eq, asc } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 
@@ -38,15 +38,15 @@ export const load: PageServerLoad = async ({ params }) => {
 		.from(tags)
 		.orderBy(asc(tags.name));
 
-	// Get all statuses
-	const allStatuses = await db
+	// Get all series statuses (series.statusId references seriesstatuses, not book statuses)
+	const allSeriesStatuses = await db
 		.select({
-			id: statuses.id,
-			name: statuses.name,
-			color: statuses.color
+			id: seriesStatuses.id,
+			name: seriesStatuses.name,
+			color: seriesStatuses.color
 		})
-		.from(statuses)
-		.orderBy(asc(statuses.name));
+		.from(seriesStatuses)
+		.orderBy(asc(seriesStatuses.name));
 
 	// Get all genres
 	const allGenres = await db
@@ -63,7 +63,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		stats: result.stats,
 		tags: seriesTagsList,
 		allTags,
-		allStatuses,
+		allSeriesStatuses,
 		allGenres
 	};
 };

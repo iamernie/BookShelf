@@ -112,7 +112,7 @@ export async function getDefaultOwnerId(): Promise<number | null> {
 /**
  * Keep series.statusId in step with its owned (personal library) books: any unsettled book
  * makes it Ongoing, all Done or DNF makes it Finished. A series with no owned books, or one
- * parked by hand, is left alone; only differing values are written. Statuses resolve by key
+ * set to Parked or DNF by hand, is left alone; only differing values are written. Statuses resolve by key
  * or name, so a library without those rows changes nothing. Returns the series it changed.
  */
 export async function recomputeSeriesStatuses(seriesIds: number[]): Promise<number> {
@@ -128,6 +128,7 @@ export async function recomputeSeriesStatuses(seriesIds: number[]): Promise<numb
 	const finishedId = find('finished');
 	const ongoingId = find('ongoing');
 	const parkedId = find('parked');
+	const dnfId = find('dnf');
 	if (finishedId === null || ongoingId === null) return 0;
 	const settledIds = settledRows.map((s) => s.id);
 	const settled = settledIds.length > 0
@@ -144,7 +145,8 @@ export async function recomputeSeriesStatuses(seriesIds: number[]): Promise<numb
 
 	let changed = 0;
 	for (const row of rows) {
-		if (row.owned === 0 || (parkedId !== null && row.statusId === parkedId)) continue;
+		if (row.owned === 0) continue;
+		if (row.statusId !== null && (row.statusId === parkedId || row.statusId === dnfId)) continue;
 		const target = Number(row.settled) >= row.owned ? finishedId : ongoingId;
 		if (row.statusId === target) continue;
 		await db.update(series).set({ statusId: target }).where(eq(series.id, row.id));
