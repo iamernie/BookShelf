@@ -11,6 +11,7 @@
 	import { toInputDate, isPrerelease, formatReleaseTooltip } from '$lib/utils/date';
 	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
 	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
+	import { findByNameKey, nameMatchesSearch } from '$lib/utils/nameNormalization';
 	import { pushLayer } from '$lib/utils/layers';
 	import { guardedClose, guardNavigation, sortedIds, trackDirty } from '$lib/utils/unsavedChanges';
 
@@ -169,12 +170,12 @@
 	let availableNarrators = $state(options.narrators);
 	let filteredNarrators = $derived(
 		availableNarrators.filter(n =>
-			n.name.toLowerCase().includes(narratorSearch.toLowerCase())
+			nameMatchesSearch(n.name, narratorSearch)
 		).slice(0, 10)
 	);
 	let canCreateNarrator = $derived(
 		narratorSearch.trim().length > 0 &&
-		!availableNarrators.some(n => n.name.toLowerCase() === narratorSearch.trim().toLowerCase())
+		!findByNameKey(availableNarrators, narratorSearch.trim())
 	);
 	let selectedNarrator = $state<{ id: number; name: string } | null>(
 		book?.narratorId ? options.narrators.find(n => n.id === book.narratorId) ?? null : null
@@ -300,9 +301,21 @@
 				selectedNarrator = { id: newNarrator.id, name: newNarrator.name };
 				narratorSearch = '';
 				showNarratorDropdown = false;
+			} else {
+				const err = await res.json().catch(() => ({}));
+				// A near-duplicate already exists (e.g. created in another tab): use the row the 409 names
+				if (res.status === 409 && err.existing) {
+					const existing = { id: err.existing.id, name: err.existing.name };
+					if (!availableNarrators.some(n => n.id === existing.id)) availableNarrators = [...availableNarrators, existing];
+					selectNarrator(existing);
+					toasts.info(`Using existing narrator "${existing.name}"`);
+				} else {
+					toasts.error(err.message || 'Failed to create narrator');
+				}
 			}
 		} catch (e) {
 			console.error('Failed to create narrator:', e);
+			toasts.error('Failed to create narrator');
 		} finally {
 			creatingNarrator = false;
 		}
@@ -448,6 +461,7 @@
 			authors: selectedAuthors,
 			series: selectedSeries,
 			lists: { authors: availableAuthors, series: availableSeries, genres: availableGenres, narrators: availableNarrators },
+			narrator: selectedNarrator,
 			cover: { mode: 'url' }
 		});
 		availableAuthors = outcome.lists.authors;
@@ -469,6 +483,7 @@
 		if (f.providerRatingSource !== undefined) providerRatingSource = f.providerRatingSource;
 		if (f.providerRatingCount !== undefined) providerRatingCount = f.providerRatingCount.toString();
 		if (f.genre) selectedGenre = f.genre;
+		if (f.narrator) selectedNarrator = f.narrator;
 		if (f.goodreadsId !== undefined) goodreadsId = f.goodreadsId;
 		if (f.googleBooksId !== undefined) googleBooksId = f.googleBooksId;
 		if (outcome.addedAuthors.length) selectedAuthors = [...selectedAuthors, ...outcome.addedAuthors];

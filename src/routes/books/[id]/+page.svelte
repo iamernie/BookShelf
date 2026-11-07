@@ -447,15 +447,17 @@
 				authors: bookAuthors,
 				series: bookSeries,
 				lists: { authors: availableAuthors, series: availableSeries, genres: availableGenres },
+				narrator: data.book.narrator ?? null,
 				cover: { mode: 'download', bookId: data.book.id }
 			});
 			availableAuthors = outcome.lists.authors;
 			availableSeries = outcome.lists.series;
 			availableGenres = outcome.lists.genres;
 
-			const { genre, ...fields } = outcome.fields;
+			const { genre, narrator, ...fields } = outcome.fields;
 			const updates: Record<string, unknown> = { ...fields };
 			if (genre) updates.genreId = genre.id;
+			if (narrator) updates.narratorId = narrator.id;
 			if (outcome.addedAuthors.length) {
 				updates.authors = [...bookAuthors, ...outcome.addedAuthors].map(a => ({ id: a.id, role: a.role }));
 			}

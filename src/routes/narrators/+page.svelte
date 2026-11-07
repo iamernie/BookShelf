@@ -97,6 +97,13 @@
 
 		if (!response.ok) {
 			const error = await response.json();
+			// A near-duplicate already exists: open that narrator instead of failing
+			if (response.status === 409 && error.existing) {
+				toasts.info(`Using existing narrator "${error.existing.name}"`);
+				showAddModal = false;
+				await goto(`/narrators/${error.existing.id}`);
+				return;
+			}
 			throw new Error(error.message || 'Failed to save narrator');
 		}
 

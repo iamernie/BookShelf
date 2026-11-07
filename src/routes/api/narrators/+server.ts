@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getNarrators, createNarrator, getNarratorByName } from '$lib/server/services/narratorService';
+import { getNarrators, createNarrator, findNarratorByNameKey } from '$lib/server/services/narratorService';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
@@ -25,9 +25,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, { message: 'Narrator name is required' });
 	}
 
-	const existing = await getNarratorByName(data.name.trim());
+	// Near-duplicates count as existing ('R.C. Bray' and 'RC Bray' match 'R. C. Bray'); the body names the row so callers can use it
+	const existing = await findNarratorByNameKey(data.name.trim());
 	if (existing) {
-		throw error(409, { message: 'A narrator with this name already exists' });
+		return json({ message: `Matches existing narrator '${existing.name}'`, existing }, { status: 409 });
 	}
 
 	const narrator = await createNarrator({

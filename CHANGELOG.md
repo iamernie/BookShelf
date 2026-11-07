@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.29.0] - 2026-11-07
+
+### Added
+- Search Book Metadata can now save the narrator from Audible results. Pick an Audible result and a Narrator row appears (ticked by default); it shows the first listed narrator, with "(first of N)" when Audible lists several, because a book holds one narrator. Applying it matches an existing narrator while ignoring dots, spaces, hyphens and case (so "RC Bray" and "R.C. Bray" both use "R. C. Bray"), or creates the narrator if there's none. It fills the narrator picker on the add page, the edit page and the book form, and on a book's own page it is saved to the book straight away. If the narrator can't be added, the toast says so by name.
+
+### Changed
+- Creating a narrator now refuses near-duplicates of an existing one (same name apart from dots, spaces, hyphens or case). The narrator pickers find "R. C. Bray" when you type "RC Bray" and offer it instead of a Create button, and if a near-duplicate is created elsewhere in the meantime, the picker uses the existing narrator rather than showing an error; on the Narrators page, adding one opens the existing narrator instead.
+- Side effect: two genuinely different narrators whose names differ only by dots, spaces, hyphens or case can no longer both be created, and metadata apply always uses the existing one (the lowest-numbered, same as Audible series suggestions). Pairs you've marked "not duplicates" in Data Cleanup are unaffected.
+
+### Fixed
+- The book form's narrator Create button no longer fails silently; errors now show a message.
+
 ## [2.28.0] - 2026-11-05
 
 ### Changed

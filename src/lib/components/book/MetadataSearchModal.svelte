@@ -24,6 +24,7 @@
 		seriesNumber?: number;
 		rating?: number;
 		ratingCount?: number;
+		narrators?: string[];
 	}
 
 	interface Props {
@@ -59,7 +60,7 @@
 
 	// Field selection for applying
 	let selectedFields = $state<Set<string>>(new Set([
-		'title', 'summary', 'coverUrl', 'isbn13', 'isbn10', 'publisher', 'publishYear', 'pageCount', 'language', 'authors', 'seriesName', 'genres'
+		'title', 'summary', 'coverUrl', 'isbn13', 'isbn10', 'publisher', 'publishYear', 'pageCount', 'language', 'authors', 'narrators', 'seriesName', 'genres'
 	]));
 
 	const providerNames: Record<string, string> = {
@@ -81,6 +82,7 @@
 	const fieldLabels: Record<string, string> = {
 		title: 'Title',
 		authors: 'Authors',
+		narrators: 'Narrator',
 		summary: 'Summary/Description',
 		coverUrl: 'Cover Image',
 		isbn13: 'ISBN-13',
@@ -212,6 +214,12 @@
 	}
 
 	function getResultValue(result: MetadataResult, field: string): string | undefined {
+		if (field === 'narrators') {
+			// Only the first non-blank narrator is saved (books hold one), so say so rather than list them all
+			const names = (result.narrators ?? []).map((n) => n.trim()).filter((n) => n);
+			if (names.length === 0) return undefined;
+			return names.length > 1 ? `${names[0]} (first of ${names.length})` : names[0];
+		}
 		const value = result[field as keyof MetadataResult];
 		if (value === undefined || value === null) return undefined;
 		if (Array.isArray(value)) return value.join(', ');

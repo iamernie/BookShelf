@@ -10,6 +10,7 @@
 	import { toasts } from '$lib/stores/toast';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
+	import { findByNameKey, nameMatchesSearch } from '$lib/utils/nameNormalization';
 	import { pushLayer } from '$lib/utils/layers';
 	import { confirmDiscard, guardNavigation, sortedIds, trackDirty } from '$lib/utils/unsavedChanges';
 
@@ -194,12 +195,12 @@
 
 	let filteredNarrators = $derived(
 		availableNarrators.filter(n =>
-			n.name.toLowerCase().includes(narratorSearch.toLowerCase())
+			nameMatchesSearch(n.name, narratorSearch)
 		).slice(0, 8)
 	);
 	let canCreateNarrator = $derived(
 		narratorSearch.trim().length > 0 &&
-		!availableNarrators.some(n => n.name.toLowerCase() === narratorSearch.trim().toLowerCase())
+		!findByNameKey(availableNarrators, narratorSearch.trim())
 	);
 
 	const authorRoles = ['Author', 'Co-Author', 'Editor', 'Translator', 'Illustrator', 'Contributor', 'Foreword By', 'Afterword By'];
@@ -334,6 +335,7 @@
 			authors: selectedAuthors,
 			series: selectedSeries,
 			lists: { authors: availableAuthors, series: availableSeries, genres: availableGenres, narrators: availableNarrators },
+			narrator: selectedNarrator,
 			cover: { mode: 'url' }
 		});
 		availableAuthors = outcome.lists.authors;
@@ -355,6 +357,7 @@
 		if (f.providerRatingSource !== undefined) providerRatingSource = f.providerRatingSource;
 		if (f.providerRatingCount !== undefined) providerRatingCount = f.providerRatingCount.toString();
 		if (f.genre) genreId = f.genre.id.toString();
+		if (f.narrator) selectedNarrator = f.narrator;
 		if (f.goodreadsId !== undefined) goodreadsId = f.goodreadsId;
 		if (f.googleBooksId !== undefined) googleBooksId = f.googleBooksId;
 		if (outcome.addedAuthors.length) selectedAuthors = [...selectedAuthors, ...outcome.addedAuthors];
@@ -464,7 +467,15 @@
 				toasts.success(`Created narrator "${newNarrator.name}"`);
 			} else {
 				const err = await res.json();
-				toasts.error(err.message || 'Failed to create narrator');
+				// A near-duplicate already exists (e.g. created in another tab): use the row the 409 names
+				if (res.status === 409 && err.existing) {
+					const existing = { id: err.existing.id, name: err.existing.name };
+					if (!availableNarrators.some(n => n.id === existing.id)) availableNarrators = [...availableNarrators, existing];
+					selectNarrator(existing);
+					toasts.info(`Using existing narrator "${existing.name}"`);
+				} else {
+					toasts.error(err.message || 'Failed to create narrator');
+				}
 			}
 		} catch (e) {
 			console.error('Failed to create narrator:', e);

@@ -247,6 +247,13 @@ export async function getNarratorByName(name: string): Promise<NarratorType | nu
 	return narrator[0] || null;
 }
 
+// Existing narrator sharing the duplicate name key ('R.C. Bray' finds 'R. C. Bray'); lowest id wins, like findOrCreateNarratorByName
+export async function findNarratorByNameKey(name: string): Promise<{ id: number; name: string } | null> {
+	const key = duplicateNameKey(name.trim());
+	const rows = await db.select({ id: narrators.id, name: narrators.name }).from(narrators).orderBy(asc(narrators.id));
+	return rows.find((r) => duplicateNameKey(r.name) === key) ?? null;
+}
+
 export interface CreateNarratorData {
 	name: string;
 	bio?: string | null;

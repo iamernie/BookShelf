@@ -3,6 +3,8 @@
 // Callers pass in what the book already has plus the picker lists, and get back the values to apply,
 // the relations to append, the refreshed lists and the toast to show.
 
+import { findByNameKey } from '$lib/utils/nameNormalization';
+
 export interface MetadataResult {
 	provider: string;
 	providerId?: string;
@@ -24,6 +26,7 @@ export interface MetadataResult {
 	seriesNumber?: number;
 	rating?: number;
 	ratingCount?: number;
+	narrators?: string[]; // Audible
 }
 
 export interface NamedOption { id: number; name: string }
@@ -99,6 +102,8 @@ export interface MetadataApplyContext {
 	series: { id: number; title: string }[];
 	/** Current picker lists; the refreshed lists come back on the outcome */
 	lists: OptionLists;
+	/** The book's/form's current narrator; a ticked narrator replaces it (no fetch when the names share a key) */
+	narrator?: NamedOption | null;
 	/**
 	 * 'download': fetch the cover now (coverUrl, then thumbnailUrl) for an existing book.
 	 * 'url': only record the cover URL (create forms download it after the book exists).
@@ -123,6 +128,7 @@ export interface AppliedMetadataFields {
 	providerRatingSource?: string;
 	providerRatingCount?: number;
 	genre?: NamedOption;
+	narrator?: NamedOption;
 	goodreadsId?: string;
 	googleBooksId?: string;
 }
@@ -338,6 +344,38 @@ export async function applyMetadataResult(
 					if (!failedEntities.some(f => f.startsWith('Genre '))) appliedCount++;
 				}
 				break;
+			case 'narrators': {
+				// books.narratorId holds one narrator: use the first non-blank name, matched by the duplicate name key
+				const narratorName = result.narrators?.map(n => n.trim()).find(n => n);
+				if (!narratorName) break;
+				if (ctx.narrator && findByNameKey([ctx.narrator], narratorName)) {
+					fields.narrator = ctx.narrator;
+					appliedCount++;
+					break;
+				}
+				const find = () => findByNameKey(lists.current.narrators ?? [], narratorName);
+				let existing = find();
+				if (!existing) {
+					existing = await createOrRefind(
+						lists,
+						'/api/narrators',
+						{ name: narratorName },
+						find,
+						(created) => {
+							const entry = { id: created.id, name: created.name };
+							lists.current.narrators = [...(lists.current.narrators ?? []), entry];
+							return entry;
+						}
+					);
+				}
+				if (existing) {
+					fields.narrator = { id: existing.id, name: existing.name };
+					appliedCount++;
+				} else {
+					failedEntities.push(`Narrator '${narratorName}'`);
+				}
+				break;
+			}
 		}
 	}
 
