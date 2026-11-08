@@ -440,10 +440,11 @@
 		if (editingSeriesNotes === null) return;
 		savingSeriesNotes = true;
 		try {
-			const res = await fetch(`/api/series/${editingSeriesNotes}`, {
+			// The caller's own series notes, never the shared series row
+			const res = await fetch(`/api/series/${editingSeriesNotes}/notes`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ comments: editSeriesNotesValue })
+				body: JSON.stringify({ notes: editSeriesNotesValue })
 			});
 			if (res.ok) {
 				toasts.success('Series notes saved');
@@ -1229,11 +1230,11 @@
 									<Hash class="w-4 h-4" />
 									{s.title} Notes
 								</h2>
-								{#if editingSeriesNotes !== s.id}
+								{#if data.canWriteNotes && editingSeriesNotes !== s.id}
 									<button
 										type="button"
 										class="inline-edit-btn"
-										onclick={() => startEditSeriesNotes(s.id, s.comments)}
+										onclick={() => startEditSeriesNotes(s.id, data.mySeriesNotes[s.id] ?? null)}
 										title="Edit series notes"
 									>
 										<Pencil class="w-3.5 h-3.5" />
@@ -1268,14 +1269,14 @@
 										</button>
 									</div>
 								</div>
-							{:else}
+							{:else if data.canWriteNotes}
 								<button
 									type="button"
 									class="inline-edit-content text-sm"
-									onclick={() => startEditSeriesNotes(s.id, s.comments)}
+									onclick={() => startEditSeriesNotes(s.id, data.mySeriesNotes[s.id] ?? null)}
 								>
-									{#if s.comments}
-										<p class="whitespace-pre-wrap" style="color: var(--text-secondary);">{s.comments}</p>
+									{#if data.mySeriesNotes[s.id]}
+										<p class="whitespace-pre-wrap" style="color: var(--text-secondary);">{data.mySeriesNotes[s.id]}</p>
 									{:else}
 										<p class="text-placeholder">Click to add series notes...</p>
 									{/if}
@@ -1295,11 +1296,11 @@
 									<Hash class="w-4 h-4" />
 									{s.title} Notes
 								</h2>
-								{#if editingSeriesNotes !== s.id}
+								{#if data.canWriteNotes && editingSeriesNotes !== s.id}
 									<button
 										type="button"
 										class="inline-edit-btn"
-										onclick={() => startEditSeriesNotes(s.id, s.comments)}
+										onclick={() => startEditSeriesNotes(s.id, data.mySeriesNotes[s.id] ?? null)}
 										title="Edit series notes"
 									>
 										<Pencil class="w-3.5 h-3.5" />
@@ -1334,14 +1335,14 @@
 										</button>
 									</div>
 								</div>
-							{:else}
+							{:else if data.canWriteNotes}
 								<button
 									type="button"
 									class="inline-edit-content text-sm"
-									onclick={() => startEditSeriesNotes(s.id, s.comments)}
+									onclick={() => startEditSeriesNotes(s.id, data.mySeriesNotes[s.id] ?? null)}
 								>
-									{#if s.comments}
-										<p class="whitespace-pre-wrap" style="color: var(--text-secondary);">{s.comments}</p>
+									{#if data.mySeriesNotes[s.id]}
+										<p class="whitespace-pre-wrap" style="color: var(--text-secondary);">{data.mySeriesNotes[s.id]}</p>
 									{:else}
 										<p class="text-placeholder">Click to add series notes...</p>
 									{/if}

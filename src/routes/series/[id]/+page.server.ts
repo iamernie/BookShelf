@@ -8,6 +8,7 @@ import { getAllGenres } from '$lib/server/services/genreService';
 import { getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 import { getSeriesSuggestions } from '$lib/server/services/audibleSuggestService';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { getEntityNotes } from '$lib/server/services/entityNotesService';
 import { db, seriesTags, tags } from '$lib/server/db';
 import { eq, asc } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
@@ -30,7 +31,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const canEdit = hasPermission(locals.user ?? null, Permission.MANAGE_ENTITIES);
 	const none = Promise.resolve([] as { id: number; name: string }[]);
 
-	const [allTags, allStatuses, authors, narrators, allSeries, formats, genres, audible] = await Promise.all([
+	const [allTags, allStatuses, authors, narrators, allSeries, formats, genres, audible, myNotes] = await Promise.all([
 		getAllTags(),
 		getAllStatuses(),
 		canEdit ? getAllAuthors(locals.user) : none,
@@ -39,7 +40,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		getAllFormats(),
 		getAllGenres(),
 		// Saved Audible list only: never calls Audible on page load
-		userId ? getSeriesSuggestions(id, userId) : Promise.resolve(null)
+		userId ? getSeriesSuggestions(id, userId) : Promise.resolve(null),
+		// The viewer's own notes only
+		userId ? getEntityNotes(userId, 'series', id) : Promise.resolve(null)
 	]);
 
 	// Get tags for this series
@@ -64,6 +67,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		canAddBooks: hasPermission(locals.user ?? null, Permission.ADD_BOOKS),
 		isAdmin: locals.user?.role === 'admin',
 		canEdit,
+		myNotes,
+		canWriteNotes: hasPermission(locals.user ?? null, Permission.EDIT_OWN_BOOKS),
 		options: {
 			tags: allTags,
 			statuses: allStatuses,

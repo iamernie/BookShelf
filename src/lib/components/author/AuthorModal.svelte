@@ -88,7 +88,6 @@
 	let photoUrl = $state(author?.photoUrl || '');
 	let website = $state(author?.website || '');
 	let wikipediaUrl = $state(author?.wikipediaUrl || '');
-	let comments = $state(author?.comments || '');
 
 	function buildPayload() {
 		return {
@@ -99,8 +98,7 @@
 			birthPlace: birthPlace.trim() || null,
 			photoUrl: photoUrl.trim() || null,
 			website: website.trim() || null,
-			wikipediaUrl: wikipediaUrl.trim() || null,
-			comments: comments.trim() || null
+			wikipediaUrl: wikipediaUrl.trim() || null
 		};
 	}
 
@@ -330,13 +328,6 @@
 				</div>
 			{/if}
 
-			{#if author.comments}
-				<div class="notes-section">
-					<h3 class="section-title">Notes</h3>
-					<p class="notes-text">{author.comments}</p>
-				</div>
-			{/if}
-
 			{#if books.length > 0}
 				<div class="books-section">
 					<h3 class="section-title">
@@ -553,11 +544,6 @@
 					<label for="wikipediaUrl">Wikipedia URL</label>
 					<input id="wikipediaUrl" type="url" bind:value={wikipediaUrl} class="input" />
 				</div>
-
-				<div class="form-group full-width">
-					<label for="comments">Notes</label>
-					<textarea id="comments" bind:value={comments} rows="3" class="input"></textarea>
-				</div>
 			</div>
 
 			<!-- Form Actions -->
@@ -695,16 +681,14 @@
 		margin-bottom: 0.5rem;
 	}
 
-	.bio-section,
-	.notes-section {
+	.bio-section {
 		margin-bottom: 1rem;
 		padding: 1rem;
 		border-radius: 0.5rem;
 		background-color: var(--bg-secondary);
 	}
 
-	.bio-text,
-	.notes-text {
+	.bio-text {
 		font-size: 0.875rem;
 		color: var(--text-primary);
 		white-space: pre-wrap;

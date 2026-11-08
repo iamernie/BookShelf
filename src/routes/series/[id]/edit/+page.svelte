@@ -18,7 +18,6 @@
 	let title = $state(series.title || '');
 	let description = $state(series.description || '');
 	let numBooks = $state(series.numBooks?.toString() || '');
-	let comments = $state(series.comments || '');
 	let statusId = $state(series.statusId?.toString() || '');
 	let genreId = $state(series.genreId?.toString() || '');
 
@@ -44,7 +43,6 @@
 					title: title.trim(),
 					description: description.trim() || null,
 					numBooks: numBooks ? parseInt(numBooks) : null,
-					comments: comments.trim() || null,
 					statusId: statusId ? parseInt(statusId) : null,
 					genreId: genreId ? parseInt(genreId) : null
 				})
@@ -233,24 +231,6 @@
 								class="w-full px-3 py-2 rounded-md text-sm resize-y"
 								style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
 								placeholder="Series description..."
-							></textarea>
-						</div>
-
-						<!-- Notes -->
-						<div
-							class="rounded-lg p-4"
-							style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);"
-						>
-							<label for="comments" class="block text-xs font-medium mb-1.5" style="color: var(--text-muted);">
-								Personal Notes
-							</label>
-							<textarea
-								id="comments"
-								bind:value={comments}
-								rows="3"
-								class="w-full px-3 py-2 rounded-md text-sm resize-y"
-								style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
-								placeholder="Your personal notes..."
 							></textarea>
 						</div>
 

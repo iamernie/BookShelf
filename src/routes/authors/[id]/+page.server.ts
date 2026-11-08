@@ -7,6 +7,7 @@ import { getAllFormats } from '$lib/server/services/formatService';
 import { getAllGenres } from '$lib/server/services/genreService';
 import { getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { getEntityNotes } from '$lib/server/services/entityNotesService';
 import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -35,12 +36,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Author not found');
 	}
 
+	// The viewer's own notes only
+	const myNotes = locals.user ? await getEntityNotes(locals.user.id, 'author', id) : null;
+
 	return {
 		author: result.author,
 		authorTags,
 		books: result.books,
 		series: result.series,
 		canEdit,
+		myNotes,
+		canWriteNotes: hasPermission(locals.user ?? null, Permission.EDIT_OWN_BOOKS),
 		options: {
 			tags,
 			statuses,

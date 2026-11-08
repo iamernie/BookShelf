@@ -584,6 +584,7 @@ function runMigrations() {
 		'Creating widget instances table',
 		'Creating Audiobookshelf sync tables',
 		'Creating Audible series suggestion tables',
+		'Creating per-user entity notes tables',
 		'Finalizing'
 	];
 
@@ -2232,6 +2233,34 @@ function runMigrations() {
 	}
 
 	completeStep('Setting up per-user libraries');
+
+	// ========== Per-user entity notes (2.31.0) ==========
+	// Same tables, FK actions and index names as drizzle/0009_user_entity_notes.sql
+	for (const [table, fk, entity, uniqueName, fkIndexName] of [
+		['user_series_notes', 'seriesId', 'series', 'idx_user_series_notes_user_series', 'idx_user_series_notes_series'],
+		['user_author_notes', 'authorId', 'authors', 'idx_user_author_notes_user_author', 'idx_user_author_notes_author'],
+		['user_narrator_notes', 'narratorId', 'narrators', 'idx_user_narrator_notes_user_narrator', 'idx_user_narrator_notes_narrator']
+	]) {
+		safeCreateTable(table, `
+			CREATE TABLE ${table} (
+				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+				userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				${fk} INTEGER NOT NULL REFERENCES ${entity}(id) ON DELETE CASCADE,
+				notes TEXT NOT NULL,
+				createdAt TEXT NOT NULL,
+				updatedAt TEXT NOT NULL
+			)
+		`);
+		// Separate statements: safeCreateTable skips its whole SQL once the table exists
+		try {
+			sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS ${uniqueName} ON ${table}(userId, ${fk})`);
+			sqlite.exec(`CREATE INDEX IF NOT EXISTS ${fkIndexName} ON ${table}(${fk})`);
+		} catch (e) {
+			console.error(`[db] Failed to create ${table} indexes:`, e);
+		}
+	}
+
+	completeStep('Creating per-user entity notes tables');
 
 	// ========== Data migrations for V1 compatibility ==========
 	updateStatus('Migrating V1 user data...');

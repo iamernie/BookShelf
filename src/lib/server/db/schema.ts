@@ -424,6 +424,59 @@ export const userBookTags = sqliteTable('user_book_tags', {
 	createdAt: text('createdAt').default('CURRENT_TIMESTAMP')
 });
 
+// Per-user notes on a series, author or narrator (2.31.0): each user writes and sees only their
+// own. The shared entity `comments` columns are deprecated in place
+export const userSeriesNotes = sqliteTable(
+	'user_series_notes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+		seriesId: integer('seriesId').notNull().references(() => series.id, { onDelete: 'cascade' }),
+		notes: text('notes').notNull(),
+		createdAt: text('createdAt').notNull(),
+		updatedAt: text('updatedAt').notNull()
+	},
+	(table) => [
+		uniqueIndex('idx_user_series_notes_user_series').on(table.userId, table.seriesId),
+		index('idx_user_series_notes_series').on(table.seriesId)
+	]
+);
+
+export const userAuthorNotes = sqliteTable(
+	'user_author_notes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+		authorId: integer('authorId').notNull().references(() => authors.id, { onDelete: 'cascade' }),
+		notes: text('notes').notNull(),
+		createdAt: text('createdAt').notNull(),
+		updatedAt: text('updatedAt').notNull()
+	},
+	(table) => [
+		uniqueIndex('idx_user_author_notes_user_author').on(table.userId, table.authorId),
+		index('idx_user_author_notes_author').on(table.authorId)
+	]
+);
+
+export const userNarratorNotes = sqliteTable(
+	'user_narrator_notes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+		narratorId: integer('narratorId').notNull().references(() => narrators.id, { onDelete: 'cascade' }),
+		notes: text('notes').notNull(),
+		createdAt: text('createdAt').notNull(),
+		updatedAt: text('updatedAt').notNull()
+	},
+	(table) => [
+		uniqueIndex('idx_user_narrator_notes_user_narrator').on(table.userId, table.narratorId),
+		index('idx_user_narrator_notes_narrator').on(table.narratorId)
+	]
+);
+
+// Settings key set once the shared entity comments have been copied into the notes tables
+export const ENTITY_NOTES_COPIED_SETTING = 'migration.entity_notes_copied_at';
+
 // Metadata edit suggestions queue
 export const metadataSuggestions = sqliteTable('metadata_suggestions', {
 	id: integer('id').primaryKey({ autoIncrement: true }),

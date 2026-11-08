@@ -93,7 +93,6 @@
 
 	// Derived values that update when data changes
 	let descriptionValue = $derived(data.series.description || '');
-	let notesValue = $derived(data.series.comments || '');
 
 	// Local editable copies
 	let editDescriptionValue = $state('');
@@ -106,7 +105,7 @@
 	}
 
 	function startEditNotes() {
-		editNotesValue = data.series.comments || '';
+		editNotesValue = data.myNotes || '';
 		editingNotes = true;
 	}
 
@@ -141,10 +140,11 @@
 	async function saveNotes() {
 		savingNotes = true;
 		try {
-			const res = await fetch(`/api/series/${data.series.id}`, {
+			// The caller's own notes, never the shared series row
+			const res = await fetch(`/api/series/${data.series.id}/notes`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ comments: editNotesValue })
+				body: JSON.stringify({ notes: editNotesValue })
 			});
 			if (res.ok) {
 				toasts.success('Notes saved');
@@ -380,7 +380,8 @@
 			{/if}
 		</div>
 
-		<!-- Notes -->
+		<!-- My notes: the viewer's own, nobody else sees them -->
+		{#if data.canWriteNotes}
 		<div class="detail-card">
 			<div class="detail-header">
 				<h3 class="detail-title">Notes</h3>
@@ -410,14 +411,15 @@
 				</div>
 			{:else}
 				<button type="button" class="detail-content-btn" onclick={startEditNotes}>
-					{#if data.series.comments}
-						<span class="detail-text">{data.series.comments}</span>
+					{#if data.myNotes}
+						<span class="detail-text">{data.myNotes}</span>
 					{:else}
 						<span class="detail-placeholder">Click to add...</span>
 					{/if}
 				</button>
 			{/if}
 		</div>
+		{/if}
 
 		<!-- Tags -->
 		<div class="detail-card">

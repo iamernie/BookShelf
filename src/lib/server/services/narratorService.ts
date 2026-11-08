@@ -2,6 +2,7 @@ import { db, narrators, books, narratorTags, tags } from '$lib/server/db';
 import { eq, like, asc, desc, sql, and, inArray, getTableColumns, type SQL } from 'drizzle-orm';
 import { viewerBooks as vub } from './personalState';
 import { reachableBookCond, reachableEntityCond, canReachEntity, type Viewer } from './libraryShareService';
+import { repointAndConcatEntityNotes } from './entityNotesService';
 import { stripHtmlTags } from './metadataProviders/types';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
@@ -582,6 +583,8 @@ export async function mergeNarrators(
 		}
 
 		tx.delete(narratorTags).where(eq(narratorTags.narratorId, sourceId)).run();
+		// Every user's own notes on the source join theirs on the target
+		repointAndConcatEntityNotes(tx, 'narrator', sourceId, targetId);
 		tx.delete(narrators).where(eq(narrators.id, sourceId)).run();
 
 		return result.changes;

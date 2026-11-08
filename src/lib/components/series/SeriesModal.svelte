@@ -32,14 +32,12 @@
 	let title = $state(series?.title || '');
 	let description = $state(series?.description || '');
 	let numBooks = $state(series?.numBooks?.toString() || '');
-	let comments = $state(series?.comments || '');
 
 	function buildPayload() {
 		return {
 			title: title.trim(),
 			description: description.trim() || null,
-			numBooks: numBooks ? parseInt(numBooks) : null,
-			comments: comments.trim() || null
+			numBooks: numBooks ? parseInt(numBooks) : null
 		};
 	}
 
@@ -188,13 +186,6 @@
 				</div>
 			{/if}
 
-			{#if series.comments}
-				<div class="content-section">
-					<h3 class="section-label">Notes</h3>
-					<p class="section-text">{series.comments}</p>
-				</div>
-			{/if}
-
 			{#if books.length > 0}
 				<div class="content-section">
 					<h3 class="section-label books-label">
@@ -274,16 +265,6 @@
 					bind:value={numBooks}
 					class="form-input"
 				/>
-			</div>
-
-			<div class="form-group">
-				<label for="comments" class="form-label">Notes</label>
-				<textarea
-					id="comments"
-					bind:value={comments}
-					rows="3"
-					class="form-input"
-				></textarea>
 			</div>
 
 			<!-- Form buttons -->

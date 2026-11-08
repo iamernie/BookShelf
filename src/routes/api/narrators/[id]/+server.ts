@@ -43,7 +43,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		photoUrl: data.photoUrl?.trim() || null,
 		website: data.website?.trim() || null,
 		wikipediaUrl: data.wikipediaUrl?.trim() || null,
-		comments: data.comments?.trim() || null
+		// Absent leaves the shared column alone: notes are per-user (2.31.0) and the forms no longer send it
+		comments: data.comments === undefined ? undefined : data.comments?.trim() || null
 	});
 
 	if (!narrator) {

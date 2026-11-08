@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { canReachBook, canViewBook, holdsBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { getBookById } from '$lib/server/services/bookService';
-import { canManagePublicLibrary } from '$lib/server/services/permissionService';
+import { canManagePublicLibrary, hasPermission, Permission } from '$lib/server/services/permissionService';
 import { getSimilarBooks } from '$lib/server/services/recommendationService';
 import { getAllTags } from '$lib/server/services/tagService';
 import { getAllStatuses } from '$lib/server/services/statusService';
@@ -10,6 +10,7 @@ import { getAllMediaSources, getBookMediaSources } from '$lib/server/services/me
 import { ebookExists } from '$lib/server/services/ebookService';
 import { getAbsLinkBaseUrl } from '$lib/server/services/absService';
 import { getSeriesBookNotes } from '$lib/server/services/seriesService';
+import { getEntityNotesMap } from '$lib/server/services/entityNotesService';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const id = parseInt(params.id);
@@ -34,7 +35,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const isOwner = found.ownerId !== null && found.ownerId === locals.user.id;
 
 	// Get similar books, tags, statuses, and media sources
-	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes, inLibrary, canAdd] = await Promise.all([
+	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes, inLibrary, canAdd, mySeriesNotes] = await Promise.all([
 		getSimilarBooks(id, 8, locals.user.id),
 		getAllTags(),
 		getAllStatuses(),
@@ -42,7 +43,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		getBookMediaSources(id),
 		getSeriesBookNotes(book.series.map((s) => s.id), locals.user?.id),
 		holdsBook(locals.user.id, id),
-		canReachBook(locals.user.id, id)
+		canReachBook(locals.user.id, id),
+		// The viewer's own notes on the book's series, keyed by series id
+		getEntityNotesMap(locals.user.id, 'series', book.series.map((s) => s.id))
 	]);
 
 	// Check if ebook file exists (using proper path resolution)
@@ -74,6 +77,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		allMediaSources,
 		bookMediaSources,
 		seriesBookNotes,
+		mySeriesNotes,
+		canWriteNotes: hasPermission(locals.user, Permission.EDIT_OWN_BOOKS),
 		ebookMissing,
 		absBaseUrl
 	};

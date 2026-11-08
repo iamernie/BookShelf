@@ -4,6 +4,7 @@ import type { Author, NewAuthor } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
 import { viewerBooks as vub } from './personalState';
 import { reachableBookCond, reachableEntityCond, canReachEntity, type Viewer } from './libraryShareService';
+import { repointAndConcatEntityNotes } from './entityNotesService';
 import type { BookCardData } from '$lib/types';
 import { dateInAppTz } from '$lib/server/utils/appTime';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
@@ -498,43 +499,40 @@ export async function mergeAuthors(
 		return { success: false, merged: 0, error: 'Cannot merge author with itself' };
 	}
 
-	// Get all book associations for the source author
-	const sourceAssociations = await db
-		.select()
-		.from(bookAuthors)
-		.where(eq(bookAuthors.authorId, sourceId));
+	// One transaction: the notes must move before the delete cascades them away
+	const merged = db.transaction((tx) => {
+		const sourceAssociations = tx.select().from(bookAuthors).where(eq(bookAuthors.authorId, sourceId)).all();
 
-	// Get target's existing book associations to avoid duplicates
-	const targetAssociations = await db
-		.select()
-		.from(bookAuthors)
-		.where(eq(bookAuthors.authorId, targetId));
+		// Target's existing book associations, to avoid duplicates
+		const targetBookIds = new Set(
+			tx.select({ bookId: bookAuthors.bookId }).from(bookAuthors).where(eq(bookAuthors.authorId, targetId)).all().map((a) => a.bookId)
+		);
 
-	const targetBookIds = new Set(targetAssociations.map((a) => a.bookId));
+		let moved = 0;
 
-	let merged = 0;
-
-	// Move associations that don't exist on target
-	for (const assoc of sourceAssociations) {
-		if (!targetBookIds.has(assoc.bookId)) {
-			await db
-				.update(bookAuthors)
-				.set({ authorId: targetId })
-				.where(and(eq(bookAuthors.authorId, sourceId), eq(bookAuthors.bookId, assoc.bookId)));
-			merged++;
-		} else {
-			// Delete duplicate association
-			await db
-				.delete(bookAuthors)
-				.where(and(eq(bookAuthors.authorId, sourceId), eq(bookAuthors.bookId, assoc.bookId)));
+		// Move associations that don't exist on target
+		for (const assoc of sourceAssociations) {
+			const thisAssoc = and(eq(bookAuthors.authorId, sourceId), eq(bookAuthors.bookId, assoc.bookId));
+			if (!targetBookIds.has(assoc.bookId)) {
+				tx.update(bookAuthors).set({ authorId: targetId }).where(thisAssoc).run();
+				moved++;
+			} else {
+				// Delete duplicate association
+				tx.delete(bookAuthors).where(thisAssoc).run();
+			}
 		}
-	}
 
-	// Also update legacy books.authorId if it exists
-	await db.update(books).set({ authorId: targetId }).where(eq(books.authorId, sourceId));
+		// Also update legacy books.authorId if it exists
+		tx.update(books).set({ authorId: targetId }).where(eq(books.authorId, sourceId)).run();
 
-	// Delete the source author
-	await db.delete(authors).where(eq(authors.id, sourceId));
+		// Every user's own notes on the source join theirs on the target
+		repointAndConcatEntityNotes(tx, 'author', sourceId, targetId);
+
+		// Delete the source author
+		tx.delete(authors).where(eq(authors.id, sourceId)).run();
+
+		return moved;
+	});
 
 	return { success: true, merged };
 }

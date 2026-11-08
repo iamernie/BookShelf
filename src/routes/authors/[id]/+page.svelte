@@ -107,7 +107,7 @@
 	}
 
 	function startEditNotes() {
-		editNotesValue = data.author.comments || '';
+		editNotesValue = data.myNotes || '';
 		editingNotes = true;
 	}
 
@@ -135,10 +135,11 @@
 	async function saveNotes() {
 		savingNotes = true;
 		try {
-			const res = await fetch(`/api/authors/${data.author.id}`, {
+			// The caller's own notes, never the shared author row
+			const res = await fetch(`/api/authors/${data.author.id}/notes`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ comments: editNotesValue })
+				body: JSON.stringify({ notes: editNotesValue })
 			});
 			if (res.ok) {
 				toasts.success('Notes saved');
@@ -372,7 +373,8 @@
 			{/if}
 		</div>
 
-		<!-- Notes -->
+		<!-- My notes: the viewer's own, nobody else sees them -->
+		{#if data.canWriteNotes}
 		<div class="detail-card">
 			<div class="detail-header">
 				<h3 class="detail-title">Notes</h3>
@@ -402,14 +404,15 @@
 				</div>
 			{:else}
 				<button type="button" class="detail-content-btn" onclick={startEditNotes}>
-					{#if data.author.comments}
-						<span class="detail-text">{data.author.comments}</span>
+					{#if data.myNotes}
+						<span class="detail-text">{data.myNotes}</span>
 					{:else}
 						<span class="detail-placeholder">Click to add...</span>
 					{/if}
 				</button>
 			{/if}
 		</div>
+		{/if}
 
 		<!-- Series -->
 		<div class="detail-card">

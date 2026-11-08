@@ -57,7 +57,6 @@
 	let photoUrl = $state(author.photoUrl || '');
 	let website = $state(author.website || '');
 	let wikipediaUrl = $state(author.wikipediaUrl || '');
-	let comments = $state(author.comments || '');
 
 	// Wikipedia search state
 	let showWikiSearch = $state(false);
@@ -191,8 +190,7 @@
 					birthPlace: birthPlace.trim() || null,
 					photoUrl: photoUrl.trim() || null,
 					website: website.trim() || null,
-					wikipediaUrl: wikipediaUrl.trim() || null,
-					comments: comments.trim() || null
+					wikipediaUrl: wikipediaUrl.trim() || null
 				})
 			});
 
@@ -817,24 +815,6 @@
 									</button>
 								</div>
 							</div>
-						</div>
-
-						<!-- Notes -->
-						<div
-							class="rounded-lg p-4"
-							style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);"
-						>
-							<label for="comments" class="block text-xs font-medium mb-1.5" style="color: var(--text-muted);">
-								Personal Notes
-							</label>
-							<textarea
-								id="comments"
-								bind:value={comments}
-								rows="3"
-								class="w-full px-3 py-2 rounded-md text-sm resize-y"
-								style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
-								placeholder="Your personal notes..."
-							></textarea>
 						</div>
 
 						<!-- Tags -->

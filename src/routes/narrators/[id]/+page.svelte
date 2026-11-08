@@ -46,7 +46,7 @@
 	}
 
 	function startEditNotes() {
-		editNotesValue = data.narrator.comments || '';
+		editNotesValue = data.myNotes || '';
 		editingNotes = true;
 	}
 
@@ -74,10 +74,11 @@
 	async function saveNotes() {
 		savingNotes = true;
 		try {
-			const res = await fetch(`/api/narrators/${data.narrator.id}`, {
+			// The caller's own notes, never the shared narrator row
+			const res = await fetch(`/api/narrators/${data.narrator.id}/notes`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name: data.narrator.name, comments: editNotesValue })
+				body: JSON.stringify({ notes: editNotesValue })
 			});
 			if (res.ok) {
 				toasts.success('Notes saved');
@@ -285,7 +286,8 @@
 			{/if}
 		</div>
 
-		<!-- Notes -->
+		<!-- My notes: the viewer's own, nobody else sees them -->
+		{#if data.canWriteNotes}
 		<div class="detail-card">
 			<div class="detail-header">
 				<h3 class="detail-title">Notes</h3>
@@ -315,14 +317,15 @@
 				</div>
 			{:else}
 				<button type="button" class="detail-content-btn" onclick={startEditNotes}>
-					{#if data.narrator.comments}
-						<span class="detail-text">{data.narrator.comments}</span>
+					{#if data.myNotes}
+						<span class="detail-text">{data.myNotes}</span>
 					{:else}
 						<span class="detail-placeholder">Click to add...</span>
 					{/if}
 				</button>
 			{/if}
 		</div>
+		{/if}
 
 		<!-- Tags -->
 		<div class="detail-card detail-card-wide">
