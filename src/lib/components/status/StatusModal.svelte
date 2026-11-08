@@ -8,12 +8,14 @@
 		status,
 		books = [],
 		mode = 'view',
+		canEdit = false,
 		onClose,
 		onSave
 	}: {
 		status: { id: number; name: string; key: string | null; color: string | null; icon: string | null; isSystem: boolean | null; sortOrder: number | null; bookCount?: number; createdAt: string | null; updatedAt: string | null } | null;
 		books?: { id: number; title: string; coverImageUrl: string | null }[];
 		mode: 'view' | 'edit';
+		canEdit?: boolean;
 		onClose: () => void;
 		onSave: (data: { name: string }) => Promise<void>;
 	} = $props();
@@ -116,6 +118,7 @@
 			{/if}
 
 			<!-- Action buttons -->
+			{#if canEdit}
 			<div class="flex justify-end pt-4" style="border-top: 1px solid var(--border-color);">
 				<button
 					type="button"
@@ -126,8 +129,9 @@
 					Edit Name
 				</button>
 			</div>
+			{/if}
 		</div>
-	{:else if status}
+	{:else if status && canEdit}
 		<!-- Edit Mode -->
 		<form onsubmit={(e) => { e.preventDefault(); handleSave(); }} class="p-6 space-y-4">
 			<div class="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400">

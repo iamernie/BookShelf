@@ -7,6 +7,8 @@
 	import TagModal from '$lib/components/tag/TagModal.svelte';
 	import { toasts } from '$lib/stores/toast';
 
+	let { data } = $props();
+
 	interface TagWithCount {
 		id: number;
 		name: string;
@@ -55,7 +57,11 @@
 	}
 
 	function openTag(tag: TagWithCount) {
-		// Navigate to the edit page instead of modal
+		// Editors open the edit page; everyone else browses the tag's books
+		if (!data.canEdit) {
+			goto(`/books?tag=${tag.id}`);
+			return;
+		}
 		const returnUrl = encodeURIComponent($page.url.pathname + $page.url.search);
 		goto(`/tags/${tag.id}/edit?returnTo=${returnUrl}`);
 	}
@@ -105,6 +111,7 @@
 			<p class="mt-1" style="color: var(--text-muted);">{total} tags</p>
 		</div>
 
+		{#if data.canCreate}
 		<button
 			type="button"
 			class="btn-accent flex items-center gap-2"
@@ -113,6 +120,7 @@
 			<Plus class="w-5 h-5" />
 			Add Tag
 		</button>
+		{/if}
 	</div>
 
 	<!-- Search -->
@@ -148,7 +156,7 @@
 			<p class="mb-4" style="color: var(--text-muted);">
 				{search ? 'Try a different search term' : 'Get started by creating your first tag'}
 			</p>
-			{#if !search}
+			{#if !search && data.canCreate}
 				<button
 					type="button"
 					class="btn-accent inline-flex items-center gap-2"

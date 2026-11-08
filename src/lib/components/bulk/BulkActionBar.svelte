@@ -152,7 +152,8 @@
 			}
 
 			const result = await response.json();
-			toasts.success(`${label} updated for ${result.updated || bookIds.length} books`);
+			if (result.skipped?.length > 0) toasts.warning(result.message);
+			else toasts.success(`${label} updated for ${result.updated} books`);
 			closeDropdown();
 			onComplete?.();
 		} catch (err) {

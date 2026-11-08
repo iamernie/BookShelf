@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getBookById, updateBook, deleteBook, AbsItemAlreadyLinkedError } from '$lib/server/services/bookService';
 import { removeBookFromUserLibrary, getUserBook } from '$lib/server/services/userBookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
-import { canReachBook, canViewBook, canModifyBook, canDeleteBook, hideOwnerFrom } from '$lib/server/services/libraryShareService';
+import { canReachBook, canViewBook, canEditBookCatalog, canDeleteBook, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { applyStatusChange } from '$lib/server/services/statusService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
@@ -153,17 +153,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	// Catalog permission depends on library type
 	if (catalogChange) {
-		if (existingBook.libraryType === 'public') {
-			// Public library books: only admins and librarians can edit
-			if (!canManagePublicLibrary(locals.user)) {
-				throw error(403, { message: 'Only librarians and admins can edit public library books' });
-			}
-		} else {
-			// Personal library books: check ownership/sharing permissions
-			const canModify = await canModifyBook(locals.user.id, id);
-			if (!canModify) {
-				throw error(403, { message: 'You do not have permission to modify this book' });
-			}
+		// Public library books: admins and librarians; personal ones: ownership or a write share
+		if (!(await canEditBookCatalog(locals.user, { id, libraryType: existingBook.libraryType }))) {
+			throw error(403, {
+				message: existingBook.libraryType === 'public'
+					? 'Only librarians and admins can edit public library books'
+					: 'You do not have permission to modify this book'
+			});
 		}
 		try {
 			const updated = await updateBook(id, updateData);

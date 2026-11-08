@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { getGenres, createGenre, getGenreByName } from '$lib/server/services/genreService';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -15,6 +16,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to create genres' });
 	}
 
 	const data = await request.json();

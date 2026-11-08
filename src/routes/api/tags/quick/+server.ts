@@ -1,11 +1,16 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { quickCreateTag } from '$lib/server/services/tagService';
 
 // Quick create a tag with default color (for use in forms)
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to create tags' });
 	}
 
 	const data = await request.json();

@@ -36,7 +36,9 @@
 
 			if (res.ok) {
 				const result = await res.json();
-				toasts.success(`Deleted ${result.deleted} book(s)`);
+				// Books the caller may not delete are skipped, never deleted; the message names how many
+				if (result.skipped?.length > 0) toasts.warning(result.message);
+				else toasts.success(result.message || `Deleted ${result.deleted} book(s)`);
 				onComplete();
 			} else {
 				const err = await res.json();

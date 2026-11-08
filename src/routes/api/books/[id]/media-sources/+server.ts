@@ -9,7 +9,18 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getBookMediaSources, addBookMediaSource, setBookMediaSources } from '$lib/server/services/mediaSourceService';
-import { getBookById } from '$lib/server/services/bookService';
+import { canEditBookCatalog, getBookAuthority } from '$lib/server/services/libraryShareService';
+
+/** Media sources are shared per book: writing them needs the book's catalog authority */
+async function requireCatalogAuthority(user: { id: number; role: string | null }, bookId: number) {
+	const book = await getBookAuthority(bookId);
+	if (!book) {
+		throw error(404, 'Book not found');
+	}
+	if (!(await canEditBookCatalog(user, book))) {
+		throw error(403, { message: 'You do not have permission to change this book\'s media sources' });
+	}
+}
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
@@ -35,11 +46,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, 'Invalid book ID');
 	}
 
-	// Verify book exists
-	const book = await getBookById(bookId, locals.user?.id ?? null);
-	if (!book) {
-		throw error(404, 'Book not found');
-	}
+	await requireCatalogAuthority(locals.user, bookId);
 
 	const data = await request.json();
 
@@ -75,11 +82,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, 'Invalid book ID');
 	}
 
-	// Verify book exists
-	const book = await getBookById(bookId, locals.user?.id ?? null);
-	if (!book) {
-		throw error(404, 'Book not found');
-	}
+	await requireCatalogAuthority(locals.user, bookId);
 
 	const data = await request.json();
 

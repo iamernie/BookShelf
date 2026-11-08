@@ -6,7 +6,7 @@ import { getAllSeries } from '$lib/server/services/seriesService';
 import { getNarrators } from '$lib/server/services/narratorService';
 import { getFormats } from '$lib/server/services/formatService';
 import { getStatuses } from '$lib/server/services/statusService';
-import { canManageEntities, hasPermission, Permission } from '$lib/server/services/permissionService';
+import { canManageEntities, hasPermission, isAdmin, Permission } from '$lib/server/services/permissionService';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const tab = url.searchParams.get('tab') || 'authors';
@@ -70,8 +70,10 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		limit,
 		items,
 		total,
-		// Author, series and narrator edit and delete are catalog-editor writes; creating stays open to book adders
+		// Entity, genre, tag and format edit and delete are catalog-editor writes; creating stays open
+		// to book adders; merging is admin-only, as /api/catalog/merge
 		canEdit: canManageEntities(locals.user ?? null),
-		canCreate: hasPermission(locals.user ?? null, Permission.ADD_BOOKS)
+		canCreate: hasPermission(locals.user ?? null, Permission.ADD_BOOKS),
+		canMerge: isAdmin(locals.user ?? null)
 	};
 };

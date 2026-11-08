@@ -5,6 +5,8 @@
 	import StatusModal from '$lib/components/status/StatusModal.svelte';
 	import { toasts } from '$lib/stores/toast';
 
+	let { data } = $props();
+
 	interface StatusWithCount {
 		id: number;
 		name: string;
@@ -105,7 +107,7 @@
 		<AlertTriangle class="w-5 h-5 flex-shrink-0 mt-0.5" style="color: var(--text-warning);" />
 		<div class="text-sm" style="color: var(--text-warning);">
 			<p class="font-medium">Reading statuses are system-defined</p>
-			<p class="mt-1">Statuses like "Read", "Reading", "To Read", etc. are built into the application and cannot be added or removed. You can only rename them for localization purposes.</p>
+			<p class="mt-1">Statuses like "Read", "Reading", "To Read", etc. are built into the application and cannot be added or removed. {#if data.canEdit}You can only rename them for localization purposes.{:else}Only admins can rename them.{/if}</p>
 		</div>
 	</div>
 
@@ -135,6 +137,7 @@
 		status={selectedStatus}
 		books={statusBooks}
 		mode={modalMode}
+		canEdit={data.canEdit}
 		onClose={() => showModal = false}
 		onSave={saveStatus}
 	/>

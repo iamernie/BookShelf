@@ -587,9 +587,13 @@
 	}));
 	// What the server holds, split as it is saved: personal (the viewer's own) and catalog
 	let savedSplit = splitBookBody(buildPayload());
+	// Media sources are catalog data: they are written only when changed, so a viewer who can't
+	// edit the catalog still saves their own fields
+	let savedMediaSources = JSON.stringify(sortedIds(selectedMediaSourceIds));
 	onMount(() => {
 		form.capture();
 		savedSplit = splitBookBody(buildPayload());
+		savedMediaSources = JSON.stringify(sortedIds(selectedMediaSourceIds));
 	});
 	guardNavigation(form.isDirty);
 
@@ -624,25 +628,29 @@
 				// Before goto: the guard runs after finally has cleared saving
 				form.adopt({ ...snapshotOf(payload), ...picker });
 
-				// Also save media sources
-				let mediaSourcesSaved = false;
-				try {
-					const mediaRes = await fetch(`/api/books/${book.id}/media-sources`, {
-						method: 'PUT',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							sources: mediaSourceIds.map(id => ({ mediaSourceId: id }))
-						})
-					});
-					mediaSourcesSaved = mediaRes.ok;
-				} catch (e) {
-					console.error('Failed to save media sources:', e);
+				// Also save media sources, when they changed
+				const mediaSourcesChanged = JSON.stringify(sortedIds(mediaSourceIds)) !== savedMediaSources;
+				let mediaSourcesSaved = !mediaSourcesChanged;
+				if (mediaSourcesChanged) {
+					try {
+						const mediaRes = await fetch(`/api/books/${book.id}/media-sources`, {
+							method: 'PUT',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								sources: mediaSourceIds.map(id => ({ mediaSourceId: id }))
+							})
+						});
+						mediaSourcesSaved = mediaRes.ok;
+					} catch (e) {
+						console.error('Failed to save media sources:', e);
+					}
 				}
 
 				if (!mediaSourcesSaved) {
 					toasts.error('Book saved, but media sources failed to save');
 					return;
 				}
+				savedMediaSources = JSON.stringify(sortedIds(mediaSourceIds));
 				form.adopt({ mediaSourceIds: sortedIds(mediaSourceIds) });
 
 				toasts.success('Book saved');

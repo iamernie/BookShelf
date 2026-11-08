@@ -1062,6 +1062,7 @@
 						entityId={data.book.id}
 						currentTags={data.book.tags}
 						allTags={data.allTags}
+						readonly={!data.canEditCatalog}
 						onUpdate={() => invalidateAll()}
 					/>
 				</div>

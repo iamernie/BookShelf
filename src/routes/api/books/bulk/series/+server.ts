@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, bookSeries } from '$lib/server/db';
 import { eq, and, inArray } from 'drizzle-orm';
+import { canEditBookCatalog, partitionBooks } from '$lib/server/services/libraryShareService';
 import { recomputeSeriesStatuses } from '$lib/server/services/statusService';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -26,12 +27,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 	}
 
+	// A catalog field: each book needs the caller's catalog authority; the rest are skipped
+	const user = locals.user;
+	const { allowed, skipped } = await partitionBooks(bookIds, (book) => canEditBookCatalog(user, book));
+	const note = skipped.length > 0 ? `; ${skipped.length} skipped (no permission or not found)` : '';
+
 	const now = new Date().toISOString();
 	let updated = 0;
 
 	if (action === 'add') {
 		// Add books to series
-		for (const bookId of bookIds) {
+		for (const bookId of allowed) {
 			// Check if already exists
 			const existing = await db
 				.select()
@@ -64,11 +70,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({
 			success: true,
 			updated,
-			message: `Added ${updated} book(s) to series`
+			skipped,
+			message: `Added ${updated} book(s) to series${note}`
 		});
 	} else if (action === 'remove') {
 		// Remove books from specific series
-		for (const bookId of bookIds) {
+		for (const bookId of allowed) {
 			const result = await db
 				.delete(bookSeries)
 				.where(and(eq(bookSeries.bookId, bookId), eq(bookSeries.seriesId, seriesId)));
@@ -82,12 +89,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({
 			success: true,
 			updated,
-			message: `Removed ${updated} book(s) from series`
+			skipped,
+			message: `Removed ${updated} book(s) from series${note}`
 		});
 	} else {
 		// Clear all series from books
-		const cleared = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(inArray(bookSeries.bookId, bookIds));
-		for (const bookId of bookIds) {
+		const cleared = allowed.length > 0
+			? await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(inArray(bookSeries.bookId, allowed))
+			: [];
+		for (const bookId of allowed) {
 			const result = await db
 				.delete(bookSeries)
 				.where(eq(bookSeries.bookId, bookId));
@@ -100,7 +110,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({
 			success: true,
 			updated,
-			message: `Cleared series from ${updated} book(s)`
+			skipped,
+			message: `Cleared series from ${updated} book(s)${note}`
 		});
 	}
 };

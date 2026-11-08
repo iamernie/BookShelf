@@ -1,6 +1,7 @@
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 import { currentYearInAppTz } from '$lib/server/utils/appTime';
+import { isAdmin } from '$lib/server/services/permissionService';
 import {
 	getActiveGoal,
 	getAllGoals,
@@ -38,12 +39,24 @@ export const load: PageServerLoad = async ({ locals }) => {
 		challenges,
 		challengeTypes: CHALLENGE_TYPES,
 		goalIcons: GOAL_ICONS,
-		currentYear
+		currentYear,
+		// Goals are instance-wide until per-user goals land, so only admins change them
+		canEdit: isAdmin(locals.user)
 	};
 };
 
+/** Goal writes change every user's goals: login, then admin, before the form is read */
+function goalWriteDenied(user: App.Locals['user']) {
+	if (!user) return fail(401, { error: 'Unauthorized' });
+	if (!isAdmin(user)) return fail(403, { error: 'Only admins can change reading goals' });
+	return null;
+}
+
 export const actions: Actions = {
-	updateGoal: async ({ request }) => {
+	updateGoal: async ({ request, locals }) => {
+		const denied = goalWriteDenied(locals.user);
+		if (denied) return denied;
+
 		const formData = await request.formData();
 		const id = parseInt(formData.get('id') as string, 10);
 		const target = parseInt(formData.get('target') as string, 10);
@@ -85,7 +98,10 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
-	createGoal: async ({ request }) => {
+	createGoal: async ({ request, locals }) => {
+		const denied = goalWriteDenied(locals.user);
+		if (denied) return denied;
+
 		const formData = await request.formData();
 		const year = parseInt(formData.get('year') as string, 10);
 		const targetBooks = parseInt(formData.get('targetBooks') as string, 10);
@@ -106,7 +122,10 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
-	createChallenge: async ({ request }) => {
+	createChallenge: async ({ request, locals }) => {
+		const denied = goalWriteDenied(locals.user);
+		if (denied) return denied;
+
 		const formData = await request.formData();
 		const year = parseInt(formData.get('year') as string, 10);
 		const challengeType = formData.get('challengeType') as ChallengeType;
@@ -136,7 +155,10 @@ export const actions: Actions = {
 		}
 	},
 
-	deleteGoal: async ({ request }) => {
+	deleteGoal: async ({ request, locals }) => {
+		const denied = goalWriteDenied(locals.user);
+		if (denied) return denied;
+
 		const formData = await request.formData();
 		const id = parseInt(formData.get('id') as string, 10);
 

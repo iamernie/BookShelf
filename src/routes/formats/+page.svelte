@@ -7,6 +7,8 @@
 	import FormatModal from '$lib/components/format/FormatModal.svelte';
 	import { toasts } from '$lib/stores/toast';
 
+	let { data } = $props();
+
 	interface FormatWithCount {
 		id: number;
 		name: string;
@@ -46,7 +48,11 @@
 	}
 
 	function openFormat(format: FormatWithCount) {
-		// Navigate to the edit page instead of modal
+		// Editors open the edit page; everyone else browses the format's books
+		if (!data.canEdit) {
+			goto(`/books?format=${format.id}`);
+			return;
+		}
 		const returnUrl = encodeURIComponent($page.url.pathname + $page.url.search);
 		goto(`/formats/${format.id}/edit?returnTo=${returnUrl}`);
 	}
@@ -96,6 +102,7 @@
 			<p class="mt-1" style="color: var(--text-muted);">{total} formats</p>
 		</div>
 
+		{#if data.canCreate}
 		<button
 			type="button"
 			class="btn-accent flex items-center gap-2"
@@ -104,6 +111,7 @@
 			<Plus class="w-5 h-5" />
 			Add Format
 		</button>
+		{/if}
 	</div>
 
 	<!-- Search -->
@@ -139,7 +147,7 @@
 			<p class="mb-4" style="color: var(--text-muted);">
 				{search ? 'Try a different search term' : 'Get started by creating your first format'}
 			</p>
-			{#if !search}
+			{#if !search && data.canCreate}
 				<button
 					type="button"
 					class="btn-accent inline-flex items-center gap-2"

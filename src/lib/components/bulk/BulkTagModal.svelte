@@ -56,7 +56,8 @@
 
 			if (res.ok) {
 				const result = await res.json();
-				toasts.success(`Tags ${mode === 'add' ? 'added to' : 'removed from'} ${result.updated} book(s)`);
+				if (result.skipped?.length > 0) toasts.warning(result.message);
+				else toasts.success(`Tags ${mode === 'add' ? 'added to' : 'removed from'} ${result.updated} book(s)`);
 				onComplete();
 			} else {
 				const err = await res.json();

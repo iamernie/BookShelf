@@ -35,6 +35,8 @@
 	const challengeTypes = data.challengeTypes;
 	const goalIcons = data.goalIcons;
 	const currentYear = data.currentYear;
+	// Goals are instance-wide: only admins add, edit or delete them
+	const canEdit = data.canEdit;
 
 	// UI state
 	let editingGoal: number | null = $state(null);
@@ -231,7 +233,7 @@
 				<Trophy class="w-5 h-5" style="color: var(--accent);" />
 				<h3 class="font-semibold" style="color: var(--text-primary);">{currentYear} Reading Challenges</h3>
 			</div>
-			{#if availableChallengeTypes.length > 0}
+			{#if canEdit && availableChallengeTypes.length > 0}
 				<button
 					onclick={() => {
 						showNewChallengeForm = !showNewChallengeForm;
@@ -249,7 +251,7 @@
 			{/if}
 		</div>
 
-		{#if showNewChallengeForm}
+		{#if canEdit && showNewChallengeForm}
 			<form
 				method="POST"
 				action="?/createChallenge"
@@ -385,6 +387,7 @@
 								<span class="text-xs" style="color: var(--text-muted);">
 									{challenge.remaining} remaining
 								</span>
+								{#if canEdit}
 								<div class="flex gap-1">
 									<button
 										onclick={() => {
@@ -415,9 +418,10 @@
 										</button>
 									</form>
 								</div>
+								{/if}
 							</div>
 
-							{#if editingChallenge === challenge.challenge.id}
+							{#if canEdit && editingChallenge === challenge.challenge.id}
 								<form
 									method="POST"
 									action="?/updateGoal"
@@ -476,7 +480,8 @@
 		<div class="card mb-8 text-center py-12">
 			<Target class="w-16 h-16 mx-auto mb-4" style="color: var(--text-muted);" />
 			<h2 class="text-xl font-bold mb-2" style="color: var(--text-primary);">No Reading Goal Set</h2>
-			<p class="mb-6" style="color: var(--text-muted);">Set a reading goal to track your progress this year</p>
+			<p class="mb-6" style="color: var(--text-muted);">{canEdit ? 'Set a reading goal to track your progress this year' : 'An admin sets the reading goals'}</p>
+			{#if canEdit}
 			<button
 				onclick={() => (showNewGoalForm = true)}
 				class="btn-primary"
@@ -484,6 +489,7 @@
 				<Plus class="w-4 h-4" />
 				Set {currentYear} Goal
 			</button>
+			{/if}
 		</div>
 	{/if}
 
@@ -494,6 +500,7 @@
 				<Calendar class="w-5 h-5" style="color: var(--accent);" />
 				<h3 class="font-semibold" style="color: var(--text-primary);">All Reading Goals</h3>
 			</div>
+			{#if canEdit}
 			<button
 				onclick={() => (showNewGoalForm = true)}
 				class="btn-secondary text-sm"
@@ -501,9 +508,10 @@
 				<Plus class="w-4 h-4" />
 				New Goal
 			</button>
+			{/if}
 		</div>
 		<div class="divide-y" style="border-color: var(--border-color);">
-			{#if showNewGoalForm}
+			{#if canEdit && showNewGoalForm}
 				<form
 					method="POST"
 					action="?/createGoal"
@@ -563,7 +571,7 @@
 
 			{#each allGoals as goal}
 				<div class="p-4 flex items-center gap-4">
-					{#if editingGoal === goal.id}
+					{#if canEdit && editingGoal === goal.id}
 						<form
 							method="POST"
 							action="?/updateGoal"
@@ -627,6 +635,7 @@
 								Target: {goal.targetBooks} books
 							</div>
 						</div>
+						{#if canEdit}
 						<div class="flex gap-2">
 							<button
 								onclick={() => {
@@ -656,6 +665,7 @@
 								</form>
 							{/if}
 						</div>
+						{/if}
 					{/if}
 				</div>
 			{/each}

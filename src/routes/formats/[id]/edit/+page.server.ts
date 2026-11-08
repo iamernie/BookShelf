@@ -1,8 +1,13 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
+import { canManageEntities } from '$lib/server/services/permissionService';
 import { getFormatById, getBooksInFormat, getFormats } from '$lib/server/services/formatService';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
+	if (!canManageEntities(locals.user ?? null)) {
+		throw error(403, 'You do not have permission to edit formats');
+	}
+
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(404, 'Format not found');

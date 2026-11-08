@@ -7,6 +7,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { removeBookMediaSource } from '$lib/server/services/mediaSourceService';
+import { canEditBookCatalog, getBookAuthority } from '$lib/server/services/libraryShareService';
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
@@ -18,6 +19,15 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	if (isNaN(bookId) || isNaN(sourceId)) {
 		throw error(400, 'Invalid IDs');
+	}
+
+	// Media sources are shared per book: removing one needs the book's catalog authority
+	const book = await getBookAuthority(bookId);
+	if (!book) {
+		throw error(404, 'Book not found');
+	}
+	if (!(await canEditBookCatalog(locals.user, book))) {
+		throw error(403, { message: 'You do not have permission to change this book\'s media sources' });
 	}
 
 	await removeBookMediaSource(bookId, sourceId);

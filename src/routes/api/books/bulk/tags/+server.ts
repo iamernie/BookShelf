@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, bookTags } from '$lib/server/db';
 import { eq, and, inArray, sql } from 'drizzle-orm';
+import { canEditBookCatalog, partitionBooks } from '$lib/server/services/libraryShareService';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -23,12 +24,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'action must be "add" or "remove"');
 	}
 
+	// A catalog field: each book needs the caller's catalog authority; the rest are skipped
+	const user = locals.user;
+	const { allowed, skipped } = await partitionBooks(bookIds, (book) => canEditBookCatalog(user, book));
+	const note = skipped.length > 0 ? `; ${skipped.length} skipped (no permission or not found)` : '';
+
 	const now = new Date().toISOString();
 	let updated = 0;
 
 	if (action === 'add') {
 		// Add tags to books
-		for (const bookId of bookIds) {
+		for (const bookId of allowed) {
 			for (const tagId of tagIds) {
 				// Check if already exists
 				const existing = await db
@@ -50,7 +56,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 	} else {
 		// Remove tags from books
-		for (const bookId of bookIds) {
+		for (const bookId of allowed) {
 			for (const tagId of tagIds) {
 				const result = await db
 					.delete(bookTags)
@@ -64,7 +70,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	return json({
 		success: true,
-		updated: bookIds.length, // Return number of books affected
-		message: `Tags ${action === 'add' ? 'added to' : 'removed from'} ${bookIds.length} book(s)`
+		updated: allowed.length, // Return number of books affected
+		skipped,
+		message: `Tags ${action === 'add' ? 'added to' : 'removed from'} ${allowed.length} book(s)${note}`
 	});
 };

@@ -1,8 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { canReachBook, canViewBook, holdsBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
+import { canReachBook, canViewBook, canEditBookCatalog, holdsBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { getBookById } from '$lib/server/services/bookService';
-import { canManagePublicLibrary, hasPermission, Permission } from '$lib/server/services/permissionService';
+import { canManagePublicLibrary, hasPermission, isAdmin as isAdminUser, Permission } from '$lib/server/services/permissionService';
 import { getSimilarBooks } from '$lib/server/services/recommendationService';
 import { getAllTags } from '$lib/server/services/tagService';
 import { getAllStatuses } from '$lib/server/services/statusService';
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// A public book's owner is admin-only ("shared by"); members get neither the id nor the name
 	const book = hideOwnerFrom(locals.user, found);
 	const sharedBy = (await sharedByForViewer(locals.user, [found])).get(found.id) ?? null;
-	const isAdmin = locals.user.role === 'admin';
+	const isAdmin = isAdminUser(locals.user);
 	const isOwner = found.ownerId !== null && found.ownerId === locals.user.id;
 
 	// Get similar books, tags, statuses, and media sources
@@ -72,6 +72,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		// Add, reading and every personal or edit write stay on role-blind reach: a manager looking at
 		// a member's private book by role alone gets the page without the controls that would 403
 		canAdd,
+		// Tags and media sources are the book's shared catalog: their editors render only with the
+		// authority the tag toggle and media-source writes check
+		canEditCatalog: await canEditBookCatalog(locals.user, found),
 		allTags,
 		allStatuses,
 		allMediaSources,

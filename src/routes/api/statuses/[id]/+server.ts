@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { isAdmin } from '$lib/server/services/permissionService';
 import { getStatusById, updateStatusName, getBooksByStatus } from '$lib/server/services/statusService';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -22,6 +23,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+
+	if (!isAdmin(locals.user)) {
+		throw error(403, { message: 'Only admins can rename statuses' });
 	}
 
 	const id = parseInt(params.id);

@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { db, books, bookAuthors, bookSeries, bookTags, userBooks, userBookTags, metadataSuggestions, readingSessions, bookdropQueue } from '$lib/server/db';
 import { eq, inArray } from 'drizzle-orm';
 import { recomputeSeriesStatuses } from '$lib/server/services/statusService';
+import { deleteDecision, partitionBooks } from '$lib/server/services/libraryShareService';
+import { removeBookFromUserLibrary } from '$lib/server/services/userBookService';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
@@ -19,6 +21,33 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'bookIds must be a non-empty array');
 	}
 
+	// Per book, as the single DELETE decides: public books are deleted by the catalog managers and
+	// removed from the caller's own library for anyone else holding them; a personal book needs
+	// ownership or a full share. Everything else, another member's personal book included whatever
+	// the caller's role, is skipped and reported, its files left on disk
+	const user = locals.user;
+	const decisions = new Map<number, 'delete' | 'remove' | 'deny'>();
+	const { allowed, skipped } = await partitionBooks(bookIds, async (book) => {
+		const d = await deleteDecision(user, book);
+		decisions.set(book.id, d);
+		return d !== 'deny';
+	});
+	const removed = allowed.filter((id) => decisions.get(id) === 'remove');
+	const toDelete = allowed.filter((id) => decisions.get(id) === 'delete');
+
+	for (const id of removed) await removeBookFromUserLibrary(user.id, id);
+
+	const removedNote = removed.length > 0 ? `; ${removed.length} public book(s) removed from your library` : '';
+	const skippedNote = skipped.length > 0 ? `; ${skipped.length} skipped (no permission or not found)` : '';
+	const report = {
+		success: true,
+		deleted: toDelete.length,
+		removed,
+		skipped,
+		message: `Deleted ${toDelete.length} book(s)${removedNote}${skippedNote}`
+	};
+	if (toDelete.length === 0) return json(report);
+
 	// Fetch books to get file paths for cleanup
 	const booksToDelete = await db
 		.select({
@@ -27,7 +56,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			ebookPath: books.ebookPath
 		})
 		.from(books)
-		.where(inArray(books.id, bookIds));
+		.where(inArray(books.id, toDelete));
 
 	// Delete associated files
 	const coversPath = process.env.COVERS_PATH || './static/covers';
@@ -59,25 +88,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 	}
 
-	const memberOf = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(inArray(bookSeries.bookId, bookIds));
+	const memberOf = await db.select({ seriesId: bookSeries.seriesId }).from(bookSeries).where(inArray(bookSeries.bookId, toDelete));
 
 	// Delete related records (should cascade, but being explicit)
-	await db.delete(bookAuthors).where(inArray(bookAuthors.bookId, bookIds));
-	await db.delete(bookSeries).where(inArray(bookSeries.bookId, bookIds));
-	await db.delete(bookTags).where(inArray(bookTags.bookId, bookIds));
-	await db.delete(userBooks).where(inArray(userBooks.bookId, bookIds));
-	await db.delete(userBookTags).where(inArray(userBookTags.bookId, bookIds));
-	await db.delete(metadataSuggestions).where(inArray(metadataSuggestions.bookId, bookIds));
-	await db.delete(readingSessions).where(inArray(readingSessions.bookId, bookIds));
-	await db.delete(bookdropQueue).where(inArray(bookdropQueue.bookId, bookIds));
+	await db.delete(bookAuthors).where(inArray(bookAuthors.bookId, toDelete));
+	await db.delete(bookSeries).where(inArray(bookSeries.bookId, toDelete));
+	await db.delete(bookTags).where(inArray(bookTags.bookId, toDelete));
+	await db.delete(userBooks).where(inArray(userBooks.bookId, toDelete));
+	await db.delete(userBookTags).where(inArray(userBookTags.bookId, toDelete));
+	await db.delete(metadataSuggestions).where(inArray(metadataSuggestions.bookId, toDelete));
+	await db.delete(readingSessions).where(inArray(readingSessions.bookId, toDelete));
+	await db.delete(bookdropQueue).where(inArray(bookdropQueue.bookId, toDelete));
 
 	// Delete books
-	const result = await db.delete(books).where(inArray(books.id, bookIds));
+	const result = await db.delete(books).where(inArray(books.id, toDelete));
 	await recomputeSeriesStatuses(memberOf.map((r) => r.seriesId));
 
-	return json({
-		success: true,
-		deleted: bookIds.length,
-		message: `Deleted ${bookIds.length} book(s)`
-	});
+	return json(report);
 };

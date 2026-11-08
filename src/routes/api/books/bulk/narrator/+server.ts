@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, books } from '$lib/server/db';
 import { inArray } from 'drizzle-orm';
+import { canEditBookCatalog, partitionBooks } from '$lib/server/services/libraryShareService';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -20,22 +21,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'narratorId must be a number or null');
 	}
 
+	// A catalog field: each book needs the caller's catalog authority; the rest are skipped
+	const user = locals.user;
+	const { allowed, skipped } = await partitionBooks(bookIds, (book) => canEditBookCatalog(user, book));
 	const now = new Date().toISOString();
 
-	// Update all books in one query
-	await db
-		.update(books)
-		.set({
-			narratorId,
-			updatedAt: now
-		})
-		.where(inArray(books.id, bookIds));
+	if (allowed.length > 0) {
+		await db
+			.update(books)
+			.set({
+				narratorId,
+				updatedAt: now
+			})
+			.where(inArray(books.id, allowed));
+	}
 
+	const note = skipped.length > 0 ? `; ${skipped.length} skipped (no permission or not found)` : '';
 	return json({
 		success: true,
-		updated: bookIds.length,
-		message: narratorId
-			? `Narrator set for ${bookIds.length} book(s)`
-			: `Narrator cleared from ${bookIds.length} book(s)`
+		updated: allowed.length,
+		skipped,
+		message: (narratorId
+			? `Narrator set for ${allowed.length} book(s)`
+			: `Narrator cleared from ${allowed.length} book(s)`) + note
 	});
 };

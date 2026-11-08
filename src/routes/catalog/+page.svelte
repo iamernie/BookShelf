@@ -337,9 +337,10 @@
 		return plural ? pluralLabel : singular;
 	}
 
-	// Authors, series and narrators: edit and delete for catalog editors only, add for book adders
+	// Authors, series, narrators, genres, tags and formats: edit and delete for catalog editors
+	// only, add for book adders
 	function isGatedEntityTab(): boolean {
-		return data.tab === 'authors' || data.tab === 'series' || data.tab === 'narrators';
+		return ['authors', 'series', 'narrators', 'genres', 'tags', 'formats'].includes(data.tab);
 	}
 
 	function canEditItems(): boolean {
@@ -347,8 +348,8 @@
 	}
 
 	function canMerge(): boolean {
-		// Statuses can't be merged (system defined)
-		return data.tab !== 'statuses' && selectedIds.size >= 2;
+		// Statuses can't be merged (system defined); merging is admin-only
+		return data.canMerge && data.tab !== 'statuses' && selectedIds.size >= 2;
 	}
 
 	function canDelete(): boolean {

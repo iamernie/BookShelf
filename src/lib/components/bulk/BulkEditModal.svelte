@@ -181,7 +181,8 @@
 
 			if (res.ok) {
 				const result = await res.json();
-				toasts.success(result.message || `Updated ${bookIds.length} book(s)`);
+				if (result.skipped?.length > 0) toasts.warning(result.message);
+				else toasts.success(result.message || `Updated ${bookIds.length} book(s)`);
 				onComplete();
 			} else {
 				const err = await res.json();

@@ -15,12 +15,15 @@
 		entityId,
 		currentTags = [],
 		allTags = [],
+		readonly = false,
 		onUpdate
 	}: {
 		entityType: 'book' | 'series' | 'author';
 		entityId: number;
 		currentTags: TagItem[];
 		allTags: TagItem[];
+		/** Show the tags as links only, for a viewer who can't change them */
+		readonly?: boolean;
 		onUpdate?: (tags: TagItem[]) => void;
 	} = $props();
 
@@ -144,6 +147,7 @@
 					<span class="tag-dot" style="background-color: {tag.color || '#6c757d'};"></span>
 				{/if}
 				<span class="tag-name">{tag.name}</span>
+				{#if !readonly}
 				<button
 					type="button"
 					class="remove-btn"
@@ -153,10 +157,12 @@
 				>
 					<X class="w-3 h-3" />
 				</button>
+				{/if}
 			</a>
 		{/each}
 
 		<!-- Add Tag Button -->
+		{#if !readonly}
 		<div class="add-tag-wrapper">
 			<button
 				type="button"
@@ -227,6 +233,7 @@
 				</div>
 			{/if}
 		</div>
+		{/if}
 	</div>
 
 	{#if appliedTags.length === 0 && !showDropdown}

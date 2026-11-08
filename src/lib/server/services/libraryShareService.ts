@@ -1,7 +1,7 @@
 import { db, libraryShares, users, books, userBooks } from '$lib/server/db';
 import { eq, and, or, inArray, sql, type SQL } from 'drizzle-orm';
 import type { LibrarySharePermission } from '$lib/server/db/schema';
-import { hasPermission, isLibrarianOrAbove, Permission } from '$lib/server/services/permissionService';
+import { canManagePublicLibrary, hasPermission, isLibrarianOrAbove, Permission } from '$lib/server/services/permissionService';
 
 /** Who is looking: the role decides the catalog-manager branch, the id everything else */
 export type Viewer = { id: number; role: string | null } | null | undefined;
@@ -319,6 +319,69 @@ export async function canModifyBook(userId: number, bookId: number): Promise<boo
 export async function canDeleteBook(userId: number, bookId: number): Promise<boolean> {
 	const permission = await getBookPermission(userId, bookId);
 	return permission === 'owner' || permission === 'full';
+}
+
+/** The book fields the per-book authority rules read */
+export type BookAuthority = { id: number; libraryType: string | null };
+
+/**
+ * Check if a user can change a book's shared catalog fields (genre, format, narrator, authors,
+ * series, tags, media sources): public books are the catalog managers', personal ones need
+ * ownership or a read_write/full share. The single-book PUT and every bulk path use this.
+ */
+export async function canEditBookCatalog(user: { id: number; role: string | null }, book: BookAuthority): Promise<boolean> {
+	if (book.libraryType === 'public') return canManagePublicLibrary(user);
+	return canModifyBook(user.id, book.id);
+}
+
+/**
+ * What a delete by this user does to a book: 'delete' removes the book for everyone, 'remove'
+ * takes a public book out of the user's own library only, 'deny' leaves it alone. Public books
+ * are deleted by the catalog managers and removed by anyone holding them; a personal book needs
+ * ownership or a full share. No role reaches another member's personal book.
+ */
+export async function deleteDecision(
+	user: { id: number; role: string | null },
+	book: BookAuthority
+): Promise<'delete' | 'remove' | 'deny'> {
+	if (book.libraryType === 'public') {
+		if (canManagePublicLibrary(user)) return 'delete';
+		const held = await db
+			.select({ id: userBooks.id })
+			.from(userBooks)
+			.where(and(eq(userBooks.userId, user.id), eq(userBooks.bookId, book.id)))
+			.get();
+		return held ? 'remove' : 'deny';
+	}
+	return (await canDeleteBook(user.id, book.id)) ? 'delete' : 'deny';
+}
+
+/** A book's id and library type for the per-book authority rules, or null when it doesn't exist */
+export async function getBookAuthority(bookId: number): Promise<BookAuthority | null> {
+	const book = await db.select({ id: books.id, libraryType: books.libraryType }).from(books).where(eq(books.id, bookId)).get();
+	return book ?? null;
+}
+
+/**
+ * Split bulk book ids by a per-book check: unknown ids and books that fail are skipped, never
+ * written. Ids are de-duplicated and non-integers dropped as skipped.
+ */
+export async function partitionBooks(
+	bookIds: unknown[],
+	allow: (book: BookAuthority) => Promise<boolean>
+): Promise<{ allowed: number[]; skipped: unknown[] }> {
+	const ids = [...new Set(bookIds.filter((id): id is number => Number.isInteger(id)))];
+	const rows = ids.length > 0
+		? await db.select({ id: books.id, libraryType: books.libraryType }).from(books).where(inArray(books.id, ids)).all()
+		: [];
+	const byId = new Map(rows.map((r) => [r.id, r]));
+	const allowed: number[] = [];
+	const skipped: unknown[] = bookIds.filter((id) => !Number.isInteger(id));
+	for (const id of ids) {
+		const book = byId.get(id);
+		(book && (await allow(book)) ? allowed : skipped).push(id);
+	}
+	return { allowed, skipped };
 }
 
 /**
