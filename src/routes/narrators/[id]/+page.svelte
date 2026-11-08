@@ -210,6 +210,7 @@
 				</div>
 			</div>
 		</div>
+		{#if data.canEdit}
 		<div class="header-actions">
 			<a href="/narrators/{data.narrator.id}/edit" class="btn-secondary">
 				<Edit2 class="w-4 h-4" />
@@ -225,6 +226,7 @@
 				Delete
 			</button>
 		</div>
+		{/if}
 	</div>
 
 	<!-- Compact Stats Bar -->
@@ -251,7 +253,7 @@
 		<div class="detail-card">
 			<div class="detail-header">
 				<h3 class="detail-title">Biography</h3>
-				{#if !editingBio}
+				{#if data.canEdit && !editingBio}
 					<button type="button" class="edit-icon-btn" onclick={startEditBio} title="Edit">
 						<Pencil class="w-3 h-3" />
 					</button>
@@ -275,7 +277,7 @@
 						</button>
 					</div>
 				</div>
-			{:else}
+			{:else if data.canEdit}
 				<button type="button" class="detail-content-btn" onclick={startEditBio}>
 					{#if data.narrator.bio}
 						<span class="detail-text">{data.narrator.bio}</span>
@@ -283,6 +285,10 @@
 						<span class="detail-placeholder">Click to add...</span>
 					{/if}
 				</button>
+			{:else if data.narrator.bio}
+				<span class="detail-text">{data.narrator.bio}</span>
+			{:else}
+				<span class="detail-placeholder">No biography</span>
 			{/if}
 		</div>
 
@@ -331,6 +337,7 @@
 		<div class="detail-card detail-card-wide">
 			<div class="detail-header">
 				<h3 class="detail-title">Tags</h3>
+				{#if data.canEdit}
 				<button type="button" class="edit-icon-btn" onclick={() => editingTags = !editingTags} title={editingTags ? 'Done' : 'Edit tags'}>
 					{#if editingTags}
 						<Check class="w-3 h-3" />
@@ -338,9 +345,10 @@
 						<Pencil class="w-3 h-3" />
 					{/if}
 				</button>
+				{/if}
 			</div>
 			<div class="tags-display">
-				{#if editingTags}
+				{#if data.canEdit && editingTags}
 					<!-- Show all tags with toggle buttons -->
 					<div class="tags-edit-grid">
 						{#each data.options.tags as tag (tag.id)}
@@ -380,10 +388,12 @@
 								</a>
 							{/each}
 						</div>
-					{:else}
+					{:else if data.canEdit}
 						<button type="button" class="detail-content-btn" onclick={() => editingTags = true}>
 							<span class="detail-placeholder">Click to add tags...</span>
 						</button>
+					{:else}
+						<span class="detail-placeholder">No tags</span>
 					{/if}
 				{/if}
 			</div>

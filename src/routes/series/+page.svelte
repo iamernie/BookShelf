@@ -124,6 +124,7 @@
 			</a>
 
 			<!-- Add button -->
+			{#if data.canCreate}
 			<button
 				type="button"
 				class="btn-primary"
@@ -132,6 +133,7 @@
 				<Plus class="w-4 h-4" />
 				Add Series
 			</button>
+			{/if}
 		</div>
 	</div>
 
@@ -200,7 +202,7 @@
 			{#if data.search}
 				No series found matching "{data.search}"
 			{:else}
-				No series yet. Add your first series!
+				No series yet.{#if data.canCreate} Add your first series!{/if}
 			{/if}
 		</div>
 	{/if}

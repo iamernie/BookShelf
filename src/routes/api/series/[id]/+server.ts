@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { canManageEntities } from '$lib/server/services/permissionService';
 import { getSeriesWithBooks, updateSeries, deleteSeries, checkSeriesRefId } from '$lib/server/services/seriesService';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -19,6 +20,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+	if (!canManageEntities(locals.user)) {
+		throw error(403, { message: 'You do not have permission to edit series' });
 	}
 
 	const id = parseInt(params.id);
@@ -80,6 +84,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+	if (!canManageEntities(locals.user)) {
+		throw error(403, { message: 'You do not have permission to delete series' });
 	}
 
 	const id = parseInt(params.id);

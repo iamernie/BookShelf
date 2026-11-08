@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { getNarrators, type NarratorSort } from '$lib/server/services/narratorService';
 import { getTagById } from '$lib/server/services/tagService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { browseCookieName, pastEndRedirect, resolveBrowse } from '$lib/utils/browse';
 
 export const load: PageServerLoad = async ({ url, locals, cookies }) => {
@@ -22,6 +23,8 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	return {
 		...result,
 		search: search || '',
+		// Add creates through the same open route the book forms use
+		canCreate: hasPermission(locals.user ?? null, Permission.ADD_BOOKS),
 		tag: tag ? { id: tag.id, name: tag.name } : null,
 		view,
 		sort,

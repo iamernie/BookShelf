@@ -3,8 +3,13 @@ import { getSeriesWithBooks } from '$lib/server/services/seriesService';
 import { db, seriesTags, tags, seriesStatuses, genres } from '$lib/server/db';
 import { eq, asc } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
+import { canManageEntities } from '$lib/server/services/permissionService';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
+	if (!canManageEntities(locals.user ?? null)) {
+		throw error(403, 'You do not have permission to edit series');
+	}
+
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, 'Invalid series ID');

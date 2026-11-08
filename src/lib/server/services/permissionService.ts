@@ -211,6 +211,13 @@ export function canManagePublicLibrary(user: UserWithRole | null): boolean {
 }
 
 /**
+ * Check if a user can rename, edit, tag and delete authors, series and narrators (librarian or admin)
+ */
+export function canManageEntities(user: UserWithRole | null): boolean {
+	return hasPermission(user, Permission.MANAGE_ENTITIES);
+}
+
+/**
  * Get all permissions for a role
  */
 export function getPermissionsForRole(role: UserRole): Permission[] {

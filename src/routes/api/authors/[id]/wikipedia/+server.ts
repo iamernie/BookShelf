@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { canManageEntities } from '$lib/server/services/permissionService';
 import { getAuthorById, updateAuthor } from '$lib/server/services/authorService';
 
 /**
@@ -9,6 +10,9 @@ import { getAuthorById, updateAuthor } from '$lib/server/services/authorService'
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+	if (!canManageEntities(locals.user)) {
+		throw error(403, { message: 'You do not have permission to edit authors' });
 	}
 
 	const id = parseInt(params.id);

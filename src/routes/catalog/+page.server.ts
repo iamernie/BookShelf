@@ -6,6 +6,7 @@ import { getAllSeries } from '$lib/server/services/seriesService';
 import { getNarrators } from '$lib/server/services/narratorService';
 import { getFormats } from '$lib/server/services/formatService';
 import { getStatuses } from '$lib/server/services/statusService';
+import { canManageEntities, hasPermission, Permission } from '$lib/server/services/permissionService';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const tab = url.searchParams.get('tab') || 'authors';
@@ -68,6 +69,9 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		page,
 		limit,
 		items,
-		total
+		total,
+		// Author, series and narrator edit and delete are catalog-editor writes; creating stays open to book adders
+		canEdit: canManageEntities(locals.user ?? null),
+		canCreate: hasPermission(locals.user ?? null, Permission.ADD_BOOKS)
 	};
 };

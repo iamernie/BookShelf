@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { getNarratorById, getBooksByNarrator, getNarratorTags } from '$lib/server/services/narratorService';
 import { getAllTags } from '$lib/server/services/tagService';
 import { getEntityNotes } from '$lib/server/services/entityNotesService';
-import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { hasPermission, Permission, canManageEntities } from '$lib/server/services/permissionService';
 import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -29,6 +29,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		narrator,
 		books,
 		narratorTags,
+		// Edit, delete, bio and tag controls render for catalog editors only
+		canEdit: canManageEntities(locals.user ?? null),
 		myNotes,
 		canWriteNotes: hasPermission(locals.user ?? null, Permission.EDIT_OWN_BOOKS),
 		options: {

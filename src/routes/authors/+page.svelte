@@ -148,6 +148,7 @@
 			</button>
 
 			<!-- Add button -->
+			{#if data.canCreate}
 			<button
 				type="button"
 				class="btn-accent"
@@ -156,6 +157,7 @@
 				<Plus class="w-4 h-4" />
 				<span class="hidden sm:inline">Add Author</span>
 			</button>
+			{/if}
 		</div>
 	</div>
 
@@ -227,6 +229,7 @@
 				<h2 class="text-lg font-semibold mb-2" style="color: var(--text-primary);">
 					No authors yet
 				</h2>
+				{#if data.canCreate}
 				<p class="mb-4" style="color: var(--text-muted);">
 					Add your first author to get started
 				</p>
@@ -238,6 +241,7 @@
 					<Plus class="w-4 h-4" />
 					Add Author
 				</button>
+				{/if}
 			{/if}
 		</div>
 	{/if}

@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { canManageEntities } from '$lib/server/services/permissionService';
 import { getNarratorById, updateNarrator } from '$lib/server/services/narratorService';
 
 /**
@@ -9,6 +10,9 @@ import { getNarratorById, updateNarrator } from '$lib/server/services/narratorSe
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+	if (!canManageEntities(locals.user)) {
+		throw error(403, { message: 'You do not have permission to edit narrators' });
 	}
 
 	const id = parseInt(params.id);

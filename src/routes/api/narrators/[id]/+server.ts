@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { canManageEntities } from '$lib/server/services/permissionService';
 import { getNarratorById, updateNarrator, deleteNarrator, getNarratorTags } from '$lib/server/services/narratorService';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -21,6 +22,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+	if (!canManageEntities(locals.user)) {
+		throw error(403, { message: 'You do not have permission to edit narrators' });
 	}
 
 	const id = parseInt(params.id);
@@ -55,6 +59,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+	if (!canManageEntities(locals.user)) {
+		throw error(403, { message: 'You do not have permission to delete narrators' });
 	}
 
 	const id = parseInt(params.id);

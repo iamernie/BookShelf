@@ -7,7 +7,7 @@ import { getAllFormats } from '$lib/server/services/formatService';
 import { getAllGenres } from '$lib/server/services/genreService';
 import { getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 import { getSeriesSuggestions } from '$lib/server/services/audibleSuggestService';
-import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { hasPermission, Permission, canManageEntities, isAdmin } from '$lib/server/services/permissionService';
 import { getEntityNotes } from '$lib/server/services/entityNotesService';
 import { db, seriesTags, tags } from '$lib/server/db';
 import { eq, asc } from 'drizzle-orm';
@@ -27,8 +27,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Series not found');
 	}
 
-	// The author, narrator and series pickers feed the catalog editors' bulk edit only
-	const canEdit = hasPermission(locals.user ?? null, Permission.MANAGE_ENTITIES);
+	// Edit, delete, bio and tag controls render for catalog editors only; the pickers feed their bulk edit only
+	const canEdit = canManageEntities(locals.user ?? null);
 	const none = Promise.resolve([] as { id: number; name: string }[]);
 
 	const [allTags, allStatuses, authors, narrators, allSeries, formats, genres, audible, myNotes] = await Promise.all([
@@ -65,7 +65,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		allTags,
 		audible,
 		canAddBooks: hasPermission(locals.user ?? null, Permission.ADD_BOOKS),
-		isAdmin: locals.user?.role === 'admin',
+		isAdmin: isAdmin(locals.user ?? null),
 		canEdit,
 		myNotes,
 		canWriteNotes: hasPermission(locals.user ?? null, Permission.EDIT_OWN_BOOKS),

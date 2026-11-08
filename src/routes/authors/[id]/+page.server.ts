@@ -6,7 +6,7 @@ import { getAllNarrators } from '$lib/server/services/narratorService';
 import { getAllFormats } from '$lib/server/services/formatService';
 import { getAllGenres } from '$lib/server/services/genreService';
 import { getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
-import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { hasPermission, Permission, canManageEntities } from '$lib/server/services/permissionService';
 import { getEntityNotes } from '$lib/server/services/entityNotesService';
 import { error } from '@sveltejs/kit';
 
@@ -16,8 +16,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(400, 'Invalid author ID');
 	}
 
-	// The author, narrator and series pickers feed the catalog editors' bulk edit only
-	const canEdit = hasPermission(locals.user ?? null, Permission.MANAGE_ENTITIES);
+	// Edit, delete, bio and tag controls render for catalog editors only; the pickers feed their bulk edit only
+	const canEdit = canManageEntities(locals.user ?? null);
 	const none = Promise.resolve([] as { id: number; name: string }[]);
 
 	const [result, tags, authorTags, statuses, authors, narrators, allSeries, formats, genres] = await Promise.all([

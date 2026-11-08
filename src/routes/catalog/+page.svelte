@@ -337,6 +337,15 @@
 		return plural ? pluralLabel : singular;
 	}
 
+	// Authors, series and narrators: edit and delete for catalog editors only, add for book adders
+	function isGatedEntityTab(): boolean {
+		return data.tab === 'authors' || data.tab === 'series' || data.tab === 'narrators';
+	}
+
+	function canEditItems(): boolean {
+		return data.tab !== 'statuses' && (!isGatedEntityTab() || data.canEdit);
+	}
+
 	function canMerge(): boolean {
 		// Statuses can't be merged (system defined)
 		return data.tab !== 'statuses' && selectedIds.size >= 2;
@@ -344,12 +353,12 @@
 
 	function canDelete(): boolean {
 		// Statuses can't be deleted
-		return data.tab !== 'statuses' && selectedIds.size > 0;
+		return canEditItems() && selectedIds.size > 0;
 	}
 
 	function canAdd(): boolean {
 		// Statuses can't be added
-		return data.tab !== 'statuses';
+		return data.tab !== 'statuses' && (!isGatedEntityTab() || data.canCreate);
 	}
 
 	function exportData() {
@@ -616,7 +625,7 @@
 										>
 											<Eye class="w-4 h-4" />
 										</button>
-										{#if data.tab !== 'statuses'}
+										{#if canEditItems()}
 											<button
 												type="button"
 												class="icon-btn"

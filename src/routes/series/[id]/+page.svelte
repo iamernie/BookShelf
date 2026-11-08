@@ -270,6 +270,7 @@
 				</div>
 			</div>
 		</div>
+		{#if data.canEdit}
 		<div class="header-actions">
 			<a href="/series/{data.series.id}/edit" class="btn-secondary">
 				<Edit2 class="w-4 h-4" />
@@ -285,6 +286,7 @@
 				Delete
 			</button>
 		</div>
+		{/if}
 	</div>
 
 	<!-- Compact Stats Bar -->
@@ -345,7 +347,7 @@
 		<div class="detail-card">
 			<div class="detail-header">
 				<h3 class="detail-title">Description</h3>
-				{#if !editingDescription}
+				{#if data.canEdit && !editingDescription}
 					<button type="button" class="edit-icon-btn" onclick={startEditDescription} title="Edit">
 						<Pencil class="w-3 h-3" />
 					</button>
@@ -369,7 +371,7 @@
 						</button>
 					</div>
 				</div>
-			{:else}
+			{:else if data.canEdit}
 				<button type="button" class="detail-content-btn" onclick={startEditDescription}>
 					{#if data.series.description}
 						<span class="detail-text">{data.series.description}</span>
@@ -377,6 +379,10 @@
 						<span class="detail-placeholder">Click to add...</span>
 					{/if}
 				</button>
+			{:else if data.series.description}
+				<span class="detail-text">{data.series.description}</span>
+			{:else}
+				<span class="detail-placeholder">No description</span>
 			{/if}
 		</div>
 
@@ -425,6 +431,7 @@
 		<div class="detail-card">
 			<div class="detail-header">
 				<h3 class="detail-title">Tags</h3>
+				{#if data.canEdit}
 				<button
 					type="button"
 					class="edit-icon-btn"
@@ -434,6 +441,7 @@
 				>
 					<Plus class="w-3 h-3" style="transform: rotate({showTagPicker ? 45 : 0}deg); transition: transform 0.2s;" />
 				</button>
+				{/if}
 			</div>
 			<div class="tags-display">
 				{#if data.tags.length > 0}
@@ -447,7 +455,7 @@
 					<span class="no-tags">No tags</span>
 				{/if}
 			</div>
-			{#if showTagPicker}
+			{#if data.canEdit && showTagPicker}
 				<div class="tag-picker-compact">
 					{#if data.allTags.length > 0}
 						{#each data.allTags as tag (tag.id)}

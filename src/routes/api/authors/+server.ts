@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { getAuthors, createAuthor } from '$lib/server/services/authorService';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -16,6 +17,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
+	}
+	// Creating stays open to everyone who can add books: the book forms create authors, series and narrators inline
+	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
+		throw error(403, { message: 'You do not have permission to add authors' });
 	}
 
 	const data = await request.json();

@@ -133,6 +133,7 @@
 			</p>
 		</div>
 
+		{#if data.canCreate}
 		<button
 			type="button"
 			class="btn-accent flex items-center gap-2"
@@ -141,6 +142,7 @@
 			<Plus class="w-5 h-5" />
 			Add Narrator
 		</button>
+		{/if}
 	</div>
 
 	<!-- Search, then view, sort and page size -->
@@ -185,7 +187,7 @@
 			<p class="mb-4" style="color: var(--text-muted);">
 				{data.search || data.tag ? 'Try a different search term' : 'Get started by creating your first narrator'}
 			</p>
-			{#if !data.search && !data.tag}
+			{#if data.canCreate && !data.search && !data.tag}
 				<button
 					type="button"
 					class="btn-accent inline-flex items-center gap-2"
