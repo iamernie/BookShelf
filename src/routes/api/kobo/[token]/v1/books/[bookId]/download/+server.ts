@@ -11,9 +11,10 @@ import type { RequestHandler } from './$types';
 import { validateToken } from '$lib/server/services/koboService';
 import { db } from '$lib/server/db';
 import { books, users } from '$lib/server/db/schema';
-import { eq, and, or, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getEbookStream, getContentType, ebookExists, getEbookPath } from '$lib/server/services/ebookService';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { holdsBook } from '$lib/server/services/libraryShareService';
 import { statSync } from 'fs';
 import path from 'path';
 
@@ -49,17 +50,14 @@ export const GET: RequestHandler = async ({ params, request }) => {
 		throw error(404, 'Book not found');
 	}
 
-	// Get the book - allow books owned by user OR unowned (for single-user setups) OR public
+	// Only books in the user's library (2.30.0): owned, shared or public alike, once Added
 	console.log('[Kobo Download] Looking up book:', { bookId: numericId, userId: user.userId });
 	const book = await db.query.books.findFirst({
-		where: and(
-			eq(books.id, numericId),
-			or(eq(books.ownerId, user.userId), isNull(books.ownerId), eq(books.libraryType, 'public'))
-		)
+		where: eq(books.id, numericId)
 	});
 
-	if (!book) {
-		console.log('[Kobo Download] Book not found in database');
+	if (!book || !(await holdsBook(user.userId, numericId))) {
+		console.log('[Kobo Download] Book not found in the user\'s library');
 		throw error(404, 'Book not found');
 	}
 

@@ -7,9 +7,9 @@
  */
 
 import { db } from '$lib/server/db';
-import { bookEbookHashes, books, koreaderProgress, userBooks } from '$lib/server/db/schema';
+import { bookEbookHashes, books, koreaderProgress } from '$lib/server/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
-import { canReachBook } from './libraryShareService';
+import { holdsBook } from './libraryShareService';
 
 export type EbookHashSource =
 	| 'legacy'
@@ -66,9 +66,9 @@ export async function setCurrentEbookHash(
 
 /**
  * Find the book a document hash belongs to, for this user.
- * Only books the user can reach qualify; owned books rank first, then the user's library,
- * then the rest, lowest id breaking ties. A hash can sit on several books because the same
- * file can be in two users' libraries.
+ * Only books in the user's library qualify (reachable isn't enough: KOReader reads, and reading
+ * needs the book Added); owned books rank first, lowest id breaking ties. A hash can sit on several
+ * books because the same file can be in two users' libraries.
  */
 export async function findBookForHash(userId: number, hash: string): Promise<number | null> {
 	const candidates = await db
@@ -77,27 +77,20 @@ export async function findBookForHash(userId: number, hash: string): Promise<num
 		.innerJoin(books, eq(bookEbookHashes.bookId, books.id))
 		.where(eq(bookEbookHashes.hash, hash));
 
-	const reachable: typeof candidates = [];
+	const held: typeof candidates = [];
 	for (const candidate of candidates) {
-		if (await canReachBook(userId, candidate.id)) {
-			reachable.push(candidate);
+		if (await holdsBook(userId, candidate.id)) {
+			held.push(candidate);
 		}
 	}
 
-	if (reachable.length === 0) {
+	if (held.length === 0) {
 		return null;
 	}
 
-	const inLibrary = await db
-		.select({ bookId: userBooks.bookId })
-		.from(userBooks)
-		.where(and(eq(userBooks.userId, userId), inArray(userBooks.bookId, reachable.map((b) => b.id))));
-	const libraryIds = new Set(inLibrary.map((row) => row.bookId));
+	const rank = (book: { id: number; ownerId: number | null }) => (book.ownerId === userId ? 0 : 1);
 
-	const rank = (book: { id: number; ownerId: number | null }) =>
-		book.ownerId === userId ? 0 : libraryIds.has(book.id) ? 1 : 2;
-
-	return [...reachable].sort((a, b) => rank(a) - rank(b) || a.id - b.id)[0].id;
+	return [...held].sort((a, b) => rank(a) - rank(b) || a.id - b.id)[0].id;
 }
 
 /**

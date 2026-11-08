@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { canReachBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
+import { canReachBook, holdsBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { getBookById } from '$lib/server/services/bookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { getSimilarBooks } from '$lib/server/services/recommendationService';
@@ -33,13 +33,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const isOwner = found.ownerId !== null && found.ownerId === locals.user.id;
 
 	// Get similar books, tags, statuses, and media sources
-	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes] = await Promise.all([
+	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes, inLibrary] = await Promise.all([
 		getSimilarBooks(id, 8, locals.user.id),
 		getAllTags(),
 		getAllStatuses(),
 		getAllMediaSources(locals.user?.id),
 		getBookMediaSources(id),
-		getSeriesBookNotes(book.series.map((s) => s.id), locals.user?.id)
+		getSeriesBookNotes(book.series.map((s) => s.id), locals.user?.id),
+		holdsBook(locals.user.id, id)
 	]);
 
 	// Check if ebook file exists (using proper path resolution)
@@ -60,6 +61,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		// Promote: the owner or an admin; un-promote: admins only (PATCH /api/books/[id]/library)
 		canPromote: found.libraryType !== 'public' && (isAdmin || isOwner),
 		canUnpromote: found.libraryType === 'public' && isAdmin,
+		// Reading needs the book in the viewer's library; Read on a book they only reach asks to Add it
+		inLibrary,
 		allTags,
 		allStatuses,
 		allMediaSources,

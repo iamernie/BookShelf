@@ -4,7 +4,8 @@ import { db } from '$lib/server/db';
 import { books, authors, series, bookAuthors, bookSeries } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ebookExists, parseReadingProgress } from '$lib/server/services/ebookService';
-import { canReadEbook } from '$lib/server/services/libraryShareService';
+import { canReadEbook, canReachBook } from '$lib/server/services/libraryShareService';
+import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { getOwnPosition } from '$lib/server/services/personalState';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -30,6 +31,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 
 	if (!(await canReadEbook(locals.user, bookId))) {
+		// Reading needs the book in the user's library: a reachable book goes back to its page,
+		// which asks to Add it first (2.30.0); the reader never adds it on its own
+		if (hasPermission(locals.user, Permission.READ_EBOOKS) && (await canReachBook(locals.user.id, bookId))) {
+			redirect(303, `/books/${bookId}?read=1`);
+		}
 		throw error(403, { message: 'You do not have access to this book' });
 	}
 

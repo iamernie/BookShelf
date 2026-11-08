@@ -13,7 +13,7 @@ import { db } from '$lib/server/db';
 import { koreaderProgress, books } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { rememberEbookHash, forgetManualHash } from '$lib/server/services/ebookHashService';
-import { canReachBook } from '$lib/server/services/libraryShareService';
+import { holdsBook } from '$lib/server/services/libraryShareService';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
@@ -63,7 +63,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	if (!(await canReachBook(locals.user.id, data.bookId))) {
+	// KOReader reads the book, so it has to be in the user's library, not just reachable
+	if (!(await holdsBook(locals.user.id, data.bookId))) {
 		throw error(403, { message: 'You do not have access to this book' });
 	}
 

@@ -86,6 +86,23 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	const body = await request.json().catch(() => ({}));
 
+	// Already in their library: the fields sent update the row instead of being dropped
+	if (await getUserBook(locals.user.id, bookId)) {
+		const data: UpdateUserBookInput = {};
+		if (body.rating === null || (typeof body.rating === 'number' && Number.isFinite(body.rating))) data.rating = body.rating;
+		if (body.comments === null || typeof body.comments === 'string') data.comments = body.comments;
+		if (Object.keys(data).length > 0) await updateUserBook(locals.user.id, bookId, data);
+		// Status moves through applyStatusChange, as in PUT
+		if (body.statusId === null || (typeof body.statusId === 'number' && Number.isInteger(body.statusId))) {
+			await applyStatusChange([bookId], body.statusId, { source: 'book_edit', userId: locals.user.id });
+		}
+		return json({
+			success: true,
+			message: 'Book is already in your library',
+			userBook: await getUserBook(locals.user.id, bookId)
+		});
+	}
+
 	// Add to user's library
 	const userBook = await addBookToUserLibrary({
 		userId: locals.user.id,
@@ -240,6 +257,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		.update(books)
 		.set(set)
 		.where(eq(books.id, bookId));
+
+	// A new owner always has the book in their library, so they can read it
+	if (set.ownerId !== undefined) {
+		await addBookToUserLibrary({ userId: set.ownerId, bookId });
+	}
 
 	return json({
 		success: true,

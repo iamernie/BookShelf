@@ -8,6 +8,7 @@ import { db } from '$lib/server/db';
 import { koboReadingState, koboSyncState, books, userBooks } from '$lib/server/db/schema';
 import { eq, and, isNull, or } from 'drizzle-orm';
 import { progressPercent as progressPercentOf } from './personalState';
+import { holdsBook } from './libraryShareService';
 import { parseReadingProgress, stringifyReadingProgress, type ReadingProgress } from './ebookService';
 
 // Types for Kobo reading state
@@ -68,7 +69,7 @@ export async function getReadingState(
 	userId: number,
 	bookId: number
 ): Promise<KoboReadingStateResponse | null> {
-	// Get the book - allow unowned books for single-user setups
+	// Get the book
 	const book = await db.query.books.findFirst({
 		where: eq(books.id, bookId)
 	});
@@ -77,8 +78,8 @@ export async function getReadingState(
 		return null;
 	}
 
-	// Check ownership - allow if owned by user, unowned (null) or public (promoted books keep their owner)
-	if (book.ownerId !== null && book.ownerId !== userId && book.libraryType !== 'public') {
+	// Only books in the user's library (2.30.0)
+	if (!(await holdsBook(userId, bookId))) {
 		return null;
 	}
 
@@ -177,7 +178,7 @@ export async function saveReadingState(
 ): Promise<SaveReadingStateResult> {
 	console.log(`[Kobo ReadingState] saveReadingState for book ${bookId}:`, JSON.stringify(state, null, 2));
 
-	// Get the book - allow unowned books for single-user setups
+	// Get the book
 	const book = await db.query.books.findFirst({
 		where: eq(books.id, bookId)
 	});
@@ -191,8 +192,8 @@ export async function saveReadingState(
 		};
 	}
 
-	// Check ownership - allow if owned by user, unowned (null) or public (promoted books keep their owner)
-	if (book.ownerId !== null && book.ownerId !== userId && book.libraryType !== 'public') {
+	// Only books in the user's library (2.30.0): reading never adds one
+	if (!(await holdsBook(userId, bookId))) {
 		return {
 			EntitlementId: `bookshelf-${bookId}`,
 			CurrentBookmarkResult: { Result: 'NotFound' },
@@ -293,7 +294,7 @@ async function syncToUserBooks(
 			})
 			.where(eq(userBooks.id, existingUserBook.id));
 	} else {
-		// Create userBook entry
+		// Only the owner gets here without a row (saveReadingState checked holdsBook): put it back
 		await db.insert(userBooks).values({
 			userId,
 			bookId,

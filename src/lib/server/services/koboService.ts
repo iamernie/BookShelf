@@ -8,7 +8,7 @@
  */
 
 import { db } from '$lib/server/db';
-import { koboUsers, koboDevices, koboSyncState, koboReadingState, tags, bookTags, books } from '$lib/server/db/schema';
+import { koboUsers, koboDevices, koboSyncState, koboReadingState, tags, bookTags, books, userBooks } from '$lib/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -298,7 +298,7 @@ export async function getKoboTagId(): Promise<number | null> {
 }
 
 /**
- * Get all books tagged with "kobo" for a user (owned by that user or unowned)
+ * Get all books tagged with "kobo" that are in the user's library (their own row, or they own it)
  */
 export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 	console.log(`[KoboService] getKoboTaggedBooks(userId=${userId})`);
@@ -310,24 +310,22 @@ export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 		return [];
 	}
 
-	// Get books tagged with "kobo" that are either:
-	// 1. Owned by this user (ownerId = userId)
-	// 2. Unowned (ownerId is null) - for backwards compatibility with single-user setups
-	// 3. Public: a promoted book keeps its owner but is everyone's (2.30.0)
+	// A Kobo reads the books, so only books the user has Added go to it (2.30.0): owned, shared or
+	// public alike. Reachable isn't enough, and a book that leaves their library leaves the device
 	const taggedBooks = await db
-		.select({ bookId: bookTags.bookId, ownerId: books.ownerId, libraryType: books.libraryType })
+		.select({ bookId: bookTags.bookId, ownerId: books.ownerId, member: userBooks.id })
 		.from(bookTags)
 		.innerJoin(books, eq(bookTags.bookId, books.id))
+		.leftJoin(userBooks, and(eq(userBooks.bookId, books.id), eq(userBooks.userId, userId)))
 		.where(eq(bookTags.tagId, tagId));
 
 	console.log(`[KoboService] All books with "kobo" tag:`, taggedBooks);
 
-	// Filter to books owned by user or unowned
 	const filtered = taggedBooks
-		.filter((b) => b.ownerId === userId || b.ownerId === null || b.libraryType === 'public')
+		.filter((b) => b.member !== null || b.ownerId === userId)
 		.map((b) => b.bookId);
 
-	console.log(`[KoboService] Books filtered for user ${userId} (owned or unowned):`, filtered);
+	console.log(`[KoboService] Books filtered for user ${userId} (in their library):`, filtered);
 	return filtered;
 }
 

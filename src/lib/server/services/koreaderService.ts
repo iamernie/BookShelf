@@ -11,7 +11,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { writeOwnPosition } from './personalState';
 import { createHash } from 'crypto';
 import { findBookForHash } from './ebookHashService';
-import { canReachBook } from './libraryShareService';
+import { holdsBook } from './libraryShareService';
 
 // ============================================
 // Types
@@ -304,8 +304,8 @@ function toReaderPage(format: string | null | undefined, location: string | unde
 
 /**
  * Sync KOReader progress to the user's own reading position (user_books), so the browser reader
- * continues where KOReader left off: position, percent and last-read; no status. The row-creation
- * rule is writeOwnPosition's (any book the user can reach, shared ones included).
+ * continues where KOReader left off: position, percent and last-read; no status. Only books in the
+ * user's library link (tryLinkProgressToBook), and no row is ever created here.
  */
 async function syncProgressToBook(
 	userId: number,
@@ -339,7 +339,7 @@ async function syncProgressToBook(
 /**
  * Try to link progress to a book by finding a book that knows this document hash
  * KOReader sends the partial MD5 of the ebook file as the document identifier
- * Returns the book to sync to, or null if there is none the user can reach
+ * Returns the book to sync to, or null if there is none in the user's library
  */
 async function tryLinkProgressToBook(userId: number, documentHash: string): Promise<number | null> {
 	// Check if we already have a progress entry with a linked book
@@ -355,8 +355,8 @@ async function tryLinkProgressToBook(userId: number, documentHash: string): Prom
 		.limit(1);
 
 	if (progress?.bookId) {
-		// Already linked, but access may have ended since (a revoked share)
-		return (await canReachBook(userId, progress.bookId)) ? progress.bookId : null;
+		// Already linked, but the book may have left their library since
+		return (await holdsBook(userId, progress.bookId)) ? progress.bookId : null;
 	}
 
 	const matchingBookId = await findBookForHash(userId, documentHash);

@@ -10,6 +10,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateToken } from '$lib/server/services/koboService';
 import { generateBookMetadata } from '$lib/server/services/koboEntitlementService';
+import { holdsBook } from '$lib/server/services/libraryShareService';
 import { db } from '$lib/server/db';
 import { books } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -37,7 +38,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		return json([]);
 	}
 
-	// Verify the book exists and belongs to this user (or is unowned for single-user setups)
+	// Verify the book exists
 	const book = await db.query.books.findFirst({
 		where: eq(books.id, numericId)
 	});
@@ -47,9 +48,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		throw error(404, 'Book not found');
 	}
 
-	// Check ownership - allow if owned by user or unowned (null)
-	if (book.ownerId !== null && book.ownerId !== user.userId) {
-		console.log(`[Kobo Metadata] Book ${numericId} not accessible by user ${user.userId} (owner: ${book.ownerId})`);
+	// Only books in the user's library (2.30.0), as the download
+	if (!(await holdsBook(user.userId, numericId))) {
+		console.log(`[Kobo Metadata] Book ${numericId} not in user ${user.userId}'s library (owner: ${book.ownerId})`);
 		throw error(404, 'Book not found');
 	}
 

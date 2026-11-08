@@ -8,7 +8,7 @@ import { db, books, userBooks, statuses } from '$lib/server/db';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { Book } from '$lib/server/db/schema';
-import { canReachBook } from './libraryShareService';
+import { holdsBook } from './libraryShareService';
 
 /** The viewer's user_books row, aliased so it never collides with other user_books joins */
 export const viewerBooks = alias(userBooks, 'vub');
@@ -222,9 +222,9 @@ export function hasPersonal(personal: PersonalWrite): boolean {
 
 /**
  * Save a reader position (the JSON the web reader and KOReader write) on the user's own row, with
- * the percent and last-read time. A missing row is created for any book the user can reach,
- * including one reached through a library share: the position is theirs, so the book joins their
- * library (and stays reachable through that row). Returns false when nothing was saved.
+ * the percent and last-read time. Reading never adds a book to a library: without a row nothing is
+ * saved (the reader Adds first), except for the book's owner, whose missing row is put back.
+ * Returns false when nothing was saved.
  */
 export async function writeOwnPosition(userId: number, bookId: number, position: string, percent: number, at: string): Promise<boolean> {
 	const [existing] = await db.select({ id: userBooks.id }).from(userBooks)
@@ -235,7 +235,7 @@ export async function writeOwnPosition(userId: number, bookId: number, position:
 			.where(eq(userBooks.id, existing.id));
 		return true;
 	}
-	if (!(await canReachBook(userId, bookId))) return false;
+	if (!(await holdsBook(userId, bookId))) return false;
 	await db.insert(userBooks).values({
 		userId,
 		bookId,

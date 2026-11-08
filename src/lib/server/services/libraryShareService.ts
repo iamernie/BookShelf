@@ -171,9 +171,9 @@ export async function getBookPermission(
  * Check if a user can reach a book: ownerless and public books are open to everyone, anything
  * else needs ownership, an active share, or the book being in the user's own library (a
  * user_books row). Membership is permanent reach: a book someone added while it was public stays
- * theirs after it is un-promoted, and a share recipient who has read or tracked a shared book keeps
- * it (2.30.0). Ownerless is checked here and not in getBookPermission because bulk imports have no
- * owner and are still the library's own books. Reach never grants catalog edits.
+ * theirs after it is un-promoted, and a share recipient who added a shared book keeps it (2.30.0).
+ * Ownerless is checked here and not in getBookPermission because bulk imports have no owner and
+ * are still the library's own books. Reach never grants catalog edits, nor reading: see holdsBook.
  */
 export async function canReachBook(userId: number, bookId: number): Promise<boolean> {
 	const book = await db
@@ -203,11 +203,27 @@ export async function canReachBook(userId: number, bookId: number): Promise<bool
 }
 
 /**
+ * Check if a book is in the user's library: their own user_books row, or they own it (creators
+ * write their row with the book; ownership still counts if it went missing). Reading needs this,
+ * not just reach (2.30.0): a reachable book is seen and Added first, and only then read, on the
+ * web, KOReader or Kobo. A row is permanent reach, so a held book is always reachable too.
+ */
+export async function holdsBook(userId: number, bookId: number): Promise<boolean> {
+	const book = await db
+		.select({ ownerId: books.ownerId, member: userBooks.id })
+		.from(books)
+		.leftJoin(userBooks, and(eq(userBooks.bookId, books.id), eq(userBooks.userId, userId)))
+		.where(eq(books.id, bookId))
+		.get();
+	return !!book && (book.member !== null || book.ownerId === userId);
+}
+
+/**
  * Check if a user can read a book's ebook file or reader progress: the role allows reading and
- * the book is reachable
+ * the book is in their library
  */
 export async function canReadEbook(user: { id: number; role: string | null }, bookId: number): Promise<boolean> {
-	return hasPermission(user, Permission.READ_EBOOKS) && canReachBook(user.id, bookId);
+	return hasPermission(user, Permission.READ_EBOOKS) && holdsBook(user.id, bookId);
 }
 
 /**

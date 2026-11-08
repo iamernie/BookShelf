@@ -210,6 +210,41 @@
 	// Derived: is this a public library book?
 	const isPublicLibraryBook = $derived(data.book.libraryType === 'public');
 
+	// Reading needs the book in your library (2.30.0): Read or Download on a book you only reach
+	// asks to Add it first, then goes on. The reader sends such a book back here with ?read=1
+	const askToRead = $derived(!data.inLibrary && !!data.book.ebookPath && $page.url.searchParams.get('read') === '1');
+	let addingToRead = $state(false);
+	async function addThen(url: string) {
+		addingToRead = true;
+		try {
+			const res = await fetch(`/api/books/${data.book.id}/library`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({})
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => null);
+				toasts.error(err?.message || 'Failed to add book to your library');
+				return;
+			}
+			toasts.success('Book added to your library');
+			if (url.startsWith('/reader/')) {
+				await goto(url);
+			} else {
+				await invalidateAll();
+				window.location.href = url;
+			}
+		} finally {
+			addingToRead = false;
+		}
+	}
+	function addFirst(e: MouseEvent, verb: 'read' | 'download') {
+		if (data.inLibrary) return;
+		e.preventDefault();
+		const url = (e.currentTarget as HTMLAnchorElement).getAttribute('href') ?? `/reader/${data.book.id}`;
+		if (confirm(`Add this book to your library to ${verb} it?`)) addThen(url);
+	}
+
 	// Promote (owner or admin) / un-promote (admin): the owner is kept; only admins see "shared by"
 	let changingLibrary = $state(false);
 	async function setLibraryType(libraryType: 'public' | 'personal') {
@@ -565,6 +600,7 @@
 					{:else}
 						<a
 							href="/reader/{data.book.id}"
+							onclick={(e) => addFirst(e, 'read')}
 							class="btn-accent flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
 							title="Read book"
 							aria-label="Read book"
@@ -621,6 +657,32 @@
 
 	<!-- Content -->
 	<div class="max-w-6xl mx-auto px-4 py-4">
+		<!-- Opened from the reader without the book in the library: Add first, then read -->
+		{#if askToRead}
+			<div
+				class="mb-4 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center gap-3"
+				style="background: var(--bg-secondary); border: 1px solid var(--border-color);"
+			>
+				<BookOpen class="w-5 h-5 flex-shrink-0" style="color: var(--accent);" />
+				<p class="flex-1 text-sm" style="color: var(--text-primary);">
+					Add this book to your library to read it.
+				</p>
+				<button
+					type="button"
+					class="btn-accent flex items-center justify-center gap-2 px-3 py-1.5 text-sm"
+					disabled={addingToRead}
+					onclick={() => addThen(`/reader/${data.book.id}`)}
+				>
+					{#if addingToRead}
+						<Loader2 class="w-4 h-4 animate-spin" />
+					{:else}
+						<BookOpen class="w-4 h-4" />
+					{/if}
+					Add and read
+				</button>
+			</div>
+		{/if}
+
 		<!-- Missing Files Warning Banner -->
 		{#if data.ebookMissing}
 			<div
@@ -772,6 +834,7 @@
 				{#if data.book.ebookPath}
 					<a
 						href="/api/ebooks/{data.book.id}/download"
+						onclick={(e) => addFirst(e, 'download')}
 						download
 						class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm mb-3"
 					>
@@ -1330,6 +1393,7 @@
 									<div class="flex items-center gap-2 w-full sm:w-auto">
 										<a
 											href="/reader/{data.book.id}"
+											onclick={(e) => addFirst(e, 'read')}
 											class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-white font-medium text-sm"
 											style="background: var(--accent);"
 										>
@@ -1342,6 +1406,7 @@
 										</a>
 										<a
 											href="/api/ebooks/{data.book.id}/download"
+											onclick={(e) => addFirst(e, 'download')}
 											download
 											class="flex items-center gap-2 px-3 py-2 rounded-lg"
 											style="background: var(--bg-tertiary); color: var(--text-primary);"
