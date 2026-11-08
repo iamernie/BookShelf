@@ -58,8 +58,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		canManagePublicLibrary: canManagePublicLibrary(locals.user),
 		isAdmin,
 		sharedBy,
-		// Promote: the owner or an admin; un-promote: admins only (PATCH /api/books/[id]/library)
-		canPromote: found.libraryType !== 'public' && (isAdmin || isOwner),
+		// Promote: the owner or an admin, and only a book with content (ABS or an ebook);
+		// un-promote: admins only, whatever the book holds (PATCH /api/books/[id]/library)
+		canPromote: found.libraryType !== 'public' && (isAdmin || isOwner) && (found.absItemId !== null || !!found.ebookPath),
 		canUnpromote: found.libraryType === 'public' && isAdmin,
 		// Reading needs the book in the viewer's library; Read on a book they only reach asks to Add it
 		inLibrary,

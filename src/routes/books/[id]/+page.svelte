@@ -702,6 +702,39 @@
 		<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 			<!-- Left Column: Cover + Quick Info -->
 			<div class="lg:col-span-1">
+				<!-- Library: public badge, admin-only "shared by", promote / un-promote -->
+				{#if isPublicLibraryBook || data.canPromote}
+					<div class="mb-3 flex flex-col gap-1.5">
+						{#if isPublicLibraryBook}
+							<div class="flex items-center justify-center gap-1.5 text-xs" style="color: var(--text-secondary);">
+								<Globe class="w-3.5 h-3.5" />
+								<span>Public library{#if data.sharedBy} · shared by {data.sharedBy}{/if}</span>
+							</div>
+						{/if}
+						{#if data.canPromote}
+							<button
+								type="button"
+								class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm"
+								disabled={changingLibrary}
+								onclick={() => setLibraryType('public')}
+							>
+								<Globe class="w-3.5 h-3.5" />
+								Share to public library
+							</button>
+						{:else if data.canUnpromote}
+							<button
+								type="button"
+								class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm"
+								disabled={changingLibrary}
+								onclick={() => setLibraryType('personal')}
+							>
+								<Library class="w-3.5 h-3.5" />
+								Move out of public library
+							</button>
+						{/if}
+					</div>
+				{/if}
+
 				<!-- Cover with blurred background -->
 				<div class="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg mb-3" style="background-color: var(--bg-tertiary);">
 					<!-- Blurred background image -->
@@ -775,39 +808,6 @@
 						{/each}
 					</select>
 				</div>
-
-				<!-- Library: public badge, admin-only "shared by", promote / un-promote -->
-				{#if isPublicLibraryBook || data.canPromote}
-					<div class="mb-3 flex flex-col gap-1.5">
-						{#if isPublicLibraryBook}
-							<div class="flex items-center justify-center gap-1.5 text-xs" style="color: var(--text-secondary);">
-								<Globe class="w-3.5 h-3.5" />
-								<span>Public library{#if data.sharedBy} · shared by {data.sharedBy}{/if}</span>
-							</div>
-						{/if}
-						{#if data.canPromote}
-							<button
-								type="button"
-								class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm"
-								disabled={changingLibrary}
-								onclick={() => setLibraryType('public')}
-							>
-								<Globe class="w-3.5 h-3.5" />
-								Share to public library
-							</button>
-						{:else if data.canUnpromote}
-							<button
-								type="button"
-								class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm"
-								disabled={changingLibrary}
-								onclick={() => setLibraryType('personal')}
-							>
-								<Library class="w-3.5 h-3.5" />
-								Move out of public library
-							</button>
-						{/if}
-					</div>
-				{/if}
 
 				<!-- Format & Genre Pills -->
 				<div class="flex flex-wrap gap-1.5 mb-3">
