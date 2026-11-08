@@ -1,12 +1,17 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAuthorTags, toggleAuthorTag } from '$lib/server/services/tagService';
+import { canReachEntity } from '$lib/server/services/libraryShareService';
 
 // Get tags for an author
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, { message: 'Invalid author ID' });
+	}
+
+	if (!(await canReachEntity(locals.user, 'author', id))) {
+		throw error(404, { message: 'Author not found' });
 	}
 
 	const tags = await getAuthorTags(id);

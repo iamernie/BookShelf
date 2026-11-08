@@ -56,7 +56,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	if (locals.user) {
 		const shelves = await getAllShelves(locals.user.id);
 		if (shelves.length > 0) {
-			const counts = await getShelfBookCounts(shelves.map(s => s.id));
+			const counts = await getShelfBookCounts(shelves.map(s => s.id), locals.user.id);
 			magicShelvesData = shelves.map(shelf => ({
 				id: shelf.id,
 				name: shelf.name,

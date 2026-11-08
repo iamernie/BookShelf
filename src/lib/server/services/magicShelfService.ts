@@ -415,9 +415,13 @@ export interface ShelfBooksResult {
 	totalPages: number;
 }
 
+/**
+ * A shelf's books over the VIEWER's own library: another user's public shelf shows the viewer's
+ * matching books, never the shelf owner's
+ */
 export async function getShelfBooks(
 	shelfId: number,
-	options: { page?: number; limit?: number; userId?: number } = {}
+	options: { page?: number; limit?: number; userId: number }
 ): Promise<ShelfBooksResult | null> {
 	const shelf = await getShelfById(shelfId);
 	if (!shelf) return null;
@@ -425,7 +429,7 @@ export async function getShelfBooks(
 	const page = options.page || 1;
 	const limit = options.limit || 24;
 	const offset = (page - 1) * limit;
-	const userId = options.userId || shelf.userId;
+	const userId = options.userId;
 
 	let filterConfig: FilterConfig;
 	try {
@@ -513,19 +517,19 @@ export async function getShelfBooks(
 	};
 }
 
-export async function getShelfBookCount(shelfId: number): Promise<number> {
-	const result = await getShelfBooks(shelfId, { page: 1, limit: 1 });
+export async function getShelfBookCount(shelfId: number, userId: number): Promise<number> {
+	const result = await getShelfBooks(shelfId, { page: 1, limit: 1, userId });
 	return result?.total || 0;
 }
 
 // Get book counts for multiple shelves efficiently
-export async function getShelfBookCounts(shelfIds: number[]): Promise<Map<number, number>> {
+export async function getShelfBookCounts(shelfIds: number[], userId: number): Promise<Map<number, number>> {
 	const counts = new Map<number, number>();
 
 	// Process in parallel for efficiency
 	await Promise.all(
 		shelfIds.map(async (id) => {
-			const count = await getShelfBookCount(id);
+			const count = await getShelfBookCount(id, userId);
 			counts.set(id, count);
 		})
 	);
@@ -536,7 +540,7 @@ export async function getShelfBookCounts(shelfIds: number[]): Promise<Map<number
 // Preview filter results without saving
 export async function previewFilter(
 	filterConfig: FilterConfig,
-	options: { page?: number; limit?: number; userId?: number } = {}
+	options: { page?: number; limit?: number; userId: number }
 ): Promise<ShelfBooksResult> {
 	const page = options.page || 1;
 	const limit = options.limit || 24;

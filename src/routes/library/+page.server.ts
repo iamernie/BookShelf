@@ -5,7 +5,7 @@ import { getLibraryOverview } from '$lib/server/services/statsService';
 import { createLogger } from '$lib/server/services/loggerService';
 import { getSettingAs } from '$lib/server/services/settingsService';
 import { personalCols } from '$lib/server/services/personalState';
-import { sharedByForViewer } from '$lib/server/services/libraryShareService';
+import { reachableBookCond, sharedByForViewer } from '$lib/server/services/libraryShareService';
 
 const log = createLogger('library-page');
 
@@ -15,7 +15,9 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const publicLibraryEnabled = await getSettingAs<boolean>('library.enable_public_library', 'boolean');
 	// Default to personal library if public library is disabled
 	const defaultFilter = publicLibraryEnabled ? 'public' : 'personal';
-	const libraryFilter = url.searchParams.get('library') || defaultFilter;
+	const requestedFilter = url.searchParams.get('library') || defaultFilter;
+	// Unknown values fall back to the personal library
+	const libraryFilter = ['public', 'personal', 'all'].includes(requestedFilter) ? requestedFilter : 'personal';
 	const search = url.searchParams.get('q') || '';
 	const sortField = url.searchParams.get('sort') || 'createdAt';
 	const sortOrder = url.searchParams.get('order') || 'desc';
@@ -32,7 +34,12 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	if (libraryFilter === 'public') {
 		// Show books in the public library
 		conditions.push(eq(books.libraryType, 'public'));
-	} else if (libraryFilter === 'personal' && userId) {
+	} else if (libraryFilter === 'all') {
+		// Every book the viewer can see: for members public, own, shared and ownerless; for admins and librarians every book
+		conditions.push(reachableBookCond(locals.user));
+	} else if (!userId) {
+		conditions.push(sql`1=0`);
+	} else {
 		// Show only books that the user has added to their personal library (user_books table)
 		log.debug(`Filtering personal library for user ${userId}`);
 
@@ -47,7 +54,6 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
 		);
 	}
-	// 'all' = no libraryType filter (show all books)
 
 	// Search filter
 	if (search) {
@@ -173,7 +179,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	}));
 
 	// Get library overview stats
-	const libraryStats = userId ? await getLibraryOverview(userId) : null;
+	const libraryStats = locals.user ? await getLibraryOverview(locals.user) : null;
 
 	// Get all genres for filter
 	const allGenres = await db

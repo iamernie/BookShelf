@@ -295,6 +295,17 @@ export async function canReadEbook(user: { id: number; role: string | null }, bo
 }
 
 /**
+ * SQL twin of canReadEbook over books aliased `alias`: the viewer's own library (a user_books row
+ * or ownership), every role alike, and nothing without the read-ebooks permission. E-readers see
+ * only this.
+ */
+export function readableBookCond(viewer: Viewer, alias = 'books'): SQL {
+	if (!viewer || !hasPermission(viewer, Permission.READ_EBOOKS)) return sql`1=0`;
+	const a = sql.raw(alias);
+	return sql`(${a}.ownerId = ${viewer.id} OR ${a}.id IN (SELECT bookId FROM user_books WHERE userId = ${viewer.id}))`;
+}
+
+/**
  * Check if a user can modify a specific book (requires read_write or full permission, or ownership)
  */
 export async function canModifyBook(userId: number, bookId: number): Promise<boolean> {

@@ -26,10 +26,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		getStatuses(),
 		getGenres(),
 		getFormats(),
-		getNarrators(),
+		getNarrators(locals.user),
 		getTags(),
-		getAllAuthors(),
-		getAllSeries()
+		getAllAuthors(locals.user),
+		getAllSeries(locals.user)
 	]);
 
 	return {

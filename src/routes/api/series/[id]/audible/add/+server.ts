@@ -2,7 +2,7 @@
  * POST /api/series/[id]/audible/add  { asin }
  *   201 { created: true, book: { id, title }, statusApplied } - added to the user's library
  *   200 { created: false, book: { id, title } } - the user already has it
- *   404 - the ASIN isn't in this series' saved Audible list
+ *   404 - the ASIN isn't in this series' saved Audible list, or the viewer can't see the series
  *   400 for a missing asin or any other body field: everything else comes from the saved list
  */
 
@@ -10,6 +10,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { addSuggestion } from '$lib/server/services/audibleSuggestService';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { canReachEntity } from '$lib/server/services/libraryShareService';
 
 export const POST: RequestHandler = async ({ params, locals, request }) => {
 	if (!locals.user) {
@@ -38,6 +39,10 @@ export const POST: RequestHandler = async ({ params, locals, request }) => {
 	const asin = (body as { asin?: unknown }).asin;
 	if (typeof asin !== 'string' || !asin.trim()) {
 		return json({ message: 'asin is required' }, { status: 400 });
+	}
+
+	if (!(await canReachEntity(locals.user, 'series', Number(params.id)))) {
+		throw error(404, { message: 'Series not found' });
 	}
 
 	const result = await addSuggestion(locals.user.id, Number(params.id), asin);

@@ -227,15 +227,20 @@ export async function exportToJson(options: ExportOptions): Promise<ExportResult
 		})
 	};
 
-	// Include entity lists if requested
+	// Include entity lists if requested: authors, series and narrators only where they touch an
+	// exported book; genres, formats, tags and statuses are shared vocabularies and go in whole
+	const authorIds = new Set(booksData.flatMap((b) => b.authors.map((a) => a?.id)));
+	const seriesIds = new Set(booksData.flatMap((b) => b.series.map((s) => s?.id)));
+	const narratorIds = new Set(booksData.map((b) => b.narratorId));
+
 	if (options.includeAuthors !== false) {
 		const allAuthors = await db.select().from(authors);
-		exportData.authors = allAuthors;
+		exportData.authors = allAuthors.filter((a) => authorIds.has(a.id));
 	}
 
 	if (options.includeSeries !== false) {
 		const allSeries = await db.select().from(series);
-		exportData.series = allSeries;
+		exportData.series = allSeries.filter((s) => seriesIds.has(s.id));
 	}
 
 	if (options.includeTags !== false) {
@@ -255,7 +260,7 @@ export async function exportToJson(options: ExportOptions): Promise<ExportResult
 
 	if (options.includeNarrators !== false) {
 		const allNarrators = await db.select().from(narrators);
-		exportData.narrators = allNarrators;
+		exportData.narrators = allNarrators.filter((n) => narratorIds.has(n.id));
 	}
 
 	if (options.includeStatuses !== false) {

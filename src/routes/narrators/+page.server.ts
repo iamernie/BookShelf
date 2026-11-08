@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	const tagId = Number.isSafeInteger(tagParam) && tagParam > 0 ? tagParam : undefined;
 	const [result, tag] = await Promise.all([
 		getNarrators({ page, limit, search, sort: sort as NarratorSort, order, viewer: locals.user, tagId, includeStats: true }),
-		tagId ? getTagById(tagId) : Promise.resolve(null)
+		tagId ? getTagById(tagId, locals.user) : Promise.resolve(null)
 	]);
 
 	const pastEnd = pastEndRedirect(url, { page, limit, total: result.total, count: result.items.length });

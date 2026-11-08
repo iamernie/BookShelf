@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	return new Response(xml, {
 		headers: {
 			'Content-Type': OPDS_MIME,
-			'Cache-Control': 'public, max-age=300'
+			'Cache-Control': 'private, max-age=0'
 		}
 	});
 };

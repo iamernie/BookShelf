@@ -1,8 +1,18 @@
 import { db, books, authors, series, genres, bookAuthors, bookSeries } from '$lib/server/db';
-import { eq, desc, asc, like, sql, and, or } from 'drizzle-orm';
+import { eq, desc, asc, like, sql, and, or, type SQL } from 'drizzle-orm';
+import { readableBookCond, type Viewer } from './libraryShareService';
 
 // OPDS 1.2 Catalog Service
 // Spec: https://specs.opds.io/opds-1.2
+//
+// Every feed is the viewer's: books are the ebooks in the viewer's own library (the 2.30.0
+// e-reader rule, readableBookCond), and author, series and genre navigation lists only the
+// entities with such a book, so one user's feed never shows another's private library.
+
+/** An ebook the viewer can read, on books aliased `alias` */
+function readableEbook(viewer: Viewer, alias = 'books'): SQL {
+	return sql`(${sql.raw(alias)}.ebookPath IS NOT NULL AND ${readableBookCond(viewer, alias)})`;
+}
 
 const OPDS_MIME = 'application/atom+xml;profile=opds-catalog;kind=navigation';
 const OPDS_ACQUISITION_MIME = 'application/atom+xml;profile=opds-catalog;kind=acquisition';
@@ -202,6 +212,7 @@ export function generateRootCatalog(config: OPDSConfig): string {
 
 export async function generateBooksFeed(
 	config: OPDSConfig,
+	viewer: Viewer,
 	options: { page?: number; limit?: number; orderBy?: 'title' | 'recent' } = {}
 ): Promise<string> {
 	const page = options.page || 1;
@@ -213,7 +224,7 @@ export async function generateBooksFeed(
 	const [{ total }] = await db
 		.select({ total: sql<number>`count(*)` })
 		.from(books)
-		.where(sql`${books.ebookPath} IS NOT NULL`);
+		.where(readableEbook(viewer));
 
 	const totalPages = Math.ceil(total / limit);
 
@@ -239,7 +250,7 @@ export async function generateBooksFeed(
 		.leftJoin(genres, eq(genres.id, books.genreId))
 		.leftJoin(bookSeries, and(eq(bookSeries.bookId, books.id), eq(bookSeries.isPrimary, true)))
 		.leftJoin(series, eq(series.id, bookSeries.seriesId))
-		.where(sql`${books.ebookPath} IS NOT NULL`)
+		.where(readableEbook(viewer))
 		.orderBy(orderBy === 'recent' ? desc(books.createdAt) : asc(books.title))
 		.limit(limit)
 		.offset(offset);
@@ -263,7 +274,7 @@ export async function generateBooksFeed(
 	return xml;
 }
 
-export async function generateAuthorsFeed(config: OPDSConfig): Promise<string> {
+export async function generateAuthorsFeed(config: OPDSConfig, viewer: Viewer): Promise<string> {
 	const authorResults = await db
 		.select({
 			id: authors.id,
@@ -271,7 +282,8 @@ export async function generateAuthorsFeed(config: OPDSConfig): Promise<string> {
 			bookCount: sql<number>`count(${bookAuthors.bookId})`
 		})
 		.from(authors)
-		.leftJoin(bookAuthors, eq(bookAuthors.authorId, authors.id))
+		.innerJoin(bookAuthors, eq(bookAuthors.authorId, authors.id))
+		.innerJoin(books, and(eq(books.id, bookAuthors.bookId), readableEbook(viewer)))
 		.groupBy(authors.id)
 		.having(sql`count(${bookAuthors.bookId}) > 0`)
 		.orderBy(asc(authors.name));
@@ -293,9 +305,10 @@ export async function generateAuthorsFeed(config: OPDSConfig): Promise<string> {
 	return xml;
 }
 
-export async function generateAuthorBooksFeed(config: OPDSConfig, authorId: number): Promise<string> {
-	// Get author info
-	const [author] = await db.select().from(authors).where(eq(authors.id, authorId)).limit(1);
+export async function generateAuthorBooksFeed(config: OPDSConfig, viewer: Viewer, authorId: number): Promise<string> {
+	// Get author info: only an author with a book in the viewer's library
+	const [author] = await db.select().from(authors).where(and(eq(authors.id, authorId),
+		sql`EXISTS (SELECT 1 FROM bookauthors oba JOIN books ob ON ob.id = oba.bookId WHERE oba.authorId = ${authors.id} AND ${readableBookCond(viewer, 'ob')})`)).limit(1);
 	if (!author) {
 		return generateErrorFeed(config, 'Author not found');
 	}
@@ -322,7 +335,7 @@ export async function generateAuthorBooksFeed(config: OPDSConfig, authorId: numb
 		.leftJoin(series, eq(series.id, bookSeries.seriesId))
 		.where(and(
 			eq(bookAuthors.authorId, authorId),
-			sql`${books.ebookPath} IS NOT NULL`
+			readableEbook(viewer)
 		))
 		.orderBy(asc(books.title));
 
@@ -342,7 +355,7 @@ export async function generateAuthorBooksFeed(config: OPDSConfig, authorId: numb
 	return xml;
 }
 
-export async function generateSeriesFeed(config: OPDSConfig): Promise<string> {
+export async function generateSeriesFeed(config: OPDSConfig, viewer: Viewer): Promise<string> {
 	const seriesResults = await db
 		.select({
 			id: series.id,
@@ -350,7 +363,8 @@ export async function generateSeriesFeed(config: OPDSConfig): Promise<string> {
 			bookCount: sql<number>`count(${bookSeries.bookId})`
 		})
 		.from(series)
-		.leftJoin(bookSeries, eq(bookSeries.seriesId, series.id))
+		.innerJoin(bookSeries, eq(bookSeries.seriesId, series.id))
+		.innerJoin(books, and(eq(books.id, bookSeries.bookId), readableEbook(viewer)))
 		.groupBy(series.id)
 		.having(sql`count(${bookSeries.bookId}) > 0`)
 		.orderBy(asc(series.title));
@@ -372,9 +386,10 @@ export async function generateSeriesFeed(config: OPDSConfig): Promise<string> {
 	return xml;
 }
 
-export async function generateSeriesBooksFeed(config: OPDSConfig, seriesId: number): Promise<string> {
-	// Get series info
-	const [s] = await db.select().from(series).where(eq(series.id, seriesId)).limit(1);
+export async function generateSeriesBooksFeed(config: OPDSConfig, viewer: Viewer, seriesId: number): Promise<string> {
+	// Get series info: only a series with a book in the viewer's library
+	const [s] = await db.select().from(series).where(and(eq(series.id, seriesId),
+		sql`EXISTS (SELECT 1 FROM bookseries obs JOIN books ob ON ob.id = obs.bookId WHERE obs.seriesId = ${series.id} AND ${readableBookCond(viewer, 'ob')})`)).limit(1);
 	if (!s) {
 		return generateErrorFeed(config, 'Series not found');
 	}
@@ -401,7 +416,7 @@ export async function generateSeriesBooksFeed(config: OPDSConfig, seriesId: numb
 		.leftJoin(genres, eq(genres.id, books.genreId))
 		.where(and(
 			eq(bookSeries.seriesId, seriesId),
-			sql`${books.ebookPath} IS NOT NULL`
+			readableEbook(viewer)
 		))
 		.orderBy(asc(bookSeries.bookNum));
 
@@ -420,7 +435,7 @@ export async function generateSeriesBooksFeed(config: OPDSConfig, seriesId: numb
 	return xml;
 }
 
-export async function generateGenresFeed(config: OPDSConfig): Promise<string> {
+export async function generateGenresFeed(config: OPDSConfig, viewer: Viewer): Promise<string> {
 	const genreResults = await db
 		.select({
 			id: genres.id,
@@ -428,7 +443,7 @@ export async function generateGenresFeed(config: OPDSConfig): Promise<string> {
 			bookCount: sql<number>`count(${books.id})`
 		})
 		.from(genres)
-		.leftJoin(books, eq(books.genreId, genres.id))
+		.innerJoin(books, and(eq(books.genreId, genres.id), readableEbook(viewer)))
 		.groupBy(genres.id)
 		.having(sql`count(${books.id}) > 0`)
 		.orderBy(asc(genres.name));
@@ -450,7 +465,7 @@ export async function generateGenresFeed(config: OPDSConfig): Promise<string> {
 	return xml;
 }
 
-export async function generateGenreBooksFeed(config: OPDSConfig, genreId: number): Promise<string> {
+export async function generateGenreBooksFeed(config: OPDSConfig, viewer: Viewer, genreId: number): Promise<string> {
 	// Get genre info
 	const [genre] = await db.select().from(genres).where(eq(genres.id, genreId)).limit(1);
 	if (!genre) {
@@ -479,7 +494,7 @@ export async function generateGenreBooksFeed(config: OPDSConfig, genreId: number
 		.leftJoin(series, eq(series.id, bookSeries.seriesId))
 		.where(and(
 			eq(books.genreId, genreId),
-			sql`${books.ebookPath} IS NOT NULL`
+			readableEbook(viewer)
 		))
 		.orderBy(asc(books.title));
 
@@ -499,7 +514,7 @@ export async function generateGenreBooksFeed(config: OPDSConfig, genreId: number
 	return xml;
 }
 
-export async function generateSearchFeed(config: OPDSConfig, query: string): Promise<string> {
+export async function generateSearchFeed(config: OPDSConfig, viewer: Viewer, query: string): Promise<string> {
 	if (!query || query.trim().length < 2) {
 		return generateErrorFeed(config, 'Search query too short');
 	}
@@ -529,7 +544,7 @@ export async function generateSearchFeed(config: OPDSConfig, query: string): Pro
 		.leftJoin(bookSeries, and(eq(bookSeries.bookId, books.id), eq(bookSeries.isPrimary, true)))
 		.leftJoin(series, eq(series.id, bookSeries.seriesId))
 		.where(and(
-			sql`${books.ebookPath} IS NOT NULL`,
+			readableEbook(viewer),
 			or(
 				like(books.title, searchTerm),
 				like(authors.name, searchTerm),

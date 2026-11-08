@@ -8,15 +8,13 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(400, { message: 'Invalid tag ID' });
 	}
 
-	const userId = locals.user?.id;
-
-	const tag = await getTagById(id, userId);
+	const tag = await getTagById(id, locals.user);
 	if (!tag) {
 		throw error(404, { message: 'Tag not found' });
 	}
 
 	// Get books and series with this tag (books filtered by user's library)
-	const [books, series] = await Promise.all([getBooksWithTag(id, userId), getSeriesWithTag(id)]);
+	const [books, series] = await Promise.all([getBooksWithTag(id, locals.user), getSeriesWithTag(id, locals.user)]);
 
 	return json({ tag, books, series, colors: TAG_COLORS });
 };

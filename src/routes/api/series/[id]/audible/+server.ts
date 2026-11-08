@@ -3,13 +3,14 @@
  *   200 { state, audibleSeriesTitle, refreshedAt, lastRefreshFailed, ownedThrough, canAdd, suggestions, next, missing, gaps, seriesInfo }
  *   missing: unowned numbered books below ownedThrough other than next (gaps = missing.length);
  *   seriesInfo: { bookCount, totalRuntimeMin, firstReleaseYear } from the saved list, null without one
- *   Reads the saved list only; never calls Audible. 404 for an unknown series.
+ *   Reads the saved list only; never calls Audible. 404 for an unknown series or one the viewer can't see.
  */
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSeriesSuggestions } from '$lib/server/services/audibleSuggestService';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { canReachEntity } from '$lib/server/services/libraryShareService';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) {
@@ -19,7 +20,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(400, { message: 'Invalid series ID' });
 	}
 
-	const result = await getSeriesSuggestions(Number(params.id), locals.user.id);
+	const result = (await canReachEntity(locals.user, 'series', Number(params.id)))
+		? await getSeriesSuggestions(Number(params.id), locals.user.id)
+		: null;
 	if (!result) {
 		throw error(404, { message: 'Series not found' });
 	}

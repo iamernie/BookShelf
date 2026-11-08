@@ -2,12 +2,16 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, seriesTags, tags } from '$lib/server/db';
 import { eq, and } from 'drizzle-orm';
+import { canReachEntity } from '$lib/server/services/libraryShareService';
 
 // GET /api/series/[id]/tags - Get all tags for a series
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const seriesId = parseInt(params.id);
 	if (isNaN(seriesId)) {
 		throw error(400, { message: 'Invalid series ID' });
+	}
+	if (!(await canReachEntity(locals.user, 'series', seriesId))) {
+		throw error(404, { message: 'Series not found' });
 	}
 
 	const result = await db

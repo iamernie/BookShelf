@@ -8,15 +8,13 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(400, { message: 'Invalid genre ID' });
 	}
 
-	const userId = locals.user?.id;
-
-	const genre = await getGenreById(id, userId);
+	const genre = await getGenreById(id, locals.user);
 	if (!genre) {
 		throw error(404, { message: 'Genre not found' });
 	}
 
 	// Get books in this genre (filtered by user's library)
-	const books = await getBooksInGenre(id, userId);
+	const books = await getBooksInGenre(id, locals.user);
 
 	return json({ genre, books });
 };

@@ -3,7 +3,7 @@ import { getOPDSConfig, generateSeriesBooksFeed } from '$lib/server/services/opd
 
 const OPDS_MIME = 'application/atom+xml;profile=opds-catalog;kind=acquisition';
 
-export const GET: RequestHandler = async ({ url, params }) => {
+export const GET: RequestHandler = async ({ url, params, locals }) => {
 	const baseUrl = `${url.protocol}//${url.host}`;
 	const config = getOPDSConfig(baseUrl);
 	const seriesId = parseInt(params.id, 10);
@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
 		return new Response('Invalid series ID', { status: 400 });
 	}
 
-	const xml = await generateSeriesBooksFeed(config, seriesId);
+	const xml = await generateSeriesBooksFeed(config, locals.user, seriesId);
 
 	if (!xml) {
 		return new Response('Series not found', { status: 404 });
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
 	return new Response(xml, {
 		headers: {
 			'Content-Type': OPDS_MIME,
-			'Cache-Control': 'public, max-age=300'
+			'Cache-Control': 'private, max-age=0'
 		}
 	});
 };

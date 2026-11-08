@@ -2,14 +2,14 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getFormats, createFormat, getFormatByName } from '$lib/server/services/formatService';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
 	const limit = parseInt(url.searchParams.get('limit') || '50');
 	const search = url.searchParams.get('search') || undefined;
 	const sort = (url.searchParams.get('sort') as 'name' | 'createdAt' | 'bookCount') || 'name';
 	const order = (url.searchParams.get('order') as 'asc' | 'desc') || 'asc';
 
-	const result = await getFormats({ page, limit, search, sort, order });
+	const result = await getFormats({ page, limit, search, sort, order, viewer: locals.user });
 	return json(result);
 };
 

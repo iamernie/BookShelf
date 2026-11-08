@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { advancedSearch, getSearchOptions, type AdvancedSearchFilters } from '$lib/server/services/searchService';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
 	// Parse search filters from URL
 	const filters: AdvancedSearchFilters = {};
 
@@ -80,12 +80,12 @@ export const load: PageServerLoad = async ({ url }) => {
 	const hasSearchCriteria = Object.keys(filters).some(key => !['page', 'limit', 'sortBy'].includes(key));
 
 	// Get filter options
-	const options = await getSearchOptions();
+	const options = await getSearchOptions(locals.user);
 
 	// Perform search if criteria provided
 	let results = null;
 	if (hasSearchCriteria) {
-		results = await advancedSearch(filters);
+		results = await advancedSearch(filters, locals.user);
 	}
 
 	return {

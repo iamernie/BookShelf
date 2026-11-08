@@ -1,6 +1,7 @@
 import { db, tags, bookTags, seriesTags, authorTags, narratorTags, books, series, authors, narrators } from '$lib/server/db';
-import { eq, like, asc, desc, sql, and, or } from 'drizzle-orm';
+import { eq, like, asc, desc, sql, and } from 'drizzle-orm';
 import type { Tag } from '$lib/server/db/schema';
+import { reachableBookCond, reachableEntityCond, type Viewer } from './libraryShareService';
 
 // Predefined colors for tags (matching V1)
 export const TAG_COLORS = [
@@ -34,7 +35,7 @@ export interface GetTagsOptions {
 	search?: string;
 	sort?: 'name' | 'createdAt' | 'bookCount';
 	order?: 'asc' | 'desc';
-	userId?: number; // Filter stats to user's library
+	viewer?: Viewer; // The list stays global; counts run over what this viewer can see
 }
 
 export async function getTags(options: GetTagsOptions = {}): Promise<{
@@ -43,7 +44,7 @@ export async function getTags(options: GetTagsOptions = {}): Promise<{
 	page: number;
 	limit: number;
 }> {
-	const { page = 1, limit = 50, search, sort = 'name', order = 'asc', userId } = options;
+	const { page = 1, limit = 50, search, sort = 'name', order = 'asc', viewer } = options;
 	const offset = (page - 1) * limit;
 
 	// Build where conditions
@@ -68,55 +69,8 @@ export async function getTags(options: GetTagsOptions = {}): Promise<{
 		.limit(limit)
 		.offset(offset);
 
-	// Get counts for each tag (book count filtered by user's library)
-	const items = await Promise.all(
-		tagsList.map(async (tag) => {
-			// For book count, filter to user's library
-			let bookCount = 0;
-			if (userId) {
-				const bookCountResult = await db
-					.select({ count: sql<number>`count(*)` })
-					.from(bookTags)
-					.innerJoin(books, eq(bookTags.bookId, books.id))
-					.where(
-						and(
-							eq(bookTags.tagId, tag.id),
-							or(
-								eq(books.libraryType, 'personal'),
-								sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-							)
-						)
-					);
-				bookCount = bookCountResult[0]?.count ?? 0;
-			} else {
-				const bookCountResult = await db
-					.select({ count: sql<number>`count(*)` })
-					.from(bookTags)
-					.innerJoin(books, eq(bookTags.bookId, books.id))
-					.where(and(eq(bookTags.tagId, tag.id), eq(books.libraryType, 'personal')));
-				bookCount = bookCountResult[0]?.count ?? 0;
-			}
-
-			// Series count stays the same (not filtered by library)
-			const seriesCountResult = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(seriesTags)
-				.where(eq(seriesTags.tagId, tag.id));
-
-			// Author count
-			const authorCountResult = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(authorTags)
-				.where(eq(authorTags.tagId, tag.id));
-
-			return {
-				...tag,
-				bookCount,
-				seriesCount: seriesCountResult[0]?.count ?? 0,
-				authorCount: authorCountResult[0]?.count ?? 0
-			};
-		})
-	);
+	// Books count over the viewer's reachable books; series and authors through the entity gate
+	const items = await Promise.all(tagsList.map(async (tag) => ({ ...tag, ...(await getTagCounts(tag.id, viewer)) })));
 
 	// If sorting by bookCount, we need to sort after fetching counts
 	if (sort === 'bookCount') {
@@ -131,52 +85,34 @@ export async function getTags(options: GetTagsOptions = {}): Promise<{
 	return { items, total, page, limit };
 }
 
-export async function getTagById(id: number, userId?: number): Promise<TagWithCount | null> {
-	const tag = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
-	if (!tag[0]) return null;
-
-	// For book count, filter to user's library
-	let bookCount = 0;
-	if (userId) {
-		const bookCountResult = await db
+async function getTagCounts(tagId: number, viewer: Viewer): Promise<{ bookCount: number; seriesCount: number; authorCount: number }> {
+	const [bookCountResult, seriesCountResult, authorCountResult] = await Promise.all([
+		db
 			.select({ count: sql<number>`count(*)` })
 			.from(bookTags)
 			.innerJoin(books, eq(bookTags.bookId, books.id))
-			.where(
-				and(
-					eq(bookTags.tagId, id),
-					or(
-						eq(books.libraryType, 'personal'),
-						sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-					)
-				)
-			);
-		bookCount = bookCountResult[0]?.count ?? 0;
-	} else {
-		const bookCountResult = await db
+			.where(and(eq(bookTags.tagId, tagId), reachableBookCond(viewer))),
+		db
 			.select({ count: sql<number>`count(*)` })
-			.from(bookTags)
-			.innerJoin(books, eq(bookTags.bookId, books.id))
-			.where(and(eq(bookTags.tagId, id), eq(books.libraryType, 'personal')));
-		bookCount = bookCountResult[0]?.count ?? 0;
-	}
-
-	const seriesCountResult = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(seriesTags)
-		.where(eq(seriesTags.tagId, id));
-
-	const authorCountResult = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(authorTags)
-		.where(eq(authorTags.tagId, id));
-
+			.from(seriesTags)
+			.where(and(eq(seriesTags.tagId, tagId), reachableEntityCond(viewer, 'series', sql`${seriesTags.seriesId}`))),
+		db
+			.select({ count: sql<number>`count(*)` })
+			.from(authorTags)
+			.where(and(eq(authorTags.tagId, tagId), reachableEntityCond(viewer, 'author', sql`${authorTags.authorId}`)))
+	]);
 	return {
-		...tag[0],
-		bookCount,
+		bookCount: bookCountResult[0]?.count ?? 0,
 		seriesCount: seriesCountResult[0]?.count ?? 0,
 		authorCount: authorCountResult[0]?.count ?? 0
 	};
+}
+
+export async function getTagById(id: number, viewer: Viewer): Promise<TagWithCount | null> {
+	const tag = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
+	if (!tag[0]) return null;
+
+	return { ...tag[0], ...(await getTagCounts(id, viewer)) };
 }
 
 export async function getTagByName(name: string): Promise<Tag | null> {
@@ -303,39 +239,24 @@ export async function toggleSeriesTag(seriesId: number, tagId: number): Promise<
 	}
 }
 
-// Get books with a specific tag (filtered by user's library)
-export async function getBooksWithTag(tagId: number, userId?: number): Promise<{ id: number; title: string; coverImageUrl: string | null }[]> {
-	// User library condition
-	const userLibraryCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
-
-	const booksList = await db
+// Get books with a specific tag (the ones the viewer can see)
+export async function getBooksWithTag(tagId: number, viewer: Viewer): Promise<{ id: number; title: string; coverImageUrl: string | null }[]> {
+	return db
 		.select({ id: books.id, title: books.title, coverImageUrl: books.coverImageUrl })
 		.from(books)
 		.innerJoin(bookTags, eq(books.id, bookTags.bookId))
-		.where(and(eq(bookTags.tagId, tagId), userLibraryCondition))
+		.where(and(eq(bookTags.tagId, tagId), reachableBookCond(viewer)))
 		.orderBy(asc(books.title));
-
-	return booksList;
 }
 
-// Get series with a specific tag
-export async function getSeriesWithTag(tagId: number): Promise<{ id: number; title: string }[]> {
-	const seriesIds = await db.select({ seriesId: seriesTags.seriesId }).from(seriesTags).where(eq(seriesTags.tagId, tagId));
-
-	if (seriesIds.length === 0) return [];
-
-	const seriesList = await db
+// Get series with a specific tag (the ones the viewer can see)
+export async function getSeriesWithTag(tagId: number, viewer: Viewer): Promise<{ id: number; title: string }[]> {
+	return db
 		.select({ id: series.id, title: series.title })
 		.from(series)
-		.where(sql`${series.id} IN (${seriesIds.map((s) => s.seriesId).join(',')})`)
+		.innerJoin(seriesTags, eq(seriesTags.seriesId, series.id))
+		.where(and(eq(seriesTags.tagId, tagId), reachableEntityCond(viewer, 'series', sql`${series.id}`)))
 		.orderBy(asc(series.title));
-
-	return seriesList;
 }
 
 // Initialize system tags (call on app startup)
@@ -425,22 +346,14 @@ export async function getAuthorTags(authorId: number): Promise<{ id: number; nam
 	return tagList;
 }
 
-// Get authors with a specific tag
-export async function getAuthorsWithTag(tagId: number): Promise<{ id: number; name: string; photoUrl: string | null }[]> {
-	const authorIds = await db
-		.select({ authorId: authorTags.authorId })
-		.from(authorTags)
-		.where(eq(authorTags.tagId, tagId));
-
-	if (authorIds.length === 0) return [];
-
-	const authorList = await db
+// Get authors with a specific tag (the ones the viewer can see)
+export async function getAuthorsWithTag(tagId: number, viewer: Viewer): Promise<{ id: number; name: string; photoUrl: string | null }[]> {
+	return db
 		.select({ id: authors.id, name: authors.name, photoUrl: authors.photoUrl })
 		.from(authors)
-		.where(sql`${authors.id} IN (${authorIds.map((a) => a.authorId).join(',')})`)
+		.innerJoin(authorTags, eq(authorTags.authorId, authors.id))
+		.where(and(eq(authorTags.tagId, tagId), reachableEntityCond(viewer, 'author', sql`${authors.id}`)))
 		.orderBy(asc(authors.name));
-
-	return authorList;
 }
 
 // ========== Narrator Tag Functions ==========
@@ -487,20 +400,12 @@ export async function getNarratorTags(narratorId: number): Promise<{ id: number;
 	return tagList;
 }
 
-// Get narrators with a specific tag
-export async function getNarratorsWithTag(tagId: number): Promise<{ id: number; name: string; photoUrl: string | null }[]> {
-	const narratorIds = await db
-		.select({ narratorId: narratorTags.narratorId })
-		.from(narratorTags)
-		.where(eq(narratorTags.tagId, tagId));
-
-	if (narratorIds.length === 0) return [];
-
-	const narratorList = await db
+// Get narrators with a specific tag (the ones the viewer can see)
+export async function getNarratorsWithTag(tagId: number, viewer: Viewer): Promise<{ id: number; name: string; photoUrl: string | null }[]> {
+	return db
 		.select({ id: narrators.id, name: narrators.name, photoUrl: narrators.photoUrl })
 		.from(narrators)
-		.where(sql`${narrators.id} IN (${narratorIds.map((n) => n.narratorId).join(',')})`)
+		.innerJoin(narratorTags, eq(narratorTags.narratorId, narrators.id))
+		.where(and(eq(narratorTags.tagId, tagId), reachableEntityCond(viewer, 'narrator', sql`${narrators.id}`)))
 		.orderBy(asc(narrators.name));
-
-	return narratorList;
 }

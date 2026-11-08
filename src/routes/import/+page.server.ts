@@ -1,13 +1,13 @@
 import type { PageServerLoad } from './$types';
 import { getStatuses, getFormats, getGenres, getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
 	const [statuses, formats, genres, authors, series] = await Promise.all([
 		getStatuses(),
 		getFormats(),
 		getGenres(),
-		getAllAuthors(),
-		getAllSeries()
+		getAllAuthors(locals.user),
+		getAllSeries(locals.user)
 	]);
 
 	return {

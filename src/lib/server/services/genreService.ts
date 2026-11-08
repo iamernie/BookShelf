@@ -1,6 +1,7 @@
 import { db, genres, books } from '$lib/server/db';
-import { eq, like, asc, desc, sql, and, or } from 'drizzle-orm';
+import { eq, like, asc, desc, sql, and } from 'drizzle-orm';
 import { viewerBooks as vub } from './personalState';
+import { reachableBookCond, type Viewer } from './libraryShareService';
 import type { Genre } from '$lib/server/db/schema';
 
 export interface GenreWithStats extends Genre {
@@ -14,7 +15,7 @@ export interface GetGenresOptions {
 	search?: string;
 	sort?: 'name' | 'createdAt' | 'displayOrder' | 'bookCount';
 	order?: 'asc' | 'desc';
-	userId?: number; // Filter stats to user's library
+	viewer?: Viewer; // The list stays global; counts and ratings run over the books this viewer can see
 }
 
 export async function getGenres(options: GetGenresOptions = {}): Promise<{
@@ -23,16 +24,10 @@ export async function getGenres(options: GetGenresOptions = {}): Promise<{
 	page: number;
 	limit: number;
 }> {
-	const { page = 1, limit = 50, search, sort = 'displayOrder', order = 'asc', userId } = options;
+	const { page = 1, limit = 50, search, sort = 'displayOrder', order = 'asc', viewer } = options;
 	const offset = (page - 1) * limit;
-
-	// User library condition: personal books OR books user has added from public library
-	const userLibraryCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	const userId = viewer?.id;
+	const userLibraryCondition = reachableBookCond(viewer);
 
 	// Build where conditions
 	const whereClause = search ? like(genres.name, `%${search}%`) : undefined;
@@ -103,17 +98,12 @@ export async function getGenres(options: GetGenresOptions = {}): Promise<{
 	return { items, total, page, limit };
 }
 
-export async function getGenreById(id: number, userId?: number): Promise<GenreWithStats | null> {
+export async function getGenreById(id: number, viewer: Viewer): Promise<GenreWithStats | null> {
 	const genre = await db.select().from(genres).where(eq(genres.id, id)).limit(1);
 	if (!genre[0]) return null;
 
-	// User library condition
-	const userLibraryCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	const userId = viewer?.id;
+	const userLibraryCondition = reachableBookCond(viewer);
 
 	const statsResult = await db
 		.select({
@@ -193,15 +183,10 @@ export async function deleteGenre(id: number): Promise<boolean> {
 	return result.changes > 0;
 }
 
-// Get books in a genre (filtered by user's library)
-export async function getBooksInGenre(genreId: number, userId?: number): Promise<{ id: number; title: string; coverImageUrl: string | null; rating: number | null }[]> {
-	// User library condition
-	const userLibraryCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+// Get books in a genre (the ones the viewer can see)
+export async function getBooksInGenre(genreId: number, viewer: Viewer): Promise<{ id: number; title: string; coverImageUrl: string | null; rating: number | null }[]> {
+	const userId = viewer?.id;
+	const userLibraryCondition = reachableBookCond(viewer);
 
 	return db
 		.select({

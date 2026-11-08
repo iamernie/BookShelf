@@ -302,13 +302,13 @@ Example format:
 			}
 		}
 
-		// Check if recommended books exist in library
+		// Check if recommended books exist in library (a title match only among books the viewer could Add)
 		const enrichedRecommendations = await Promise.all(
 			recommendations.map(async (rec) => {
 				const existingBook = await db
 					.select({ id: books.id })
 					.from(books)
-					.where(sql`LOWER(${books.title}) = LOWER(${rec.title})`)
+					.where(and(sql`LOWER(${books.title}) = LOWER(${rec.title})`, reachable(userId)))
 					.limit(1);
 
 				return {
@@ -731,13 +731,13 @@ Example format:
 			}
 		}
 
-		// Check if recommended books exist in library
+		// Check if recommended books exist in library (a title match only among books the viewer could Add)
 		const enrichedRecommendations = await Promise.all(
 			recommendations.map(async (rec) => {
 				const existingBook = await db
 					.select({ id: books.id })
 					.from(books)
-					.where(sql`LOWER(${books.title}) = LOWER(${rec.title})`)
+					.where(and(sql`LOWER(${books.title}) = LOWER(${rec.title})`, reachable(userId)))
 					.limit(1);
 
 				return {
@@ -767,11 +767,11 @@ export async function addRecommendationToLibrary(data: {
 	genre?: string;
 }, userId: number): Promise<{ success: boolean; bookId?: number; error?: string }> {
 	try {
-		// Check if book already exists
+		// Check if book already exists among the books the viewer can reach
 		const existing = await db
 			.select({ id: books.id })
 			.from(books)
-			.where(sql`LOWER(${books.title}) = LOWER(${data.title})`)
+			.where(and(sql`LOWER(${books.title}) = LOWER(${data.title})`, reachable(userId)))
 			.limit(1);
 
 		if (existing.length > 0) {

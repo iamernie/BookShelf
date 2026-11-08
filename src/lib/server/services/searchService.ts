@@ -1,6 +1,7 @@
 import { db, books, authors, series, narrators, bookAuthors, bookSeries, statuses, genres, formats, tags, bookTags, userBooks } from '$lib/server/db';
 import { like, eq, sql, asc, desc, and, or, gte, lte, ne, isNull, isNotNull, inArray } from 'drizzle-orm';
 import { personalCols, overlayPersonal, viewerBooks as vub } from './personalState';
+import { reachableBookCond, reachableEntityCond, type Viewer } from './libraryShareService';
 
 export interface AutocompleteResult {
 	books: {
@@ -32,28 +33,24 @@ export interface AutocompleteResult {
 	}[];
 }
 
-export async function autocomplete(query: string, userId?: number): Promise<AutocompleteResult> {
+/** Books the viewer can see; author, series and narrator names through the entity gate */
+export async function autocomplete(query: string, viewer: Viewer): Promise<AutocompleteResult> {
 	if (!query || query.length < 2) {
 		return { books: [], authors: [], series: [], narrators: [] };
 	}
 
 	const searchTerm = `%${query}%`;
 
-	// Build user library filter - filter by user_books table
-	const userLibraryFilter = userId
-		? sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		: undefined;
-
 	// Run all searches in parallel
 	const [booksResult, authorsResult, seriesResult, narratorsResult] = await Promise.all([
-		// Search books by title (filtered by user's library)
+		// Search books by title (the ones the viewer can see)
 		db.select({
 			id: books.id,
 			title: books.title,
 			coverImageUrl: books.coverImageUrl
 		})
 			.from(books)
-			.where(userLibraryFilter ? and(like(books.title, searchTerm), userLibraryFilter) : like(books.title, searchTerm))
+			.where(and(like(books.title, searchTerm), reachableBookCond(viewer)))
 			.orderBy(asc(books.title))
 			.limit(5),
 
@@ -63,7 +60,7 @@ export async function autocomplete(query: string, userId?: number): Promise<Auto
 			name: authors.name
 		})
 			.from(authors)
-			.where(like(authors.name, searchTerm))
+			.where(and(like(authors.name, searchTerm), reachableEntityCond(viewer, 'author', sql`${authors.id}`)))
 			.orderBy(asc(authors.name))
 			.limit(5),
 
@@ -73,7 +70,7 @@ export async function autocomplete(query: string, userId?: number): Promise<Auto
 			title: series.title
 		})
 			.from(series)
-			.where(like(series.title, searchTerm))
+			.where(and(like(series.title, searchTerm), reachableEntityCond(viewer, 'series', sql`${series.id}`)))
 			.orderBy(asc(series.title))
 			.limit(5),
 
@@ -83,7 +80,7 @@ export async function autocomplete(query: string, userId?: number): Promise<Auto
 			name: narrators.name
 		})
 			.from(narrators)
-			.where(like(narrators.name, searchTerm))
+			.where(and(like(narrators.name, searchTerm), reachableEntityCond(viewer, 'narrator', sql`${narrators.id}`)))
 			.orderBy(asc(narrators.name))
 			.limit(5)
 	]);
@@ -140,9 +137,6 @@ export async function autocomplete(query: string, userId?: number): Promise<Auto
 }
 
 export interface AdvancedSearchFilters {
-	// User context for per-user library filtering
-	userId?: number;
-
 	// Text filters
 	title?: string;
 	authorName?: string;
@@ -206,8 +200,10 @@ export interface AdvancedSearchResult {
 	totalPages: number;
 }
 
-export async function advancedSearch(filters: AdvancedSearchFilters): Promise<AdvancedSearchResult> {
-	const { page = 1, limit = 24, userId } = filters;
+/** Searches the books the viewer can see (reachableBookCond) */
+export async function advancedSearch(filters: AdvancedSearchFilters, viewer: Viewer): Promise<AdvancedSearchResult> {
+	const { page = 1, limit = 24 } = filters;
+	const userId = viewer?.id;
 	const offset = (page - 1) * limit;
 
 	// Notes, status, rating and completed date are the viewer's own row (vub)
@@ -216,12 +212,8 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 	// Build where conditions
 	const conditions: ReturnType<typeof eq>[] = [];
 
-	// Per-user library filtering - only show books in user's personal library (user_books table)
-	if (userId) {
-		conditions.push(
-			sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		);
-	}
+	// Only books the viewer can see
+	conditions.push(reachableBookCond(viewer));
 
 	// Title search
 	if (filters.title) {
@@ -484,13 +476,13 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 	return { items, total, page, limit, totalPages };
 }
 
-// Get all filter options for the advanced search form
-export async function getSearchOptions() {
+// Get all filter options for the advanced search form; the series list is the viewer's reachable series
+export async function getSearchOptions(viewer: Viewer) {
 	const [statusList, genreList, formatList, seriesList, tagList] = await Promise.all([
 		db.select().from(statuses).orderBy(asc(statuses.sortOrder)),
 		db.select().from(genres).orderBy(asc(genres.name)),
 		db.select().from(formats).orderBy(asc(formats.name)),
-		db.select({ id: series.id, title: series.title }).from(series).orderBy(asc(series.title)),
+		db.select({ id: series.id, title: series.title }).from(series).where(reachableEntityCond(viewer, 'series', sql`${series.id}`)).orderBy(asc(series.title)),
 		db.select().from(tags).orderBy(asc(tags.name))
 	]);
 

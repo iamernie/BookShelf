@@ -8,12 +8,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Genre not found');
 	}
 
-	const genre = await getGenreById(id, locals.user?.id);
+	const genre = await getGenreById(id, locals.user);
 	if (!genre) {
 		throw error(404, 'Genre not found');
 	}
 
-	const books = await getBooksInGenre(id, locals.user?.id);
+	const books = await getBooksInGenre(id, locals.user);
 
 	return {
 		genre,

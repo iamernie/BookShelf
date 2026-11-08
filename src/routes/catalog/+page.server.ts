@@ -25,13 +25,13 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			break;
 		}
 		case 'genres': {
-			const result = await getGenres({ search });
+			const result = await getGenres({ search, viewer: locals.user });
 			items = result.items;
 			total = result.total;
 			break;
 		}
 		case 'tags': {
-			const result = await getTags({ search });
+			const result = await getTags({ search, viewer: locals.user });
 			items = result.items;
 			total = result.total;
 			break;
@@ -49,7 +49,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			break;
 		}
 		case 'formats': {
-			const result = await getFormats({ search });
+			const result = await getFormats({ search, viewer: locals.user });
 			items = result.items;
 			total = result.total;
 			break;

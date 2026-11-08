@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const page = body.page || 1;
 	const limit = body.limit || 24;
 
-	const result = await previewFilter(body.filterJson, { page, limit });
+	const result = await previewFilter(body.filterJson, { page, limit, userId: locals.user.id });
 
 	return json(result);
 };

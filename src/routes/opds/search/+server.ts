@@ -3,13 +3,13 @@ import { generateSearchFeed, getOPDSConfig } from '$lib/server/services/opdsServ
 
 const OPDS_MIME = 'application/atom+xml;profile=opds-catalog;kind=acquisition';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	const baseUrl = `${url.protocol}//${url.host}`;
 	const config = getOPDSConfig(baseUrl);
 
 	const query = url.searchParams.get('q') || '';
 
-	const xml = await generateSearchFeed(config, query);
+	const xml = await generateSearchFeed(config, locals.user, query);
 
 	return new Response(xml, {
 		headers: {

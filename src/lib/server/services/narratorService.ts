@@ -373,14 +373,15 @@ export async function getBooksByNarrator(narratorId: number, viewer: Viewer): Pr
 		.orderBy(asc(books.title));
 }
 
-// Get all narrators for dropdowns
-export async function getAllNarrators(): Promise<{ id: number; name: string }[]> {
+// Get the narrators the viewer can see, for dropdowns
+export async function getAllNarrators(viewer: Viewer): Promise<{ id: number; name: string }[]> {
 	return db
 		.select({
 			id: narrators.id,
 			name: narrators.name
 		})
 		.from(narrators)
+		.where(reachableEntityCond(viewer, 'narrator', sql`${narrators.id}`))
 		.orderBy(asc(narrators.name));
 }
 

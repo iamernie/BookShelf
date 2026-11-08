@@ -1,6 +1,7 @@
 import { db, formats, books } from '$lib/server/db';
-import { eq, like, asc, desc, sql } from 'drizzle-orm';
+import { eq, like, asc, desc, sql, and } from 'drizzle-orm';
 import type { Format } from '$lib/server/db/schema';
+import { reachableBookCond, type Viewer } from './libraryShareService';
 
 // Infer Format type from schema since it's not exported
 type FormatType = typeof formats.$inferSelect;
@@ -15,6 +16,7 @@ export interface GetFormatsOptions {
 	search?: string;
 	sort?: 'name' | 'createdAt' | 'bookCount';
 	order?: 'asc' | 'desc';
+	viewer?: Viewer; // The list stays global; counts run over the books this viewer can see
 }
 
 export async function getFormats(options: GetFormatsOptions = {}): Promise<{
@@ -23,7 +25,7 @@ export async function getFormats(options: GetFormatsOptions = {}): Promise<{
 	page: number;
 	limit: number;
 }> {
-	const { page = 1, limit = 50, search, sort = 'name', order = 'asc' } = options;
+	const { page = 1, limit = 50, search, sort = 'name', order = 'asc', viewer } = options;
 	const offset = (page - 1) * limit;
 
 	const whereClause = search ? like(formats.name, `%${search}%`) : undefined;
@@ -47,13 +49,13 @@ export async function getFormats(options: GetFormatsOptions = {}): Promise<{
 		.limit(limit)
 		.offset(offset);
 
-	// Get book counts for each format
+	// Get book counts for each format (the books this viewer can see)
 	const items = await Promise.all(
 		formatsList.map(async (format) => {
 			const countResult = await db
 				.select({ count: sql<number>`count(*)` })
 				.from(books)
-				.where(eq(books.formatId, format.id));
+				.where(and(eq(books.formatId, format.id), reachableBookCond(viewer)));
 
 			return {
 				...format,
@@ -73,14 +75,14 @@ export async function getFormats(options: GetFormatsOptions = {}): Promise<{
 	return { items, total, page, limit };
 }
 
-export async function getFormatById(id: number): Promise<FormatWithCount | null> {
+export async function getFormatById(id: number, viewer: Viewer): Promise<FormatWithCount | null> {
 	const format = await db.select().from(formats).where(eq(formats.id, id)).limit(1);
 	if (!format[0]) return null;
 
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(books)
-		.where(eq(books.formatId, id));
+		.where(and(eq(books.formatId, id), reachableBookCond(viewer)));
 
 	return {
 		...format[0],
@@ -165,8 +167,8 @@ export async function deleteFormat(id: number, reassignToId?: number): Promise<b
 	return result.changes > 0;
 }
 
-// Get books in a format
-export async function getBooksInFormat(formatId: number): Promise<{ id: number; title: string; coverImageUrl: string | null }[]> {
+// Get books in a format (the ones the viewer can see)
+export async function getBooksInFormat(formatId: number, viewer: Viewer): Promise<{ id: number; title: string; coverImageUrl: string | null }[]> {
 	return db
 		.select({
 			id: books.id,
@@ -174,7 +176,7 @@ export async function getBooksInFormat(formatId: number): Promise<{ id: number; 
 			coverImageUrl: books.coverImageUrl
 		})
 		.from(books)
-		.where(eq(books.formatId, formatId))
+		.where(and(eq(books.formatId, formatId), reachableBookCond(viewer)))
 		.orderBy(asc(books.title));
 }
 

@@ -13,6 +13,7 @@ import { getDashboardConfig, getEnabledSections, type DashboardConfig, type Dash
 import { getShelfBooks } from './magicShelfService';
 import { getExcludedSeriesStatusIds } from './seriesService';
 import type { BookCardData } from '$lib/types';
+import { reachableEntityCond, type Viewer } from './libraryShareService';
 
 // Status keys
 const STATUS_KEYS = {
@@ -102,7 +103,8 @@ export interface StatsOverview {
 	totalNarrators: number;
 }
 
-export async function getStatsOverview(userId?: number): Promise<StatsOverview> {
+export async function getStatsOverview(viewer: Viewer): Promise<StatsOverview> {
+	const userId = viewer?.id;
 	const currentYear = currentYearInAppTz();
 	const yearPattern = `${currentYear}%`;
 	const libCond = getUserLibraryCondition(userId);
@@ -143,8 +145,9 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		nextStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
 			.where(and(eq(vub.statusId, nextStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
-		db.select({ count: sql<number>`count(*)` }).from(authors),
-		db.select({ count: sql<number>`count(*)` }).from(series),
+		// Entity totals through the entity gate, so they equal the /authors and /series list totals
+		db.select({ count: sql<number>`count(*)` }).from(authors).where(reachableEntityCond(viewer, 'author', sql`${authors.id}`)),
+		db.select({ count: sql<number>`count(*)` }).from(series).where(reachableEntityCond(viewer, 'series', sql`${series.id}`)),
 		db.select({ avg: sql<number>`avg(${vub.rating})` }).from(books).leftJoin(vub, vubOn(userId))
 			.where(and(isNotNull(vub.rating), sql`${vub.rating} > 0`, libCond)),
 		db.select({ total: sql<number>`coalesce(sum(pageCount), 0)` }).from(books).leftJoin(vub, vubOn(userId))
@@ -156,8 +159,8 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		dnfStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
 			.where(and(eq(vub.statusId, dnfStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
-		// Total narrators (system-wide)
-		db.select({ count: sql<number>`count(*)` }).from(narrators),
+		// Total narrators (the /narrators list total)
+		db.select({ count: sql<number>`count(*)` }).from(narrators).where(reachableEntityCond(viewer, 'narrator', sql`${narrators.id}`)),
 		// Count of completed books (for DNF rate calculation)
 		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
 			.where(and(eq(vub.statusId, readStatusId), libCond))
@@ -741,13 +744,16 @@ export async function getSmartCollectionBooks(
 				name: magicShelves.name,
 				filterJson: magicShelves.filterJson,
 				sortField: magicShelves.sortField,
-				sortOrder: magicShelves.sortOrder
+				sortOrder: magicShelves.sortOrder,
+				userId: magicShelves.userId,
+				isPublic: magicShelves.isPublic
 			})
 				.from(magicShelves)
 				.where(eq(magicShelves.id, section.shelfId))
 				.limit(1);
 
-			if (shelf.length === 0) {
+			// Only the viewer's own shelves or a public one, as the shelf page allows
+			if (shelf.length === 0 || (shelf[0].userId !== userId && !shelf[0].isPublic)) {
 				return null;
 			}
 
@@ -814,7 +820,8 @@ export interface DashboardData {
 	magicShelves: { id: number; name: string; icon: string | null; iconColor: string | null }[];
 }
 
-export async function getFullDashboardData(userId?: number): Promise<DashboardData> {
+export async function getFullDashboardData(viewer: Viewer): Promise<DashboardData> {
+	const userId = viewer?.id;
 	// Get dashboard config first (needed to determine what to fetch)
 	const dashboardConfig = userId
 		? await getDashboardConfig(userId)
@@ -852,7 +859,7 @@ export async function getFullDashboardData(userId?: number): Promise<DashboardDa
 		smartCollectionData,
 		companionSmartCollectionData
 	] = await Promise.all([
-		getStatsOverview(userId),
+		getStatsOverview(viewer),
 		getGoalForDashboard(userId),
 		getContinueReading(userId, 6),
 		getRecentlyAdded(userId, 12),

@@ -7,6 +7,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
 import { getFormatById, updateFormat, deleteFormat } from '$lib/server/services/formatService';
+import { getDefaultOwnerId } from '$lib/server/services/statusService';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
@@ -35,7 +36,9 @@ export const GET: RequestHandler = async ({ url, params }) => {
 	}
 
 	try {
-		const format = await getFormatById(id);
+		// The instance token is admin-grade and reads as the default admin (as v1 books do); per-user tokens are a later card
+		const apiUserId = await getDefaultOwnerId();
+		const format = await getFormatById(id, apiUserId ? { id: apiUserId, role: 'admin' } : null);
 		if (!format) {
 			return json({ error: 'Format not found' }, { status: 404 });
 		}

@@ -14,14 +14,17 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	}
 
 	// Check access
-	if (!shelf.isPublic && shelf.userId !== locals.user?.id) {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+	if (!shelf.isPublic && shelf.userId !== locals.user.id) {
 		throw error(403, 'Access denied');
 	}
 
 	const page = parseInt(url.searchParams.get('page') || '1');
 	const limit = parseInt(url.searchParams.get('limit') || '24');
 
-	const result = await getShelfBooks(id, { page, limit });
+	const result = await getShelfBooks(id, { page, limit, userId: locals.user.id });
 	if (!result) {
 		throw error(500, 'Failed to get shelf books');
 	}

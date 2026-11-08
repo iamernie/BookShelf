@@ -3,18 +3,18 @@ import { generateBooksFeed, getOPDSConfig } from '$lib/server/services/opdsServi
 
 const OPDS_MIME = 'application/atom+xml;profile=opds-catalog;kind=acquisition';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	const baseUrl = `${url.protocol}//${url.host}`;
 	const config = getOPDSConfig(baseUrl);
 
 	const page = parseInt(url.searchParams.get('page') || '1');
 
-	const xml = await generateBooksFeed(config, { page, orderBy: 'recent' });
+	const xml = await generateBooksFeed(config, locals.user, { page, orderBy: 'recent' });
 
 	return new Response(xml, {
 		headers: {
 			'Content-Type': OPDS_MIME,
-			'Cache-Control': 'public, max-age=60'
+			'Cache-Control': 'private, max-age=0'
 		}
 	});
 };

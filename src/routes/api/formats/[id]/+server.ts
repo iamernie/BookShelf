@@ -2,18 +2,18 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getFormatById, updateFormat, deleteFormat, getBooksInFormat } from '$lib/server/services/formatService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, { message: 'Invalid format ID' });
 	}
 
-	const format = await getFormatById(id);
+	const format = await getFormatById(id, locals.user);
 	if (!format) {
 		throw error(404, { message: 'Format not found' });
 	}
 
-	const books = await getBooksInFormat(id);
+	const books = await getBooksInFormat(id, locals.user);
 
 	return json({ format, books });
 };

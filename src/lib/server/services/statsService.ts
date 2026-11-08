@@ -3,6 +3,7 @@ import { eq, sql, desc, asc, and, isNotNull, ne, gte, lt, or } from 'drizzle-orm
 import { toLocalDate } from '$lib/utils/date';
 import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import { viewerBooks as vub } from './personalState';
+import { reachableBookCond, reachableEntityCond, type Viewer } from './libraryShareService';
 
 // Status key constants (match V1 system statuses)
 const STATUS_KEYS = {
@@ -50,7 +51,8 @@ export interface DashboardStats {
 	currentYear: number;
 }
 
-export async function getDashboardStats(userId?: number): Promise<DashboardStats> {
+export async function getDashboardStats(viewer: Viewer): Promise<DashboardStats> {
+	const userId = viewer?.id;
 	const currentYear = currentYearInAppTz();
 	const yearStart = `${currentYear}-01-01`;
 	const yearEnd = `${currentYear + 1}-01-01`;
@@ -78,9 +80,10 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 	] = await Promise.all([
 		db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1))).where(userLibraryCondition),
 		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1))).where(and(eq(vub.statusId, readStatusId), userLibraryCondition)) : Promise.resolve([{ count: 0 }]),
-		db.select({ count: sql<number>`count(*)` }).from(series),
-		db.select({ count: sql<number>`count(*)` }).from(authors),
-		db.select({ count: sql<number>`count(*)` }).from(narrators),
+		// Entity totals through the entity gate, so they equal the list totals; tags are a global vocabulary (as the tags list is)
+		db.select({ count: sql<number>`count(*)` }).from(series).where(reachableEntityCond(viewer, 'series', sql`${series.id}`)),
+		db.select({ count: sql<number>`count(*)` }).from(authors).where(reachableEntityCond(viewer, 'author', sql`${authors.id}`)),
+		db.select({ count: sql<number>`count(*)` }).from(narrators).where(reachableEntityCond(viewer, 'narrator', sql`${narrators.id}`)),
 		db.select({ count: sql<number>`count(*)` }).from(tags),
 		readStatusId
 			? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
@@ -477,7 +480,7 @@ export async function getReadingTimeline(year?: number, userId?: number): Promis
 
 export interface PersonalLibraryStats {
 	totalBooksInLibrary: number; // Books in user's personal library
-	totalBooksTracked: number;   // All books in the system
+	totalBooksTracked: number;   // Every book the viewer can see
 	personalBooksRead: number;
 	personalBooksReading: number;
 	personalAvgRating: number | null;
@@ -489,17 +492,19 @@ export interface PersonalLibraryStats {
  * Get stats specific to a user's personal library
  * This separates personal reading stats from the total library count
  */
-export async function getPersonalLibraryStats(userId: number): Promise<PersonalLibraryStats> {
+export async function getPersonalLibraryStats(viewer: { id: number; role: string | null }): Promise<PersonalLibraryStats> {
+	const userId = viewer.id;
 	// Get status IDs
 	const readStatus = await db.select().from(statuses).where(eq(statuses.key, STATUS_KEYS.READ)).limit(1);
 	const currentStatus = await db.select().from(statuses).where(eq(statuses.key, STATUS_KEYS.CURRENT)).limit(1);
 	const readStatusId = readStatus[0]?.id;
 	const currentStatusId = currentStatus[0]?.id;
 
-	// Total books tracked in system
+	// Total books tracked: every book the viewer can see (the scope of the /library All tab)
 	const totalBooksResult = await db
 		.select({ count: sql<number>`count(*)` })
-		.from(books);
+		.from(books)
+		.where(reachableBookCond(viewer));
 	const totalBooksTracked = totalBooksResult[0]?.count || 0;
 
 	// Books in public library (not personal)
@@ -573,12 +578,12 @@ export async function getPersonalLibraryStats(userId: number): Promise<PersonalL
 /**
  * Get library overview showing both personal and public counts
  */
-export async function getLibraryOverview(userId: number): Promise<{
+export async function getLibraryOverview(viewer: { id: number; role: string | null }): Promise<{
 	personal: { total: number; read: number; reading: number };
 	public: { total: number; notInPersonal: number };
 	all: { total: number };
 }> {
-	const stats = await getPersonalLibraryStats(userId);
+	const stats = await getPersonalLibraryStats(viewer);
 
 	return {
 		personal: {

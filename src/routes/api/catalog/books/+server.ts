@@ -2,10 +2,11 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, books, bookAuthors, bookSeries, bookTags, userBooks } from '$lib/server/db';
 import { and, eq, inArray } from 'drizzle-orm';
+import { reachableBookCond } from '$lib/server/services/libraryShareService';
 
 /**
  * Get book IDs associated with specific catalog entities
- * Used for bulk operations from the catalog manager
+ * Used for bulk operations from the catalog manager; only books the caller can see are returned
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) {
@@ -95,6 +96,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 			default:
 				throw error(400, `Unknown entity type: ${entityType}`);
+		}
+
+		// Never hand out the ids of books the caller can't see
+		if (bookIds.length > 0) {
+			const visible = await db
+				.select({ id: books.id })
+				.from(books)
+				.where(and(inArray(books.id, bookIds), reachableBookCond(locals.user)));
+			const visibleIds = new Set(visible.map(r => r.id));
+			bookIds = bookIds.filter(id => visibleIds.has(id));
 		}
 
 		return json({

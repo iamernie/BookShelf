@@ -3,13 +3,15 @@ import type { RequestHandler } from './$types';
 import { getAllShelves, createShelf, getShelfBookCounts } from '$lib/server/services/magicShelfService';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	const userId = locals.user?.id;
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
 
-	const shelves = await getAllShelves(userId);
+	const shelves = await getAllShelves(locals.user.id);
 
 	// Get book counts for all shelves
 	const shelfIds = shelves.map(s => s.id);
-	const counts = await getShelfBookCounts(shelfIds);
+	const counts = await getShelfBookCounts(shelfIds, locals.user.id);
 
 	// Attach counts to shelves
 	const shelvesWithCounts = shelves.map(shelf => ({

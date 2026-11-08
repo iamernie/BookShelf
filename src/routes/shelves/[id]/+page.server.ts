@@ -3,7 +3,8 @@ import { error } from '@sveltejs/kit';
 import { getShelfById, getShelfBooks } from '$lib/server/services/magicShelfService';
 import { getBooksCardData } from '$lib/server/services/bookService';
 import { db, statuses, genres, formats, authors, series, tags, narrators } from '$lib/server/db';
-import { asc } from 'drizzle-orm';
+import { asc, sql } from 'drizzle-orm';
+import { reachableEntityCond } from '$lib/server/services/libraryShareService';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const id = parseInt(params.id);
@@ -17,7 +18,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	}
 
 	// Check access
-	if (!shelf.isPublic && shelf.userId !== locals.user?.id) {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+	if (!shelf.isPublic && shelf.userId !== locals.user.id) {
 		throw error(403, 'Access denied');
 	}
 
@@ -26,14 +30,15 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 	// Load shelf books and filter options in parallel
 	const [result, statusList, genreList, formatList, authorList, seriesList, tagList, narratorList] = await Promise.all([
-		getShelfBooks(id, { page, limit }),
+		getShelfBooks(id, { page, limit, userId: locals.user.id }),
 		db.select({ id: statuses.id, name: statuses.name }).from(statuses).orderBy(asc(statuses.sortOrder)),
 		db.select({ id: genres.id, name: genres.name }).from(genres).orderBy(asc(genres.name)),
 		db.select({ id: formats.id, name: formats.name }).from(formats).orderBy(asc(formats.name)),
-		db.select({ id: authors.id, name: authors.name }).from(authors).orderBy(asc(authors.name)),
-		db.select({ id: series.id, name: series.title }).from(series).orderBy(asc(series.title)),
+		// Entity pickers list only what the viewer can see
+		db.select({ id: authors.id, name: authors.name }).from(authors).where(reachableEntityCond(locals.user, 'author', sql`${authors.id}`)).orderBy(asc(authors.name)),
+		db.select({ id: series.id, name: series.title }).from(series).where(reachableEntityCond(locals.user, 'series', sql`${series.id}`)).orderBy(asc(series.title)),
 		db.select({ id: tags.id, name: tags.name }).from(tags).orderBy(asc(tags.name)),
-		db.select({ id: narrators.id, name: narrators.name }).from(narrators).orderBy(asc(narrators.name))
+		db.select({ id: narrators.id, name: narrators.name }).from(narrators).where(reachableEntityCond(locals.user, 'narrator', sql`${narrators.id}`)).orderBy(asc(narrators.name))
 	]);
 
 	// getShelfBooks returns raw book rows; enrich this page with author/series/status/etc. (order preserved)

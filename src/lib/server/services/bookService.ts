@@ -4,6 +4,7 @@ import type { Book, NewBook } from '$lib/server/db/schema';
 import { applyAbsTagParity } from './absService';
 import { carryEbookHashes } from './ebookHashService';
 import { applyStatusChange, recomputeSeriesStatuses, recomputeSeriesStatusesForBooks } from './statusService';
+import { reachableEntityCond, type Viewer } from './libraryShareService';
 import { personalCols, overlayPersonal, splitPersonal, hasPersonal, writePersonal, viewerBooks, type PersonalWrite } from './personalState';
 
 /** One Audiobookshelf item links to at most one book */
@@ -597,20 +598,24 @@ export async function getFormats() {
 	return db.select().from(formats).orderBy(asc(formats.name));
 }
 
-export async function getNarrators() {
-	return db.select().from(narrators).orderBy(asc(narrators.name));
+// Entity pickers: {id, name} of what the viewer can see; findOrCreate*ByName stays global so a typed name never duplicates
+export async function getNarrators(viewer: Viewer) {
+	return db.select({ id: narrators.id, name: narrators.name }).from(narrators)
+		.where(reachableEntityCond(viewer, 'narrator', sql`${narrators.id}`)).orderBy(asc(narrators.name));
 }
 
 export async function getTags() {
 	return db.select().from(tags).orderBy(asc(tags.name));
 }
 
-export async function getAllAuthors() {
-	return db.select({ id: authors.id, name: authors.name }).from(authors).orderBy(asc(authors.name));
+export async function getAllAuthors(viewer: Viewer) {
+	return db.select({ id: authors.id, name: authors.name }).from(authors)
+		.where(reachableEntityCond(viewer, 'author', sql`${authors.id}`)).orderBy(asc(authors.name));
 }
 
-export async function getAllSeries() {
-	return db.select({ id: series.id, title: series.title }).from(series).orderBy(asc(series.title));
+export async function getAllSeries(viewer: Viewer) {
+	return db.select({ id: series.id, title: series.title }).from(series)
+		.where(reachableEntityCond(viewer, 'series', sql`${series.id}`)).orderBy(asc(series.title));
 }
 
 /**

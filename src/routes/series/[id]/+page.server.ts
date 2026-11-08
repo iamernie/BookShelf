@@ -26,12 +26,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Series not found');
 	}
 
+	// The author, narrator and series pickers feed the catalog editors' bulk edit only
+	const canEdit = hasPermission(locals.user ?? null, Permission.MANAGE_ENTITIES);
+	const none = Promise.resolve([] as { id: number; name: string }[]);
+
 	const [allTags, allStatuses, authors, narrators, allSeries, formats, genres, audible] = await Promise.all([
 		getAllTags(),
 		getAllStatuses(),
-		getAllAuthors(),
-		getAllNarrators(),
-		getAllSeries(),
+		canEdit ? getAllAuthors(locals.user) : none,
+		canEdit ? getAllNarrators(locals.user) : none,
+		canEdit ? getAllSeries(locals.user) : Promise.resolve([] as { id: number; title: string }[]),
 		getAllFormats(),
 		getAllGenres(),
 		// Saved Audible list only: never calls Audible on page load
@@ -59,6 +63,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		audible,
 		canAddBooks: hasPermission(locals.user ?? null, Permission.ADD_BOOKS),
 		isAdmin: locals.user?.role === 'admin',
+		canEdit,
 		options: {
 			tags: allTags,
 			statuses: allStatuses,

@@ -7,6 +7,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
 import { getGenreById, updateGenre, deleteGenre } from '$lib/server/services/genreService';
+import { getDefaultOwnerId } from '$lib/server/services/statusService';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
@@ -35,7 +36,9 @@ export const GET: RequestHandler = async ({ url, params }) => {
 	}
 
 	try {
-		const genre = await getGenreById(id);
+		// The instance token is admin-grade and reads as the default admin (as v1 books do); per-user tokens are a later card
+		const apiUserId = await getDefaultOwnerId();
+		const genre = await getGenreById(id, apiUserId ? { id: apiUserId, role: 'admin' } : null);
 		if (!genre) {
 			return json({ error: 'Genre not found' }, { status: 404 });
 		}

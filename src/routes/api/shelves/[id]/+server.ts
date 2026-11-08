@@ -14,11 +14,14 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 
 	// Check access
-	if (!shelf.isPublic && shelf.userId !== locals.user?.id) {
+	if (!locals.user) {
+		throw error(401, 'Unauthorized');
+	}
+	if (!shelf.isPublic && shelf.userId !== locals.user.id) {
 		throw error(403, 'Access denied');
 	}
 
-	const bookCount = await getShelfBookCount(id);
+	const bookCount = await getShelfBookCount(id, locals.user.id);
 
 	return json({
 		...shelf,

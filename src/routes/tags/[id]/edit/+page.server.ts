@@ -8,15 +8,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Tag not found');
 	}
 
-	const userId = locals.user?.id;
-	const tag = await getTagById(id, userId);
+	const tag = await getTagById(id, locals.user);
 	if (!tag) {
 		throw error(404, 'Tag not found');
 	}
 
 	const [books, series] = await Promise.all([
-		getBooksWithTag(id, userId),
-		getSeriesWithTag(id)
+		getBooksWithTag(id, locals.user),
+		getSeriesWithTag(id, locals.user)
 	]);
 
 	return {

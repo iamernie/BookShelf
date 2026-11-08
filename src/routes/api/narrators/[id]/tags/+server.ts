@@ -1,12 +1,17 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getNarratorTags, toggleNarratorTag } from '$lib/server/services/tagService';
+import { canReachEntity } from '$lib/server/services/libraryShareService';
 
 // Get tags for a narrator
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, { message: 'Invalid narrator ID' });
+	}
+
+	if (!(await canReachEntity(locals.user, 'narrator', id))) {
+		throw error(404, { message: 'Narrator not found' });
 	}
 
 	const tags = await getNarratorTags(id);
