@@ -28,7 +28,7 @@ export async function assertAbsItemNotLinked(absItemId: string | null | undefine
 
 export interface BookWithRelations extends Book {
 	authors: { id: number; name: string; role: string | null; isPrimary: boolean | null }[];
-	series: { id: number; title: string; bookNum: number | null; bookNumEnd: number | null; comments: string | null }[];
+	series: { id: number; title: string; bookNum: number | null; bookNumEnd: number | null }[];
 	tags: { id: number; name: string; color: string | null; icon: string | null }[];
 	status: { id: number; name: string; color: string | null; icon: string | null } | null;
 	genre: { id: number; name: string } | null;
@@ -250,8 +250,7 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 				id: series.id,
 				title: series.title,
 				bookNum: bookSeries.bookNum,
-				bookNumEnd: bookSeries.bookNumEnd,
-				comments: series.comments
+				bookNumEnd: bookSeries.bookNumEnd
 			}).from(bookSeries)
 				.innerJoin(series, eq(bookSeries.seriesId, series.id))
 				.where(eq(bookSeries.bookId, book.id))
@@ -307,8 +306,7 @@ export async function getBookById(id: number, viewerId: number | null): Promise<
 			id: series.id,
 			title: series.title,
 			bookNum: bookSeries.bookNum,
-			bookNumEnd: bookSeries.bookNumEnd,
-			comments: series.comments
+			bookNumEnd: bookSeries.bookNumEnd
 		}).from(bookSeries)
 			.innerJoin(series, eq(bookSeries.seriesId, series.id))
 			.where(eq(bookSeries.bookId, id)),

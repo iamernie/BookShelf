@@ -76,8 +76,7 @@ export const PUT: RequestHandler = async ({ url, params, request }) => {
 			birthPlace: body.birthPlace,
 			photoUrl: body.photoUrl,
 			website: body.website,
-			wikipediaUrl: body.wikipediaUrl,
-			comments: body.comments
+			wikipediaUrl: body.wikipediaUrl
 		});
 
 		if (!updated) {

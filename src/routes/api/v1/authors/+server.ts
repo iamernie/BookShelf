@@ -54,7 +54,6 @@ export const GET: RequestHandler = async ({ url }) => {
 			photoUrl: authors.photoUrl,
 			website: authors.website,
 			wikipediaUrl: authors.wikipediaUrl,
-			comments: authors.comments,
 			createdAt: authors.createdAt,
 			updatedAt: authors.updatedAt,
 			bookCount: sql<number>`(SELECT COUNT(DISTINCT ${bookAuthors.bookId}) FROM ${bookAuthors} WHERE ${bookAuthors.authorId} = ${authors.id})`
@@ -107,8 +106,7 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			birthPlace: body.birthPlace,
 			photoUrl: body.photoUrl,
 			website: body.website,
-			wikipediaUrl: body.wikipediaUrl,
-			comments: body.comments
+			wikipediaUrl: body.wikipediaUrl
 		});
 
 		return json({

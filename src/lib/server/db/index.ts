@@ -567,6 +567,98 @@ export function blankPersonalRowFields(): PersonalBlankReport {
 	return report;
 }
 
+// ============================================================================
+// ENTITY NOTES COPY (2.31.0) - shared series/author/narrator comments become one admin's own notes
+// ============================================================================
+
+/** Entity table -> per-user notes table and its entity column, as the S3a boot step creates them */
+const ENTITY_NOTES_COPY = [
+	{ kind: 'series', entity: 'series', table: 'user_series_notes', fk: 'seriesId' },
+	{ kind: 'authors', entity: 'authors', table: 'user_author_notes', fk: 'authorId' },
+	{ kind: 'narrators', entity: 'narrators', table: 'user_narrator_notes', fk: 'narratorId' }
+] as const;
+
+// JS trim() whitespace for the common cases: SQLite's one-argument TRIM strips spaces only
+const TRIM_WS = 'char(32, 9, 10, 13)';
+
+export interface EntityNotesCopyReport {
+	skipped: 'marker' | 'no-admin' | 'no-tables' | null;
+	targetUserId: number | null;
+	candidates: Record<(typeof ENTITY_NOTES_COPY)[number]['kind'], number>;
+	copied: Record<(typeof ENTITY_NOTES_COPY)[number]['kind'], number>;
+	backupPath: string | null;
+}
+
+/**
+ * Copy every non-blank shared `comments` on series, authors and narrators into the per-user notes
+ * of user 1 when that user is an admin, otherwise the lowest-id admin: they were the catalog's
+ * editor, so the text becomes their own notes and nobody else sees it. An existing per-user note
+ * always wins (ON CONFLICT DO NOTHING). The text is copied trimmed, as the /notes route writes it.
+ * Copy only: the shared columns keep their text (blanking is a later step). Runs once, gated by
+ * the ENTITY_NOTES_COPIED_SETTING row written in the same transaction, so a note the admin
+ * deletes later is never copied back. With no admin nothing is copied and the marker stays unset.
+ */
+export function copyEntityCommentsToNotes(): EntityNotesCopyReport {
+	const report: EntityNotesCopyReport = {
+		skipped: null, targetUserId: null,
+		candidates: { series: 0, authors: 0, narrators: 0 },
+		copied: { series: 0, authors: 0, narrators: 0 },
+		backupPath: null
+	};
+	const usable = (e: (typeof ENTITY_NOTES_COPY)[number]) => tableExists(e.entity) && columnExists(e.entity, 'comments') && tableExists(e.table);
+	if (!tableExists('settings') || !tableExists('users') || !ENTITY_NOTES_COPY.every((e) => tableExists(e.table))) {
+		report.skipped = 'no-tables';
+		return report;
+	}
+	if (sqlite.prepare('SELECT 1 FROM settings WHERE key = ?').get(schema.ENTITY_NOTES_COPIED_SETTING)) {
+		report.skipped = 'marker';
+		return report;
+	}
+	const admin = (sqlite.prepare("SELECT id FROM users WHERE id = 1 AND role = 'admin'").get()
+		?? sqlite.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get()) as { id: number } | undefined;
+	if (!admin) {
+		report.skipped = 'no-admin';
+		return report;
+	}
+	report.targetUserId = admin.id;
+
+	const hasText = `TRIM(COALESCE(comments, ''), ${TRIM_WS}) != ''`;
+	for (const e of ENTITY_NOTES_COPY) {
+		if (!usable(e)) continue;
+		report.candidates[e.kind] = (sqlite.prepare(`SELECT COUNT(*) AS n FROM ${e.entity} WHERE ${hasText}`).get() as { n: number }).n;
+	}
+	if (Object.values(report.candidates).some((n) => n > 0) && !backupCreated) {
+		updateStatus('Creating pre-migration backup...');
+		const backup = createPreMigrationBackup();
+		if (backup) {
+			backupCreated = true;
+			migrationStatus.backupPath = backup;
+			report.backupPath = backup;
+			completeStep('Backup created');
+		}
+	}
+
+	const now = new Date().toISOString();
+	sqlite.transaction(() => {
+		for (const e of ENTITY_NOTES_COPY) {
+			if (!usable(e) || report.candidates[e.kind] === 0) continue;
+			// WHERE before ON CONFLICT keeps SQLite from reading the upsert as a join constraint
+			report.copied[e.kind] = sqlite.prepare(`
+				INSERT INTO ${e.table} (userId, ${e.fk}, notes, createdAt, updatedAt)
+				SELECT ?, id, TRIM(comments, ${TRIM_WS}), ?, ? FROM ${e.entity} WHERE ${hasText}
+				ON CONFLICT(userId, ${e.fk}) DO NOTHING
+			`).run(admin.id, now, now).changes;
+		}
+		// Every column set: older settings tables have createdAt/updatedAt NOT NULL with no default
+		sqlite.prepare(`
+			INSERT INTO settings (key, value, type, category, label, description, isSystem, createdAt, updatedAt)
+			VALUES (?, ?, 'string', 'migration', 'Entity notes copied', 'Shared series, author and narrator comments copied to per-user notes', 1, ?, ?)
+		`).run(schema.ENTITY_NOTES_COPIED_SETTING, now, now, now);
+	})();
+	if (Object.values(report.copied).some((n) => n > 0)) migrationsMade = true;
+	return report;
+}
+
 function runMigrations() {
 	migrationStatus.inProgress = true;
 	migrationStatus.startTime = Date.now();
@@ -2261,6 +2353,19 @@ function runMigrations() {
 	}
 
 	completeStep('Creating per-user entity notes tables');
+
+	// Then the shared comments become the admin's own notes, once (the columns keep their text)
+	try {
+		const r = copyEntityCommentsToNotes();
+		if (r.skipped === 'no-admin') {
+			console.warn('[db] Entity notes copy: no admin user, shared comments left uncopied until one exists');
+		} else if (r.skipped === null) {
+			const part = (k: keyof EntityNotesCopyReport['copied']) => `${r.copied[k]}/${r.candidates[k]} ${k}`;
+			console.log(`[db] Entity notes copy to user ${r.targetUserId}${r.targetUserId === 1 ? '' : ' (lowest-id admin)'}: ${part('series')}, ${part('authors')}, ${part('narrators')} copied (the rest kept an existing note)`);
+		}
+	} catch (e) {
+		console.error('[db] Failed to copy shared entity comments to per-user notes:', e);
+	}
 
 	// ========== Data migrations for V1 compatibility ==========
 	updateStatus('Migrating V1 user data...');

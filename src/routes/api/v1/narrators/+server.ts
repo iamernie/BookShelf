@@ -54,7 +54,6 @@ export const GET: RequestHandler = async ({ url }) => {
 			photoUrl: narrators.photoUrl,
 			website: narrators.website,
 			wikipediaUrl: narrators.wikipediaUrl,
-			comments: narrators.comments,
 			createdAt: narrators.createdAt,
 			updatedAt: narrators.updatedAt,
 			bookCount: sql<number>`(SELECT COUNT(*) FROM ${books} WHERE ${books.narratorId} = ${narrators.id})`
@@ -107,8 +106,7 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			birthPlace: body.birthPlace,
 			photoUrl: body.photoUrl,
 			website: body.website,
-			wikipediaUrl: body.wikipediaUrl,
-			comments: body.comments
+			wikipediaUrl: body.wikipediaUrl
 		});
 
 		return json({

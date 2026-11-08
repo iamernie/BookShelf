@@ -63,7 +63,6 @@
 			title: item.seriesTitle,
 			description: null,
 			numBooks: null,
-			comments: null,
 			statusId: null,
 			genreId: null,
 			createdAt: null,

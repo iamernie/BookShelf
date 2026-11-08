@@ -100,7 +100,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				photoUrl: author.photoUrl,
 				website: author.website,
 				wikipediaUrl: author.wikipediaUrl,
-				comments: author.comments,
 				createdAt: author.createdAt,
 				updatedAt: author.updatedAt
 			},
@@ -146,7 +145,6 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (body.photoUrl !== undefined) updateData.photoUrl = body.photoUrl;
 		if (body.website !== undefined) updateData.website = body.website;
 		if (body.wikipediaUrl !== undefined) updateData.wikipediaUrl = body.wikipediaUrl;
-		if (body.comments !== undefined) updateData.comments = body.comments;
 
 		const updatedAuthor = await updateAuthor(authorId, updateData);
 

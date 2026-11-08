@@ -110,8 +110,7 @@ export const GET: RequestHandler = async ({ url }) => {
 					birthPlace: 'optional, string',
 					photoUrl: 'optional, string URL',
 					website: 'optional, string URL',
-					wikipediaUrl: 'optional, string URL',
-					comments: 'optional, string'
+					wikipediaUrl: 'optional, string URL'
 				},
 				returns: '{ author: { id, name }, message }'
 			},
@@ -146,8 +145,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				body: {
 					title: 'required, string',
 					description: 'optional, string',
-					numBooks: 'optional, integer',
-					comments: 'optional, string'
+					numBooks: 'optional, integer'
 				},
 				returns: '{ series: { id, title }, message }'
 			},

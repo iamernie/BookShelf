@@ -1,5 +1,5 @@
 import { db, authors, bookAuthors, books, statuses, genres, bookSeries, series, authorTags, tags } from '$lib/server/db';
-import { eq, like, sql, desc, asc, and, inArray, or, type SQL } from 'drizzle-orm';
+import { eq, like, sql, desc, asc, and, inArray, or, getTableColumns, type SQL } from 'drizzle-orm';
 import type { Author, NewAuthor } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
 import { viewerBooks as vub } from './personalState';
@@ -27,7 +27,12 @@ function viewerJoin(userId: number | undefined) {
 	return sql`LEFT JOIN user_books vub ON vub.bookId = b.id AND vub.userId = ${userId ?? -1}`;
 }
 
-export interface AuthorWithStats extends Author {
+/** An author as served: the shared comments column is deprecated (2.31.0) and never read or written */
+export type AuthorRow = Omit<Author, 'comments'>;
+export type AuthorWrite = Omit<NewAuthor, 'comments'>;
+const { comments: _comments, ...authorColumns } = getTableColumns(authors);
+
+export interface AuthorWithStats extends AuthorRow {
 	bookCount: number;
 	readCount: number;
 	averageRating: number | null;
@@ -38,7 +43,7 @@ export interface AuthorWithStats extends Author {
 }
 
 // Legacy interface for backwards compatibility
-export interface AuthorWithBookCount extends Author {
+export interface AuthorWithBookCount extends AuthorRow {
 	bookCount: number;
 }
 
@@ -144,7 +149,6 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 			photoUrl: authors.photoUrl,
 			website: authors.website,
 			wikipediaUrl: authors.wikipediaUrl,
-			comments: authors.comments,
 			createdAt: authors.createdAt,
 			updatedAt: authors.updatedAt,
 			bookCount: sql<number>`(
@@ -308,8 +312,8 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 	};
 }
 
-export async function getAuthorById(id: number): Promise<Author | null> {
-	const result = await db.select().from(authors).where(eq(authors.id, id)).limit(1);
+export async function getAuthorById(id: number): Promise<AuthorRow | null> {
+	const result = await db.select(authorColumns).from(authors).where(eq(authors.id, id)).limit(1);
 	return result[0] || null;
 }
 
@@ -329,7 +333,6 @@ export async function getAuthorWithStats(id: number, viewer: Viewer): Promise<Au
 			photoUrl: authors.photoUrl,
 			website: authors.website,
 			wikipediaUrl: authors.wikipediaUrl,
-			comments: authors.comments,
 			createdAt: authors.createdAt,
 			updatedAt: authors.updatedAt,
 			bookCount: sql<number>`(
@@ -431,16 +434,17 @@ export async function getAuthorWithBooks(id: number, viewer: Viewer): Promise<{
 	return { author, books: authorBooks, series: authorSeries };
 }
 
-export async function createAuthor(data: NewAuthor): Promise<Author> {
+export async function createAuthor(data: AuthorWrite): Promise<AuthorRow> {
 	const now = new Date().toISOString();
+	const { comments: _ignored, ...values } = data as NewAuthor;
 	const [newAuthor] = await db
 		.insert(authors)
 		.values({
-			...data,
+			...values,
 			createdAt: now,
 			updatedAt: now
 		})
-		.returning();
+		.returning(authorColumns);
 	return newAuthor;
 }
 
@@ -460,16 +464,17 @@ export async function findOrCreateAuthorByName(name: string): Promise<number | n
 	return created.id;
 }
 
-export async function updateAuthor(id: number, data: Partial<NewAuthor>): Promise<Author | null> {
+export async function updateAuthor(id: number, data: Partial<AuthorWrite>): Promise<AuthorRow | null> {
 	const now = new Date().toISOString();
+	const { comments: _ignored, ...values } = data as Partial<NewAuthor>;
 	const [updated] = await db
 		.update(authors)
 		.set({
-			...data,
+			...values,
 			updatedAt: now
 		})
 		.where(eq(authors.id, id))
-		.returning();
+		.returning(authorColumns);
 	return updated || null;
 }
 
@@ -631,7 +636,6 @@ export async function exportAuthorsToCSV(userId?: number): Promise<string> {
 		.select({
 			id: authors.id,
 			name: authors.name,
-			comments: authors.comments,
 			bio: authors.bio,
 			birthDate: authors.birthDate,
 			deathDate: authors.deathDate,
@@ -659,7 +663,6 @@ export async function exportAuthorsToCSV(userId?: number): Promise<string> {
 
 	const headers = [
 		'Name',
-		'Comments',
 		'Bio',
 		'Birth Date',
 		'Death Date',
@@ -683,7 +686,6 @@ export async function exportAuthorsToCSV(userId?: number): Promise<string> {
 	const rows = authorData.map((author) =>
 		[
 			escapeCSV(author.name),
-			escapeCSV(author.comments),
 			escapeCSV(author.bio),
 			author.birthDate || '',
 			author.deathDate || '',

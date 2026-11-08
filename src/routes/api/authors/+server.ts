@@ -32,8 +32,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		birthPlace: data.birthPlace?.trim() || null,
 		photoUrl: data.photoUrl?.trim() || null,
 		website: data.website?.trim() || null,
-		wikipediaUrl: data.wikipediaUrl?.trim() || null,
-		comments: data.comments?.trim() || null
+		wikipediaUrl: data.wikipediaUrl?.trim() || null
 	});
 
 	return json(author, { status: 201 });

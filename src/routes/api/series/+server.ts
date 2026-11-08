@@ -38,7 +38,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		title: data.title.trim(),
 		description: data.description?.trim() || null,
 		numBooks: data.numBooks || null,
-		comments: data.comments?.trim() || null,
 		statusId: status.id,
 		genreId: genre.id
 	});

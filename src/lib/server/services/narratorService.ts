@@ -6,8 +6,11 @@ import { repointAndConcatEntityNotes } from './entityNotesService';
 import { stripHtmlTags } from './metadataProviders/types';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
-// Infer Narrator type from schema
-type NarratorType = typeof narrators.$inferSelect;
+// A narrator as served: the shared comments column is deprecated (2.31.0) and never read or written
+type NarratorType = Omit<typeof narrators.$inferSelect, 'comments'>;
+
+// Every narrator column but comments
+const { comments: _comments, ...narratorColumns } = getTableColumns(narrators);
 
 export interface TagInfo {
 	id: number;
@@ -27,11 +30,7 @@ export interface NarratorWithStats extends NarratorType {
 	tags?: TagInfo[];
 }
 
-/** List rows carry no shared comments (the detail page still does until per-user notes land) */
-export type NarratorListItem = Omit<NarratorWithStats, 'comments'>;
-
-// Every narrator column but comments, for list rows
-const { comments: _comments, ...narratorListColumns } = getTableColumns(narrators);
+export type NarratorListItem = NarratorWithStats;
 
 /**
  * Narrator lists, cards and detail pages are reach-scoped (2.31.0): a narrator shows when a book
@@ -110,7 +109,7 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 	}
 
 	const narratorsList = await db
-		.select(narratorListColumns)
+		.select(narratorColumns)
 		.from(narrators)
 		.where(whereClause)
 		.orderBy(...orderTerms)
@@ -212,7 +211,7 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 export async function getNarratorById(id: number, viewer: Viewer): Promise<NarratorWithStats | null> {
 	if (!(await canReachEntity(viewer, 'narrator', id))) return null;
 	const userId = viewer?.id;
-	const narrator = await db.select().from(narrators).where(eq(narrators.id, id)).limit(1);
+	const narrator = await db.select(narratorColumns).from(narrators).where(eq(narrators.id, id)).limit(1);
 	if (!narrator[0]) return null;
 
 	// Stats count the books the viewer can see
@@ -256,7 +255,7 @@ export async function getNarratorById(id: number, viewer: Viewer): Promise<Narra
 }
 
 export async function getNarratorByName(name: string): Promise<NarratorType | null> {
-	const narrator = await db.select().from(narrators).where(eq(narrators.name, name)).limit(1);
+	const narrator = await db.select(narratorColumns).from(narrators).where(eq(narrators.name, name)).limit(1);
 	return narrator[0] || null;
 }
 
@@ -276,7 +275,6 @@ export interface CreateNarratorData {
 	photoUrl?: string | null;
 	website?: string | null;
 	wikipediaUrl?: string | null;
-	comments?: string | null;
 }
 
 export async function createNarrator(data: CreateNarratorData): Promise<NarratorType> {
@@ -293,11 +291,10 @@ export async function createNarrator(data: CreateNarratorData): Promise<Narrator
 			photoUrl: data.photoUrl || null,
 			website: data.website || null,
 			wikipediaUrl: data.wikipediaUrl || null,
-			comments: data.comments || null,
 			createdAt: now,
 			updatedAt: now
 		})
-		.returning();
+		.returning(narratorColumns);
 
 	return newNarrator;
 }
@@ -326,13 +323,12 @@ export async function updateNarrator(id: number, data: Partial<CreateNarratorDat
 	if (data.photoUrl !== undefined) updateData.photoUrl = data.photoUrl;
 	if (data.website !== undefined) updateData.website = data.website;
 	if (data.wikipediaUrl !== undefined) updateData.wikipediaUrl = data.wikipediaUrl;
-	if (data.comments !== undefined) updateData.comments = data.comments;
 
 	const [updated] = await db
 		.update(narrators)
 		.set(updateData)
 		.where(eq(narrators.id, id))
-		.returning();
+		.returning(narratorColumns);
 
 	return updated || null;
 }

@@ -1,5 +1,5 @@
 import { db, series, bookSeries, books, seriesStatuses, genres, statuses, bookAuthors, authors, bookTags, tags } from '$lib/server/db';
-import { eq, like, sql, desc, asc, and, isNotNull, ne, inArray, or, type SQL } from 'drizzle-orm';
+import { eq, like, sql, desc, asc, and, isNotNull, ne, inArray, or, getTableColumns, type SQL } from 'drizzle-orm';
 import type { BookCardData } from '$lib/types';
 import type { Series, NewSeries } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
@@ -32,7 +32,12 @@ async function withViewerSeriesStatus<T extends { id: number; statusId: number |
 // The Audible suggestion columns (2.27.0) are server bookkeeping, not card data
 type SeriesAudibleColumns = 'audibleAsin' | 'audibleSeriesTitle' | 'audibleStatus' | 'audibleCheckedAt' | 'audibleRefreshedAt' | 'audibleRefreshError';
 
-export interface SeriesCardData extends Omit<Series, SeriesAudibleColumns> {
+/** A series as served: the shared comments column is deprecated (2.31.0) and never read or written */
+export type SeriesRow = Omit<Series, 'comments'>;
+export type SeriesWrite = Omit<NewSeries, 'comments'>;
+const { comments: _comments, ...seriesColumns } = getTableColumns(series);
+
+export interface SeriesCardData extends Omit<SeriesRow, SeriesAudibleColumns> {
 	bookCount: number;
 	readBooks: number;
 	completionPercentage: number;
@@ -65,7 +70,7 @@ export interface SeriesCardData extends Omit<Series, SeriesAudibleColumns> {
 	} | null;
 }
 
-export interface SeriesWithBookCount extends Series {
+export interface SeriesWithBookCount extends SeriesRow {
 	bookCount: number;
 	statusName?: string | null;
 	statusColor?: string | null;
@@ -184,7 +189,6 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 			title: series.title,
 			description: series.description,
 			numBooks: series.numBooks,
-			comments: series.comments,
 			statusId: series.statusId,
 			genreId: series.genreId,
 			createdAt: series.createdAt,
@@ -356,8 +360,8 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 	};
 }
 
-export async function getSeriesById(id: number): Promise<Series | null> {
-	const result = await db.select().from(series).where(eq(series.id, id)).limit(1);
+export async function getSeriesById(id: number): Promise<SeriesRow | null> {
+	const result = await db.select(seriesColumns).from(series).where(eq(series.id, id)).limit(1);
 	return result[0] || null;
 }
 
@@ -387,7 +391,6 @@ export async function getSeriesWithBooks(id: number, viewer: Viewer, opts: { sto
 			title: series.title,
 			description: series.description,
 			numBooks: series.numBooks,
-			comments: series.comments,
 			statusId: series.statusId,
 			genreId: series.genreId,
 			createdAt: series.createdAt,
@@ -571,29 +574,31 @@ function detectGaps(seriesBooks: { bookNum: number | null }[]): { hasGaps: boole
 	};
 }
 
-export async function createSeries(data: NewSeries): Promise<Series> {
+export async function createSeries(data: SeriesWrite): Promise<SeriesRow> {
 	const now = new Date().toISOString();
+	const { comments: _ignored, ...values } = data as NewSeries;
 	const [newSeries] = await db
 		.insert(series)
 		.values({
-			...data,
+			...values,
 			createdAt: now,
 			updatedAt: now
 		})
-		.returning();
+		.returning(seriesColumns);
 	return newSeries;
 }
 
-export async function updateSeries(id: number, data: Partial<NewSeries>): Promise<Series | null> {
+export async function updateSeries(id: number, data: Partial<SeriesWrite>): Promise<SeriesRow | null> {
 	const now = new Date().toISOString();
+	const { comments: _ignored, ...values } = data as Partial<NewSeries>;
 	const [updated] = await db
 		.update(series)
 		.set({
-			...data,
+			...values,
 			updatedAt: now
 		})
 		.where(eq(series.id, id))
-		.returning();
+		.returning(seriesColumns);
 	return updated || null;
 }
 

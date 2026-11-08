@@ -50,7 +50,6 @@ export const GET: RequestHandler = async ({ url }) => {
 			title: series.title,
 			description: series.description,
 			numBooks: series.numBooks,
-			comments: series.comments,
 			createdAt: series.createdAt,
 			updatedAt: series.updatedAt,
 			bookCount: bookCountExpr
@@ -95,8 +94,7 @@ export const POST: RequestHandler = async ({ url, request }) => {
 		const newSeries = await createSeries({
 			title: body.title,
 			description: body.description,
-			numBooks: body.numBooks,
-			comments: body.comments
+			numBooks: body.numBooks
 		});
 
 		return json({

@@ -17,7 +17,12 @@ import {
 	bookTags,
 	userBooks
 } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, getTableColumns } from 'drizzle-orm';
+
+// Authors, series and narrators without the deprecated shared comments (per-user notes since 2.31.0)
+const { comments: _authorComments, ...authorColumns } = getTableColumns(authors);
+const { comments: _seriesComments, ...seriesColumns } = getTableColumns(series);
+const { comments: _narratorComments, ...narratorColumns } = getTableColumns(narrators);
 import { overlayPersonal } from './personalState';
 import { toLocalDate } from '$lib/utils/date';
 import { todayInAppTz } from '$lib/server/utils/appTime';
@@ -66,12 +71,12 @@ async function getBooksForExport(userId: number) {
 		allBookSeries,
 		allBookTags
 	] = await Promise.all([
-		db.select().from(authors),
-		db.select().from(series),
+		db.select(authorColumns).from(authors),
+		db.select(seriesColumns).from(series),
 		db.select().from(genres),
 		db.select().from(statuses),
 		db.select().from(formats),
-		db.select().from(narrators),
+		db.select(narratorColumns).from(narrators),
 		db.select().from(tags),
 		db.select().from(bookAuthors),
 		db.select().from(bookSeries),
@@ -234,12 +239,12 @@ export async function exportToJson(options: ExportOptions): Promise<ExportResult
 	const narratorIds = new Set(booksData.map((b) => b.narratorId));
 
 	if (options.includeAuthors !== false) {
-		const allAuthors = await db.select().from(authors);
+		const allAuthors = await db.select(authorColumns).from(authors);
 		exportData.authors = allAuthors.filter((a) => authorIds.has(a.id));
 	}
 
 	if (options.includeSeries !== false) {
-		const allSeries = await db.select().from(series);
+		const allSeries = await db.select(seriesColumns).from(series);
 		exportData.series = allSeries.filter((s) => seriesIds.has(s.id));
 	}
 
@@ -259,7 +264,7 @@ export async function exportToJson(options: ExportOptions): Promise<ExportResult
 	}
 
 	if (options.includeNarrators !== false) {
-		const allNarrators = await db.select().from(narrators);
+		const allNarrators = await db.select(narratorColumns).from(narrators);
 		exportData.narrators = allNarrators.filter((n) => narratorIds.has(n.id));
 	}
 

@@ -47,10 +47,6 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		updateData.numBooks = data.numBooks || null;
 	}
 
-	if (data.comments !== undefined) {
-		updateData.comments = data.comments?.trim() || null;
-	}
-
 	if (data.statusId !== undefined) {
 		const status = await checkSeriesRefId(data.statusId, 'status');
 		if (!status.valid) {

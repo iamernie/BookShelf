@@ -95,7 +95,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				title: seriesData.title,
 				description: seriesData.description,
 				numBooks: seriesData.numBooks,
-				comments: seriesData.comments,
 				createdAt: seriesData.createdAt,
 				updatedAt: seriesData.updatedAt
 			},
@@ -136,7 +135,6 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (body.title !== undefined) updateData.title = body.title;
 		if (body.description !== undefined) updateData.description = body.description;
 		if (body.numBooks !== undefined) updateData.numBooks = body.numBooks;
-		if (body.comments !== undefined) updateData.comments = body.comments;
 
 		const updatedSeries = await updateSeries(seriesId, updateData);
 
