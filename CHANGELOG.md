@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.30.1] - 2026-11-08
+
+### Changed
+- Share to public library now appears only on a book that has an audiobook (an Audiobookshelf link) or an ebook attached, and the button moved to the top of the book page, above the cover, so it is the first thing under the header and visible on a phone without scrolling.
+
 ## [2.30.0] - 2026-11-08
 
 ### Added
