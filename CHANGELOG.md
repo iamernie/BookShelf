@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.31.0] - 2026-11-08
+
+### Added
+- Personal notes on series, authors and narrators. Everyone with a library keeps their own note on any of these they can see, and notes are visible only to the person who wrote them. Existing shared notes are copied to the administrator's profile automatically the first time this version starts.
+
+### Changed
+- Author, series and narrator pages, lists and totals now cover only the books you can actually see, so each member's dashboard counts their own reach instead of everyone's library. The All Books tab, search, autocomplete, shelves, the e-reader catalog (OPDS) and the JSON and CSV exports follow the same rule.
+- Editing the catalog is now limited to administrators and librarians: renaming or deleting authors, series, narrators, genres, tags, formats and statuses, merging, and the goals screens. Members can still create new authors, series, narrators, genres, tags and formats while adding books.
+- Bulk actions touch only books you are allowed to change. Anything else is skipped and reported instead of changed, including for administrators working with a member's personal books.
+- The e-reader catalog feeds are private to each viewer and list only the ebooks in their own library.
+
+### Fixed
+- Shared notes on series, authors and narrators no longer appear anywhere in the app or its exports.
+- Author and narrator merges keep everyone's notes, joining the texts when both people wrote one.
+- The shelf preview, previously always empty, now shows real books.
+
+### Security
+- Merging catalog entries requires an administrator account.
+- Member email addresses are visible only to administrators.
+- Writing to a series, author or narrator you cannot see returns not found instead of leaking its existence.
+
+
 ## [2.30.1] - 2026-11-08
 
 ### Changed
