@@ -5,9 +5,9 @@ import { exportAuthorsToCSV } from '$lib/server/services/authorService';
  * GET /api/authors/export
  * Export authors to CSV
  */
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ locals }) => {
 	try {
-		const csv = await exportAuthorsToCSV();
+		const csv = await exportAuthorsToCSV(locals.user?.id);
 
 		return new Response(csv, {
 			headers: {

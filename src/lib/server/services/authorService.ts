@@ -2,6 +2,7 @@ import { db, authors, bookAuthors, books, statuses, genres, bookSeries, series, 
 import { eq, like, sql, desc, asc, and, inArray, or, type SQL } from 'drizzle-orm';
 import type { Author, NewAuthor } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
+import { viewerBooks as vub } from './personalState';
 import type { BookCardData } from '$lib/types';
 import { dateInAppTz } from '$lib/server/utils/appTime';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
@@ -14,15 +15,19 @@ interface TagInfo {
 }
 
 /**
- * Generate SQL condition to filter books by user's library
- * User's library includes: personal books OR books user added from public library
+ * Generate SQL condition to filter books by user's library: the viewer's own (user_books). Other
+ * members' personal books never count toward a viewer's author figures; no viewer matches nothing.
  */
 function getUserLibraryCondition(userId: number | undefined, bookTableAlias: string = 'b') {
 	if (!userId) {
-		// If no user, only show personal library books
-		return sql.raw(`${bookTableAlias}.libraryType = 'personal'`);
+		return sql.raw('1=0');
 	}
-	return sql.raw(`(${bookTableAlias}.libraryType = 'personal' OR ${bookTableAlias}.id IN (SELECT bookId FROM user_books WHERE userId = ${userId}))`);
+	return sql`${sql.raw(bookTableAlias)}.id IN (SELECT bookId FROM user_books WHERE userId = ${userId})`;
+}
+
+/** The viewer's own row for b, for status and rating inside the raw aggregate subqueries */
+function viewerJoin(userId: number | undefined) {
+	return sql`LEFT JOIN user_books vub ON vub.bookId = b.id AND vub.userId = ${userId ?? -1}`;
 }
 
 export interface AuthorWithStats extends Author {
@@ -90,7 +95,7 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 	// Build where clause - only authors that have books in the user's library
 	const hasLibraryBooks = sql`EXISTS (
 		SELECT 1 FROM bookauthors ba
-		JOIN books b ON ba.bookId = b.id
+		JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 		WHERE ba.authorId = authors.id AND ${libCond}
 	)`;
 
@@ -150,29 +155,29 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 			updatedAt: authors.updatedAt,
 			bookCount: sql<number>`(
 				SELECT COUNT(*) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 				WHERE ba.authorId = authors.id AND ${libCond}
 			)`.as('book_count'),
 			readCount: sql<number>`(
 				SELECT COUNT(*) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
-				WHERE ba.authorId = authors.id AND b.statusId = ${readId ?? 0} AND ${libCond}
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
+				WHERE ba.authorId = authors.id AND vub.statusId = ${readId ?? 0} AND ${libCond}
 			)`.as('read_count'),
 			averageRating: sql<number | null>`(
-				SELECT AVG(b.rating) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
+				SELECT AVG(vub.rating) FROM bookauthors ba
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 				WHERE ba.authorId = authors.id
-				AND b.statusId IN (${readId ?? 0}, ${dnfId ?? 0})
-				AND b.rating IS NOT NULL
+				AND vub.statusId IN (${readId ?? 0}, ${dnfId ?? 0})
+				AND vub.rating IS NOT NULL
 				AND ${libCond}
 			)`.as('average_rating'),
 			completionPercentage: sql<number>`(
 				SELECT CASE
 					WHEN COUNT(*) = 0 THEN 0
-					ELSE ROUND(SUM(CASE WHEN b.statusId = ${readId ?? 0} THEN 1 ELSE 0 END) * 100.0 / COUNT(*))
+					ELSE ROUND(SUM(CASE WHEN vub.statusId = ${readId ?? 0} THEN 1 ELSE 0 END) * 100.0 / COUNT(*))
 				END
 				FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 				WHERE ba.authorId = authors.id AND ${libCond}
 			)`.as('completion_percentage')
 		})
@@ -231,11 +236,12 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 				title: books.title,
 				coverImageUrl: books.coverImageUrl,
 				originalCoverUrl: books.originalCoverUrl,
-				rating: books.rating,
+				rating: vub.rating,
 				genreId: books.genreId
 			})
 			.from(bookAuthors)
 			.innerJoin(books, eq(bookAuthors.bookId, books.id))
+			.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 			.where(inArray(bookAuthors.authorId, authorIds));
 
 		// Get all genres
@@ -333,29 +339,29 @@ export async function getAuthorWithStats(id: number, userId?: number): Promise<A
 			updatedAt: authors.updatedAt,
 			bookCount: sql<number>`(
 				SELECT COUNT(*) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 				WHERE ba.authorId = authors.id AND ${libCond}
 			)`,
 			readCount: sql<number>`(
 				SELECT COUNT(*) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
-				WHERE ba.authorId = authors.id AND b.statusId = ${readId ?? 0} AND ${libCond}
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
+				WHERE ba.authorId = authors.id AND vub.statusId = ${readId ?? 0} AND ${libCond}
 			)`,
 			averageRating: sql<number | null>`(
-				SELECT AVG(b.rating) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
+				SELECT AVG(vub.rating) FROM bookauthors ba
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 				WHERE ba.authorId = authors.id
-				AND b.statusId IN (${readId ?? 0}, ${dnfId ?? 0})
-				AND b.rating IS NOT NULL
+				AND vub.statusId IN (${readId ?? 0}, ${dnfId ?? 0})
+				AND vub.rating IS NOT NULL
 				AND ${libCond}
 			)`,
 			completionPercentage: sql<number>`(
 				SELECT CASE
 					WHEN COUNT(*) = 0 THEN 0
-					ELSE ROUND(SUM(CASE WHEN b.statusId = ${readId ?? 0} THEN 1 ELSE 0 END) * 100.0 / COUNT(*))
+					ELSE ROUND(SUM(CASE WHEN vub.statusId = ${readId ?? 0} THEN 1 ELSE 0 END) * 100.0 / COUNT(*))
 				END
 				FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 				WHERE ba.authorId = authors.id AND ${libCond}
 			)`
 		})
@@ -386,13 +392,8 @@ export async function getAuthorWithBooks(id: number, userId?: number): Promise<{
 	const author = await getAuthorWithStats(id, userId);
 	if (!author) return null;
 
-	// Build library condition for filtering
-	const libCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	// Build library condition for filtering: the viewer's own library
+	const libCondition = userId ? sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})` : sql`1=0`;
 
 	// Get book IDs for this author (filtered by user's library, ordered by title)
 	const authorBookIds = await db
@@ -408,7 +409,7 @@ export async function getAuthorWithBooks(id: number, userId?: number): Promise<{
 	const bookIds = authorBookIds.map((b) => b.id);
 
 	// Get full book card data using the shared helper
-	const authorBooks = await getBooksCardData(bookIds);
+	const authorBooks = await getBooksCardData(bookIds, userId ?? null);
 
 	// Get series for this author's books
 	let authorSeries: { id: number; title: string; bookCount: number }[] = [];
@@ -624,7 +625,8 @@ function filterIgnoredPairs<T extends { id: number }>(items: T[], ignoredPairs: 
 /**
  * Export authors to CSV format
  */
-export async function exportAuthorsToCSV(): Promise<string> {
+/** Read count and average rating are the requesting user's own */
+export async function exportAuthorsToCSV(userId?: number): Promise<string> {
 	const { readId, dnfId } = await getReadStatusIds();
 
 	const authorData = await db
@@ -641,15 +643,15 @@ export async function exportAuthorsToCSV(): Promise<string> {
 			bookCount: sql<number>`(SELECT COUNT(*) FROM bookauthors WHERE bookauthors.authorId = authors.id)`,
 			readCount: sql<number>`(
 				SELECT COUNT(*) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
-				WHERE ba.authorId = authors.id AND b.statusId = ${readId ?? 0}
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
+				WHERE ba.authorId = authors.id AND vub.statusId = ${readId ?? 0}
 			)`,
 			averageRating: sql<number | null>`(
-				SELECT AVG(b.rating) FROM bookauthors ba
-				JOIN books b ON ba.bookId = b.id
+				SELECT AVG(vub.rating) FROM bookauthors ba
+				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
 				WHERE ba.authorId = authors.id
-				AND b.statusId IN (${readId ?? 0}, ${dnfId ?? 0})
-				AND b.rating IS NOT NULL
+				AND vub.statusId IN (${readId ?? 0}, ${dnfId ?? 0})
+				AND vub.rating IS NOT NULL
 			)`
 		})
 		.from(authors)

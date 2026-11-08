@@ -9,6 +9,8 @@ import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetSe
 import { updateSeries, deleteSeries } from '$lib/server/services/seriesService';
 import { db, series, books, bookSeries, authors, bookAuthors, statuses } from '$lib/server/db';
 import { eq, asc } from 'drizzle-orm';
+import { overlayPersonal } from '$lib/server/services/personalState';
+import { getDefaultOwnerId } from '$lib/server/services/statusService';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
@@ -52,9 +54,12 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			.orderBy(asc(bookSeries.bookNum));
 
 		// Get book details
+		const apiUserId = await getDefaultOwnerId();
 		const bookDetails = await Promise.all(seriesBooks.map(async (sb) => {
-			const [book] = await db.select().from(books).where(eq(books.id, sb.bookId)).limit(1);
-			if (!book) return null;
+			const [row] = await db.select().from(books).where(eq(books.id, sb.bookId)).limit(1);
+			if (!row) return null;
+			// Status, rating and completed date are the API user's own (the first admin)
+			const [book] = await overlayPersonal([row], apiUserId);
 
 			const [bookAuthorsData, statusData] = await Promise.all([
 				db.select({

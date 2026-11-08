@@ -2,6 +2,8 @@ import { db, bookdropQueue, bookdropSettings, books, authors, bookAuthors, forma
 import { eq, and, desc, asc, isNull, sql } from 'drizzle-orm';
 import { extractEbookMetadata, saveCoverImage, saveEbookFile, type EbookMetadata } from './ebookMetadataService';
 import { rememberEbookHash } from './ebookHashService';
+import { writePersonal } from './personalState';
+import { getDefaultOwnerId } from './statusService';
 import { createHash } from 'crypto';
 import { readFile, unlink, rename, mkdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -321,7 +323,7 @@ export async function importQueueItem(
 			}
 		}
 
-		// Get default status (Unread) if none provided
+		// Get default status (Unread) if none provided; it is the importer's own (user_books)
 		let statusId = overrides?.statusId || null;
 		if (!statusId) {
 			const unreadStatus = await db
@@ -345,14 +347,15 @@ export async function importQueueItem(
 
 		// Get library type from override or default to 'public' for bulk imports
 		const libraryType: LibraryType = overrides?.libraryType || 'public';
+		// The importer: the user who dropped the file, else the first admin
+		const importerId = item.userId ?? (await getDefaultOwnerId());
 
-		// Create book record
+		// Create book record; a personal book belongs to the importer
 		const [book] = await db
 			.insert(books)
 			.values({
 				title,
 				authorId,
-				statusId,
 				genreId: overrides?.genreId || null,
 				formatId,
 				coverImageUrl,
@@ -365,6 +368,7 @@ export async function importQueueItem(
 				publisher: metadata.publisher || null,
 				language: metadata.language || 'English',
 				libraryType, // 'personal' or 'public'
+				ownerId: libraryType === 'personal' ? importerId : null,
 				createdAt: now,
 				updatedAt: now
 			})
@@ -372,6 +376,12 @@ export async function importQueueItem(
 
 		if (ebookMd5) {
 			await rememberEbookHash(book.id, ebookMd5, 'bookdrop');
+		}
+
+		// The importer's own row: always for a personal book (their library), and for a public one
+		// only when a status was picked (the Unread default alone doesn't add it to their library)
+		if (importerId !== null && (libraryType === 'personal' || overrides?.statusId)) {
+			await writePersonal(importerId, book.id, { statusId });
 		}
 
 		// Add book-author junction if author exists

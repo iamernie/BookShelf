@@ -3,16 +3,38 @@ import { eq, like, sql, desc, asc, and, isNotNull, ne, inArray, or, type SQL } f
 import type { BookCardData } from '$lib/types';
 import type { Series, NewSeries } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
+import { getViewerSeriesStatuses } from './statusService';
+import { viewerBooks as vub } from './personalState';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
 /**
- * Generate SQL condition to filter books by user's library
+ * Generate SQL condition to filter books by user's library: the viewer's own (user_books). Other
+ * members' personal books never count toward a viewer's series figures; no viewer matches nothing.
  */
 function getUserLibraryCondition(userId: number | undefined, bookTableAlias: string = 'books') {
 	if (!userId) {
-		return sql.raw(`${bookTableAlias}.libraryType = 'personal'`);
+		return sql.raw('1=0');
 	}
-	return sql.raw(`(${bookTableAlias}.libraryType = 'personal' OR ${bookTableAlias}.id IN (SELECT bookId FROM user_books WHERE userId = ${userId}))`);
+	return sql`${sql.raw(bookTableAlias)}.id IN (SELECT bookId FROM user_books WHERE userId = ${userId})`;
+}
+
+/** The same library condition on the Drizzle books table */
+function libraryBooksCondition(userId: number | undefined): SQL {
+	return userId ? sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})` : sql`1=0`;
+}
+
+/** Series statuses as this viewer sees them (statusService.getViewerSeriesStatuses), names and colours resolved */
+async function withViewerSeriesStatus<T extends { id: number; statusId: number | null; statusName?: string | null; statusColor?: string | null; statusIcon?: string | null }>(rows: T[], userId: number | undefined): Promise<T[]> {
+	if (rows.length === 0 || !userId) return rows;
+	const viewer = await getViewerSeriesStatuses(rows.map((r) => r.id), userId);
+	const statusRows = await db.select().from(seriesStatuses);
+	const byId = new Map(statusRows.map((st) => [st.id, st]));
+	return rows.map((row) => {
+		const statusId = viewer.get(row.id) ?? row.statusId;
+		if (statusId === row.statusId) return row;
+		const st = statusId === null ? undefined : byId.get(statusId);
+		return { ...row, statusId, statusName: st?.name ?? null, statusColor: st?.color ?? null, statusIcon: st?.icon ?? null };
+	});
 }
 
 // The Audible suggestion columns (2.27.0) are server bookkeeping, not card data
@@ -97,12 +119,7 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 
 	// User library condition for filtering
 	const libCond = getUserLibraryCondition(userId, 'b');
-	const libCondBooks = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	const libCondBooks = libraryBooksCondition(userId);
 
 	// Build where clause
 	const whereClause = search ? like(series.title, `%${search}%`) : undefined;
@@ -131,7 +148,10 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 	// the switch. Each key matches what the card and row display; nulls last, series.id last.
 	const dir = order === 'desc' ? sql`DESC` : sql`ASC`;
 	const byTitle = sql`series.title COLLATE NOCASE ASC`;
-	const seriesBooksWhere = sql`FROM bookseries bs JOIN books b ON b.id = bs.bookId WHERE bs.seriesId = series.id AND ${libCond}`;
+	// Status and rating are the viewer's own row (vub); everything stays table-qualified
+	const seriesBooksWhere = sql`FROM bookseries bs JOIN books b ON b.id = bs.bookId
+		LEFT JOIN user_books vub ON vub.bookId = b.id AND vub.userId = ${userId ?? -1}
+		WHERE bs.seriesId = series.id AND ${libCond}`;
 	let orderTerms: SQL[];
 	switch (sort) {
 		case 'bookCount':
@@ -140,11 +160,11 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 		case 'progress':
 			// NULL for an empty series, so it sorts last instead of as 0%
 			orderTerms = [sql`(SELECT CASE WHEN COUNT(*) = 0 THEN NULL
-				ELSE ROUND(SUM(CASE WHEN b.statusId = ${readStatusId ?? 0} THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) END
+				ELSE ROUND(SUM(CASE WHEN vub.statusId = ${readStatusId ?? 0} THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) END
 				${seriesBooksWhere}) ${dir} NULLS LAST`, byTitle, sql`series.id ASC`];
 			break;
 		case 'rating':
-			orderTerms = [sql`(SELECT ROUND(AVG(b.rating), 1) ${seriesBooksWhere} AND b.rating > 0) ${dir} NULLS LAST`, byTitle, sql`series.id ASC`];
+			orderTerms = [sql`(SELECT ROUND(AVG(vub.rating), 1) ${seriesBooksWhere} AND vub.rating > 0) ${dir} NULLS LAST`, byTitle, sql`series.id ASC`];
 			break;
 		case 'author':
 			// Same pick as primaryAuthor below: most primary credits, then most credits, then author id
@@ -192,8 +212,9 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 		.offset(offset);
 
 	// Enrich each series with additional data
+	const viewerItems = await withViewerSeriesStatus(basicItems, userId);
 	const items: SeriesCardData[] = await Promise.all(
-		basicItems.map(async (s) => {
+		viewerItems.map(async (s) => {
 			// Get books in this series with their details (filtered by user library)
 			const seriesBooks = await db
 				.select({
@@ -201,12 +222,13 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 					title: books.title,
 					coverImageUrl: books.coverImageUrl,
 					bookNum: bookSeries.bookNum,
-					statusId: books.statusId,
-					rating: books.rating,
+					statusId: vub.statusId,
+					rating: vub.rating,
 					genreId: books.genreId
 				})
 				.from(books)
 				.innerJoin(bookSeries, eq(books.id, bookSeries.bookId))
+				.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 				.where(and(eq(bookSeries.seriesId, s.id), libCondBooks))
 				.orderBy(asc(bookSeries.bookNum));
 
@@ -345,29 +367,20 @@ export async function getSeriesById(id: number): Promise<Series | null> {
 	return result[0] || null;
 }
 
-export async function getSeriesWithBooks(id: number, userId?: number): Promise<{
+/** storedStatus: the series' own stored status (the edit form) instead of the viewer's derived one */
+export async function getSeriesWithBooks(id: number, userId?: number, opts: { storedStatus?: boolean } = {}): Promise<{
 	series: SeriesWithBookCount;
 	books: BookCardData[];
 	stats: SeriesStats;
 } | null> {
-	// User library condition for filtering books
-	const libCondBooks = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	// User library condition for filtering books: the viewer's own
+	const libCondBooks = libraryBooksCondition(userId);
 
 	// Build book count subquery that respects user library filter
-	const bookCountSubquery = userId
-		? sql<number>`(SELECT COUNT(*) FROM bookseries bs
+	const bookCountSubquery = sql<number>`(SELECT COUNT(*) FROM bookseries bs
 			INNER JOIN books b ON b.id = bs.bookId
 			WHERE bs.seriesId = ${series.id}
-			AND (b.libraryType = 'personal' OR b.id IN (SELECT bookId FROM user_books WHERE userId = ${userId})))`
-		: sql<number>`(SELECT COUNT(*) FROM bookseries bs
-			INNER JOIN books b ON b.id = bs.bookId
-			WHERE bs.seriesId = ${series.id}
-			AND b.libraryType = 'personal')`;
+			AND ${getUserLibraryCondition(userId, 'b')})`;
 
 	const seriesResult = await db
 		.select({
@@ -392,7 +405,7 @@ export async function getSeriesWithBooks(id: number, userId?: number): Promise<{
 		.where(eq(series.id, id))
 		.limit(1);
 
-	const seriesData = seriesResult[0];
+	const [seriesData] = opts.storedStatus ? seriesResult : await withViewerSeriesStatus(seriesResult, userId);
 	if (!seriesData) return null;
 
 	// Get book IDs with their order in the series (filtered by user library)
@@ -401,20 +414,21 @@ export async function getSeriesWithBooks(id: number, userId?: number): Promise<{
 			id: books.id,
 			title: books.title,
 			bookNum: bookSeries.bookNum,
-			statusId: books.statusId,
-			rating: books.rating,
-			completedDate: books.completedDate,
+			statusId: vub.statusId,
+			rating: vub.rating,
+			completedDate: vub.completedDate,
 			pageCount: books.pageCount
 		})
 		.from(books)
 		.innerJoin(bookSeries, eq(books.id, bookSeries.bookId))
+		.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(eq(bookSeries.seriesId, id), libCondBooks))
 		.orderBy(asc(bookSeries.bookNum));
 
 	const bookIds = seriesBookIds.map((b) => b.id);
 
 	// Get full book card data using the shared helper
-	const booksData = await getBooksCardData(bookIds);
+	const booksData = await getBooksCardData(bookIds, userId ?? null);
 
 	// Create a map to preserve the bookNum from series junction
 	const bookNumMap = new Map(seriesBookIds.map((b) => [b.id, b.bookNum]));
@@ -443,19 +457,13 @@ export interface SeriesNoteBook {
 }
 
 /**
- * Notes written on the books of each series, for the book page's series-notes digest.
- * Same book visibility as the series page; only books with notes, in series order.
+ * The viewer's own notes on the books of each series, for the book page's series-notes digest.
+ * Notes, dates and last-read come from the viewer's user_books row only; only books with notes,
+ * in series order. No viewer gets nothing.
  */
 export async function getSeriesBookNotes(seriesIds: number[], userId?: number): Promise<Record<number, SeriesNoteBook[]>> {
 	const result: Record<number, SeriesNoteBook[]> = {};
-	if (seriesIds.length === 0) return result;
-
-	const libCondBooks = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	if (seriesIds.length === 0 || !userId) return result;
 
 	const rows = await db
 		.select({
@@ -463,14 +471,15 @@ export async function getSeriesBookNotes(seriesIds: number[], userId?: number): 
 			id: books.id,
 			title: books.title,
 			bookNum: bookSeries.bookNum,
-			comments: books.comments,
-			completedDate: books.completedDate,
-			lastReadAt: books.lastReadAt,
-			startReadingDate: books.startReadingDate
+			comments: vub.comments,
+			completedDate: vub.completedDate,
+			lastReadAt: vub.lastReadAt,
+			startReadingDate: vub.startReadingDate
 		})
 		.from(books)
 		.innerJoin(bookSeries, eq(books.id, bookSeries.bookId))
-		.where(and(inArray(bookSeries.seriesId, seriesIds), libCondBooks, sql`TRIM(COALESCE(${books.comments}, '')) != ''`))
+		.innerJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId)))
+		.where(and(inArray(bookSeries.seriesId, seriesIds), sql`TRIM(COALESCE(${vub.comments}, '')) != ''`))
 		.orderBy(asc(bookSeries.bookNum), asc(books.id));
 
 	for (const { seriesId, ...row } of rows) {

@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const emailStatus = await getEmailConfigStatus();
 
 	// Get statuses for default status dropdown
-	const statuses = await getStatuses();
+	const statuses = await getStatuses(locals.user?.id);
 
 	// Audiobookshelf: only report whether a key is stored, never the key itself
 	const absStatus = {

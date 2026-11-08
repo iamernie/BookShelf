@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	}
 
 	try {
-		const recommendations = await getRuleBasedRecommendations();
+		const recommendations = await getRuleBasedRecommendations(locals.user.id);
 		return json({ recommendations });
 	} catch (err) {
 		console.error('Recommendations error:', err);

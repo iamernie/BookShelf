@@ -8,10 +8,11 @@ import type { RequestHandler } from './$types';
 import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetService';
 import { updateBook, deleteBook, AbsItemAlreadyLinkedError, type CreateBookData } from '$lib/server/services/bookService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
-import { applyStatusChange } from '$lib/server/services/statusService';
+import { applyStatusChange, getDefaultOwnerId as getDefaultUserId } from '$lib/server/services/statusService';
 import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators } from '$lib/server/db';
 import { eq, sql } from 'drizzle-orm';
+import { overlayPersonal } from '$lib/server/services/personalState';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
@@ -38,11 +39,13 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	}
 
 	try {
-		const [book] = await db.select().from(books).where(eq(books.id, bookId)).limit(1);
+		const [row] = await db.select().from(books).where(eq(books.id, bookId)).limit(1);
 
-		if (!book) {
+		if (!row) {
 			return json({ error: 'Book not found' }, { status: 404 });
 		}
+		// Personal fields are the API user's own (the first admin)
+		const [book] = await overlayPersonal([row], await getDefaultUserId());
 
 		const [bookAuthorsData, bookSeriesData, bookTagsData, statusData, genreData, formatData, narratorData] = await Promise.all([
 			db.select({
@@ -265,7 +268,9 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 		if (body.series !== undefined) updateData.series = body.series;
 		if (body.tagIds !== undefined) updateData.tagIds = body.tagIds;
 
-		const updatedBook = await updateBook(bookId, updateData);
+		// Personal fields go to the API user's own row (the first admin), never the books row
+		const apiUserId = await getDefaultUserId();
+		const updatedBook = await updateBook(bookId, updateData, apiUserId);
 
 		if (!updatedBook) {
 			return json({ error: 'Failed to update book' }, { status: 500 });
@@ -276,7 +281,7 @@ export const PUT: RequestHandler = async ({ params, url, request }) => {
 			const dates: { startReadingDate?: string; completedDate?: string } = {};
 			if (body.startReadingDate) dates.startReadingDate = body.startReadingDate;
 			if (body.completedDate) dates.completedDate = body.completedDate;
-			await applyStatusChange([bookId], statusId ?? null, { source: 'api_v1', dates });
+			await applyStatusChange([bookId], statusId ?? null, { source: 'api_v1', userId: apiUserId ?? undefined, dates });
 		}
 
 		// Keep the "Audiobook Shelf" tag in step with manual link/unlink

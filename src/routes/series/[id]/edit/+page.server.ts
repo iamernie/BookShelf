@@ -4,13 +4,13 @@ import { db, seriesTags, tags, seriesStatuses, genres } from '$lib/server/db';
 import { eq, asc } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, 'Invalid series ID');
 	}
 
-	const result = await getSeriesWithBooks(id);
+	const result = await getSeriesWithBooks(id, locals.user?.id, { storedStatus: true });
 	if (!result) {
 		throw error(404, 'Series not found');
 	}

@@ -1,5 +1,6 @@
 import { db, readingGoals, books, statuses, genres, formats, bookAuthors, authors } from '$lib/server/db';
 import { eq, and, gte, lt, sql, or, count, countDistinct } from 'drizzle-orm';
+import { viewerBooks as vub } from './personalState';
 import type { ReadingGoal, NewReadingGoal } from '$lib/server/db/schema';
 import { currentYearInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 
@@ -110,14 +111,16 @@ async function getReadStatusId(): Promise<number | null> {
 	return readStatus[0]?.id ?? null;
 }
 
-// Helper for user library condition
+// Helper for user library condition: the viewer's own library; progress reads their own row (vub)
 function getUserLibraryCondition(userId?: number) {
 	return userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+		? sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
+		: sql`1=0`;
+}
+
+// The viewer's own user_books row, joined as vub wherever a personal field is read
+function vubOn(userId?: number) {
+	return and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1));
 }
 
 // Calculate books read for a year
@@ -131,12 +134,12 @@ async function calculateBooksProgress(year: number, userId?: number): Promise<nu
 
 	const result = await db
 		.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				userLibraryCondition
 			)
 		);
@@ -155,12 +158,12 @@ async function calculateGenresProgress(year: number, userId?: number): Promise<n
 
 	const result = await db
 		.select({ count: sql<number>`count(DISTINCT genreId)` })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				sql`genreId IS NOT NULL`,
 				userLibraryCondition
 			)
@@ -181,13 +184,13 @@ async function calculateAuthorsProgress(year: number, userId?: number): Promise<
 	// Count distinct authors from books read this year
 	const result = await db
 		.select({ count: sql<number>`count(DISTINCT ${bookAuthors.authorId})` })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.innerJoin(bookAuthors, eq(books.id, bookAuthors.bookId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				userLibraryCondition
 			)
 		);
@@ -206,12 +209,12 @@ async function calculateFormatsProgress(year: number, userId?: number): Promise<
 
 	const result = await db
 		.select({ count: sql<number>`count(DISTINCT formatId)` })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				sql`formatId IS NOT NULL`,
 				userLibraryCondition
 			)
@@ -231,12 +234,12 @@ async function calculatePagesProgress(year: number, userId?: number): Promise<nu
 
 	const result = await db
 		.select({ total: sql<number>`COALESCE(SUM(pageCount), 0)` })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				userLibraryCondition
 			)
 		);
@@ -260,19 +263,19 @@ async function calculateMonthlyProgress(
 	// Get count per month
 	const monthlyResult = await db
 		.select({
-			month: sql<string>`strftime('%m', completedDate)`,
+			month: sql<string>`strftime('%m', ${vub.completedDate})`,
 			count: sql<number>`count(*)`
 		})
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				userLibraryCondition
 			)
 		)
-		.groupBy(sql`strftime('%m', completedDate)`);
+		.groupBy(sql`strftime('%m', ${vub.completedDate})`);
 
 	// Count months meeting target (skip future months)
 	const today = todayInAppTz();
@@ -381,12 +384,12 @@ export async function getActiveGoal(year?: number, userId?: number): Promise<Goa
 
 	const booksReadResult = await db
 		.select({ count: sql<number>`count(*)` })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				userLibraryCondition
 			)
 		);
@@ -396,19 +399,19 @@ export async function getActiveGoal(year?: number, userId?: number): Promise<Goa
 	// Calculate monthly breakdown
 	const monthlyResult = await db
 		.select({
-			month: sql<string>`strftime('%m', completedDate)`,
+			month: sql<string>`strftime('%m', ${vub.completedDate})`,
 			count: sql<number>`count(*)`
 		})
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(
 			and(
-				eq(books.statusId, readStatusId),
-				gte(books.completedDate, yearStart),
-				lt(books.completedDate, yearEnd),
+				eq(vub.statusId, readStatusId),
+				gte(vub.completedDate, yearStart),
+				lt(vub.completedDate, yearEnd),
 				userLibraryCondition
 			)
 		)
-		.groupBy(sql`strftime('%m', completedDate)`);
+		.groupBy(sql`strftime('%m', ${vub.completedDate})`);
 
 	const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 	const monthlyBreakdown = monthNames.map((name, i) => {

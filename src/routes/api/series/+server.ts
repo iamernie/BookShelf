@@ -2,14 +2,14 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAllSeries, createSeries, checkSeriesRefId } from '$lib/server/services/seriesService';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1');
 	const limit = parseInt(url.searchParams.get('limit') || '24');
 	const search = url.searchParams.get('search') || undefined;
 	const sort = (url.searchParams.get('sort') as 'title' | 'bookCount' | 'createdAt') || 'title';
 	const order = (url.searchParams.get('order') as 'asc' | 'desc') || 'asc';
 
-	const result = await getAllSeries({ page, limit, search, sort, order });
+	const result = await getAllSeries({ page, limit, search, sort, order, userId: locals.user?.id });
 	return json(result);
 };
 

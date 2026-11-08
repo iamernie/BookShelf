@@ -15,6 +15,7 @@ import {
 	type UpdateUserBookInput
 } from '$lib/server/services/userBookService';
 import { canReachBook } from '$lib/server/services/libraryShareService';
+import { applyStatusChange } from '$lib/server/services/statusService';
 // Permission service used for full User type - for simplified locals.user, check role directly
 import type { LibraryType } from '$lib/server/db/schema';
 
@@ -140,10 +141,20 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	// Scoped to the caller's own row (userId + bookId); no row is created here
-	const userBook = await updateUserBook(locals.user.id, bookId, data);
+	let userBook = await updateUserBook(locals.user.id, bookId, data);
 
 	if (!userBook) {
 		throw error(404, 'Book not in your library');
+	}
+
+	// Status moves through applyStatusChange (date stamping, series status, notifications)
+	const statusId = body.statusId;
+	if (statusId === null || (typeof statusId === 'number' && Number.isInteger(statusId))) {
+		const dates: { startReadingDate?: string; completedDate?: string } = {};
+		if (data.startReadingDate) dates.startReadingDate = data.startReadingDate;
+		if (data.completedDate) dates.completedDate = data.completedDate;
+		await applyStatusChange([bookId], statusId, { source: 'book_edit', userId: locals.user.id, dates });
+		userBook = (await getUserBook(locals.user.id, bookId)) ?? userBook;
 	}
 
 	return json({

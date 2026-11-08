@@ -18,6 +18,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	const options: ExportOptions = {
 		format,
+		userId: locals.user.id,
 		includeAuthors: url.searchParams.get('authors') !== 'false',
 		includeSeries: url.searchParams.get('series') !== 'false',
 		includeTags: url.searchParams.get('tags') !== 'false',

@@ -7,6 +7,7 @@ import { canReachBook, canModifyBook, canDeleteBook } from '$lib/server/services
 import { applyStatusChange } from '$lib/server/services/statusService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
+import { overlayPersonal, writePersonal, hasPersonal, type PersonalWrite } from '$lib/server/services/personalState';
 import { db, books } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 
@@ -24,7 +25,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(400, { message: 'Invalid book ID' });
 	}
 
-	const book = await getBookById(id);
+	const book = await getBookById(id, locals.user?.id ?? null);
 	if (!book) {
 		throw error(404, { message: 'Book not found' });
 	}
@@ -65,21 +66,24 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(404, { message: 'Book not found' });
 	}
 
-	// Permission check depends on library type
-	if (existingBook.libraryType === 'public') {
-		// Public library books: only admins and librarians can edit
-		if (!canManagePublicLibrary(locals.user)) {
-			throw error(403, { message: 'Only librarians and admins can edit public library books' });
-		}
-	} else {
-		// Personal library books: check ownership/sharing permissions
-		const canModify = await canModifyBook(locals.user.id, id);
-		if (!canModify) {
-			throw error(403, { message: 'You do not have permission to modify this book' });
-		}
+	// Personal fields (rating, notes, status, reading dates, DNF) are the caller's own and only need
+	// the book to be reachable; the catalog permission gate below applies to catalog fields only
+	if (!(await canReachBook(locals.user.id, id))) {
+		throw error(403, { message: 'You do not have access to this book' });
 	}
 
 	const data = await request.json();
+
+	const personal: PersonalWrite = {};
+	if (data.rating !== undefined) personal.rating = data.rating || null;
+	if (data.comments !== undefined) personal.comments = data.comments?.trim() || null;
+	if (data.startReadingDate !== undefined) personal.startReadingDate = data.startReadingDate || null;
+	if (data.completedDate !== undefined) personal.completedDate = data.completedDate || null;
+	if (data.dnfPage !== undefined) personal.dnfPage = data.dnfPage ?? null;
+	if (data.dnfPercent !== undefined) personal.dnfPercent = data.dnfPercent ?? null;
+	if (data.dnfReason !== undefined) personal.dnfReason = data.dnfReason?.trim() || null;
+	if (data.dnfDate !== undefined) personal.dnfDate = data.dnfDate || null;
+	const statusId: number | null | undefined = data.statusId !== undefined ? data.statusId || null : undefined;
 
 	// Build update object with only provided fields (for partial updates)
 	const updateData: Record<string, unknown> = {};
@@ -94,7 +98,6 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	// Text fields
 	if (data.summary !== undefined) updateData.summary = data.summary?.trim() || null;
-	if (data.comments !== undefined) updateData.comments = data.comments?.trim() || null;
 
 	// Handle cover image - auto-download if originalCoverUrl provided but no coverImageUrl
 	let coverImageUrl = data.coverImageUrl?.trim() || null;
@@ -121,7 +124,6 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.edition !== undefined) updateData.edition = data.edition?.trim() || null;
 
 	// Number fields
-	if (data.rating !== undefined) updateData.rating = data.rating || null;
 	if (data.pageCount !== undefined) updateData.pageCount = data.pageCount || null;
 	if (data.publishYear !== undefined) updateData.publishYear = data.publishYear || null;
 	if (data.purchasePrice !== undefined) updateData.purchasePrice = data.purchasePrice || null;
@@ -132,53 +134,63 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.providerRatingCount !== undefined) updateData.providerRatingCount = data.providerRatingCount ?? null;
 
 	// Foreign key fields (statusId goes through applyStatusChange below)
-	const statusId: number | null | undefined = data.statusId !== undefined ? data.statusId || null : undefined;
 	if (data.genreId !== undefined) updateData.genreId = data.genreId || null;
 	if (data.formatId !== undefined) updateData.formatId = data.formatId || null;
 	if (data.narratorId !== undefined) updateData.narratorId = data.narratorId || null;
 
 	// Date fields
 	if (data.releaseDate !== undefined) updateData.releaseDate = data.releaseDate || null;
-	if (data.startReadingDate !== undefined) updateData.startReadingDate = data.startReadingDate || null;
-	if (data.completedDate !== undefined) updateData.completedDate = data.completedDate || null;
 
 	// Relation arrays (only include if explicitly provided)
 	if (data.authors !== undefined) updateData.authors = data.authors;
 	if (data.series !== undefined) updateData.series = data.series;
 	if (data.tagIds !== undefined) updateData.tagIds = data.tagIds;
 
+	const catalogChange = Object.keys(updateData).length > 0;
 	// Require at least one field to update
-	if (Object.keys(updateData).length === 0 && statusId === undefined) {
+	if (!catalogChange && statusId === undefined && !hasPersonal(personal)) {
 		throw error(400, { message: 'No fields to update' });
 	}
 
-	let book;
-	try {
-		book = await updateBook(id, updateData);
-	} catch (err) {
-		if (err instanceof AbsItemAlreadyLinkedError) return absLinkConflict(err, locals.user.id);
-		throw err;
+	// Catalog permission depends on library type
+	if (catalogChange) {
+		if (existingBook.libraryType === 'public') {
+			// Public library books: only admins and librarians can edit
+			if (!canManagePublicLibrary(locals.user)) {
+				throw error(403, { message: 'Only librarians and admins can edit public library books' });
+			}
+		} else {
+			// Personal library books: check ownership/sharing permissions
+			const canModify = await canModifyBook(locals.user.id, id);
+			if (!canModify) {
+				throw error(403, { message: 'You do not have permission to modify this book' });
+			}
+		}
+		try {
+			const updated = await updateBook(id, updateData);
+			if (!updated) throw error(404, { message: 'Book not found' });
+		} catch (err) {
+			if (err instanceof AbsItemAlreadyLinkedError) return absLinkConflict(err, locals.user.id);
+			throw err;
+		}
 	}
 
-	if (!book) {
-		throw error(404, { message: 'Book not found' });
-	}
-
+	// The caller's own reading record, dates first: a status change then stamps only empty ones
+	if (hasPersonal(personal)) await writePersonal(locals.user.id, id, personal);
 	if (statusId !== undefined) {
 		// A date sent with the edit wins over stamping; an empty one leaves stamping on
 		const dates: { startReadingDate?: string; completedDate?: string } = {};
-		if (updateData.startReadingDate) dates.startReadingDate = updateData.startReadingDate as string;
-		if (updateData.completedDate) dates.completedDate = updateData.completedDate as string;
-		const { changed } = await applyStatusChange([id], statusId, { source: 'book_edit', userId: locals.user.id, dates });
-		if (changed.length > 0) {
-			const [refreshed] = await db.select().from(books).where(eq(books.id, id)).limit(1);
-			if (refreshed) book = refreshed;
-		}
+		if (personal.startReadingDate) dates.startReadingDate = personal.startReadingDate;
+		if (personal.completedDate) dates.completedDate = personal.completedDate;
+		await applyStatusChange([id], statusId, { source: 'book_edit', userId: locals.user.id, dates });
 	}
 
 	// Keep the "Audiobook Shelf" tag in step with manual link/unlink
 	if (data.absItemId !== undefined) await applyAbsTagParity(id);
 
+	const [row] = await db.select().from(books).where(eq(books.id, id)).limit(1);
+	if (!row) throw error(404, { message: 'Book not found' });
+	const [book] = await overlayPersonal([row], locals.user.id);
 	return json(book);
 };
 

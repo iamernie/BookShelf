@@ -11,6 +11,7 @@ import {
 	type SaveContext
 } from '$lib/server/services/ebookMetadataService';
 import { rememberEbookHash } from '$lib/server/services/ebookHashService';
+import { writePersonal } from '$lib/server/services/personalState';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
 import { db } from '$lib/server/db';
 import { books, authors, bookAuthors, formats, statuses, genres, series, bookSeries } from '$lib/server/db/schema';
@@ -278,7 +279,6 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 				genreId,
 				ebookPath,
 				ebookMd5, // For KOReader sync matching
-				statusId: unreadStatus?.id || null,
 				isbn13: isbn && isbn.length === 13 ? isbn : null,
 				isbn10: isbn && isbn.length === 10 ? isbn : null,
 				publisher: customData.publisher || extracted.metadata.publisher,
@@ -291,6 +291,9 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 			if (ebookMd5) {
 				await rememberEbookHash(newBook.id, ebookMd5, 'import');
 			}
+
+			// The importer's own library row carries the Unread status
+			await writePersonal(locals.user.id, newBook.id, { statusId: unreadStatus?.id || null });
 
 			// Link authors
 			for (const authorId of authorIds) {

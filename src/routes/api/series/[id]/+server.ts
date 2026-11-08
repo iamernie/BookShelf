@@ -2,13 +2,13 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSeriesWithBooks, updateSeries, deleteSeries, checkSeriesRefId } from '$lib/server/services/seriesService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, { message: 'Invalid series ID' });
 	}
 
-	const result = await getSeriesWithBooks(id);
+	const result = await getSeriesWithBooks(id, locals.user?.id);
 	if (!result) {
 		throw error(404, { message: 'Series not found' });
 	}

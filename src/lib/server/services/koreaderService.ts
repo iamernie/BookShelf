@@ -8,6 +8,7 @@
 import { db } from '$lib/server/db';
 import { koreaderUsers, koreaderProgress, books, userBooks } from '$lib/server/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { writeOwnPosition } from './personalState';
 import { createHash } from 'crypto';
 import { findBookForHash } from './ebookHashService';
 import { canReachBook } from './libraryShareService';
@@ -269,8 +270,7 @@ export async function saveProgress(
 	// Sync progress to the book's reading progress for the browser reader
 	// A stale push kept the row as it was, so it says nothing new about the book either
 	if (bookId && written) {
-		await syncProgressToBook(bookId, data.percentage, data.progress, now);
-		await syncProgressToUserBook(userId, bookId, data.percentage * 100, now);
+		await syncProgressToBook(userId, bookId, data.percentage, data.progress, now);
 	}
 
 	return {
@@ -303,10 +303,12 @@ function toReaderPage(format: string | null | undefined, location: string | unde
 }
 
 /**
- * Sync KOReader progress to the book's reading progress
- * This allows the browser reader to continue where KOReader left off
+ * Sync KOReader progress to the user's own reading position (user_books), so the browser reader
+ * continues where KOReader left off: position, percent and last-read; no status. The row-creation
+ * rule is writeOwnPosition's (public books and the user's own only).
  */
 async function syncProgressToBook(
+	userId: number,
 	bookId: number,
 	percentage: number,
 	location: string | undefined,
@@ -318,7 +320,6 @@ async function syncProgressToBook(
 		.where(eq(books.id, bookId))
 		.limit(1);
 
-	// Update the book's reading progress
 	// KOReader stores percentage as 0-1, but BookShelf browser reader expects 0-100
 	// Convert to 0-100 format for consistency with browser reader
 	const percentageAs100 = percentage * 100;
@@ -332,62 +333,7 @@ async function syncProgressToBook(
 		source: 'koreader' // Mark that this came from KOReader
 	});
 
-	await db
-		.update(books)
-		.set({
-			readingProgress,
-			lastReadAt: timestamp,
-			updatedAt: timestamp
-		})
-		.where(eq(books.id, bookId));
-}
-
-/**
- * Sync KOReader progress to the user's own book data. Progress and last-read only, no status.
- *
- * A user_books row grants no access, but it does put a book on the user's library list and it
- * outlives a revoked share. So a push only creates one where that shows nothing new: public books
- * and the user's own. Anything else updates an existing row or does nothing.
- */
-async function syncProgressToUserBook(
-	userId: number,
-	bookId: number,
-	percentAs100: number,
-	now: string
-): Promise<void> {
-	const [existing] = await db
-		.select({ id: userBooks.id })
-		.from(userBooks)
-		.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, bookId)))
-		.limit(1);
-
-	if (existing) {
-		await db
-			.update(userBooks)
-			.set({ readingProgress: percentAs100, lastReadAt: now, updatedAt: now })
-			.where(eq(userBooks.id, existing.id));
-		return;
-	}
-
-	const [book] = await db
-		.select({ ownerId: books.ownerId, libraryType: books.libraryType })
-		.from(books)
-		.where(eq(books.id, bookId))
-		.limit(1);
-
-	if (book?.libraryType !== 'public' && book?.ownerId !== userId) {
-		return;
-	}
-
-	await db.insert(userBooks).values({
-		userId,
-		bookId,
-		readingProgress: percentAs100,
-		lastReadAt: now,
-		addedAt: now,
-		createdAt: now,
-		updatedAt: now
-	});
+	await writeOwnPosition(userId, bookId, readingProgress, percentageAs100, timestamp);
 }
 
 /**

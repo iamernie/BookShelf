@@ -3,7 +3,8 @@ import { eq, like, sql, desc, asc, and, or, inArray, isNull, ne, type SQL } from
 import type { Book, NewBook } from '$lib/server/db/schema';
 import { applyAbsTagParity } from './absService';
 import { carryEbookHashes } from './ebookHashService';
-import { recomputeSeriesStatuses, recomputeSeriesStatusesForBooks } from './statusService';
+import { applyStatusChange, recomputeSeriesStatuses, recomputeSeriesStatusesForBooks } from './statusService';
+import { personalCols, overlayPersonal, splitPersonal, hasPersonal, writePersonal, viewerBooks, type PersonalWrite } from './personalState';
 
 /** One Audiobookshelf item links to at most one book */
 export class AbsItemAlreadyLinkedError extends Error {
@@ -70,6 +71,7 @@ export function primaryJunctionOrder(alias: 'ba' | 'bs' | 'bookauthors' | 'books
  * ORDER BY terms for getBooks. sort and order are never interpolated: the direction is one of two
  * literal fragments and the column comes from the switch, so anything unexpected falls back to the
  * createdAt / desc defaults. Nulls go last in both directions and every sort ends on books.id.
+ * Rating, completed date and status sort on the viewer's own row: the query must join personalCols as vub.
  */
 function bookSortOrder(sort: string, order: string): SQL[] {
 	const dir = order === 'asc' ? sql`ASC` : sql`DESC`;
@@ -89,10 +91,10 @@ function bookSortOrder(sort: string, order: string): SQL[] {
 		case 'updatedAt':
 			return [sql`books.updatedAt ${dir} NULLS LAST`, sql`books.id ${dir}`];
 		case 'rating':
-			// Personal rating only; provider rating orders the unrated tail and never blends into the key
-			return [sql`NULLIF(books.rating, 0) ${dir} NULLS LAST`, sql`books.providerRating DESC NULLS LAST`, title, sql`books.id ASC`];
+			// The viewer's own rating (vub) only; provider rating orders the unrated tail and never blends into the key
+			return [sql`NULLIF(vub.rating, 0) ${dir} NULLS LAST`, sql`books.providerRating DESC NULLS LAST`, title, sql`books.id ASC`];
 		case 'completedDate':
-			return [sql`NULLIF(books.completedDate, '') ${dir} NULLS LAST`, sql`books.id ${dir}`];
+			return [sql`NULLIF(vub.completedDate, '') ${dir} NULLS LAST`, sql`books.id ${dir}`];
 		case 'author': {
 			const primaryAuthor = sql`(SELECT a.name FROM bookauthors ba JOIN authors a ON a.id = ba.authorId WHERE ba.bookId = books.id ORDER BY ${primaryJunctionOrder('ba')} LIMIT 1)`;
 			return [sql`${primaryAuthor} COLLATE NOCASE ${dir} NULLS LAST`, ...seriesTerms(sql`ASC`), title, sql`books.id ASC`];
@@ -101,8 +103,8 @@ function bookSortOrder(sort: string, order: string): SQL[] {
 			return [...seriesTerms(dir), title, sql`books.id ASC`];
 		case 'status': {
 			const ranks = sql.join(STATUS_SORT_KEYS.map((key, i) => sql`WHEN ${key} THEN ${i}`), sql` `);
-			const rank = sql`(SELECT CASE st.key ${ranks} ELSE 100 + COALESCE(st.sortOrder, 0) END FROM statuses st WHERE st.id = books.statusId)`;
-			return [sql`${rank} ${dir} NULLS LAST`, sql`books.statusId ${dir} NULLS LAST`, title, sql`books.id ASC`];
+			const rank = sql`(SELECT CASE st.key ${ranks} ELSE 100 + COALESCE(st.sortOrder, 0) END FROM statuses st WHERE st.id = vub.statusId)`;
+			return [sql`${rank} ${dir} NULLS LAST`, sql`vub.statusId ${dir} NULLS LAST`, title, sql`books.id ASC`];
 		}
 		case 'format':
 			return [sql`(SELECT f.name FROM formats f WHERE f.id = books.formatId) COLLATE NOCASE ${dir} NULLS LAST`, title, sql`books.id ASC`];
@@ -157,7 +159,7 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 
 	// These are the filterable conditions that can be combined with AND or OR
 	if (statusId) {
-		filterConditions.push(eq(books.statusId, statusId));
+		filterConditions.push(eq(viewerBooks.statusId, statusId));
 	}
 	if (genreId) {
 		filterConditions.push(eq(books.genreId, genreId));
@@ -210,20 +212,26 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 		whereClause = baseConditions.length > 0 ? and(...baseConditions) : undefined;
 	}
 
+	// Status filter and the personal sorts read the viewer's own row
+	const personal = personalCols(userId);
+
 	// Get total count
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(whereClause);
 	const total = countResult[0]?.count ?? 0;
 
-	const booksList = await db
-		.select()
+	const pageRows = await db
+		.select({ book: books })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(whereClause)
 		.orderBy(...bookSortOrder(sort, order))
 		.limit(limit)
 		.offset(offset);
+	const booksList = await overlayPersonal(pageRows.map((r) => r.book), userId);
 
 	// Fetch relations for each book
 	const items = await Promise.all(booksList.map(async (book) => {
@@ -276,9 +284,14 @@ export async function getBooks(options: GetBooksOptions = {}): Promise<{
 	return { items, total, page, limit };
 }
 
-export async function getBookById(id: number): Promise<BookWithRelations | null> {
-	const book = await db.select().from(books).where(eq(books.id, id)).limit(1);
-	if (!book[0]) return null;
+/**
+ * One book with its relations. Personal fields (status, rating, notes, dates, DNF, reading
+ * position) are the viewer's own; pass null for a catalog-only read (they come back empty).
+ */
+export async function getBookById(id: number, viewerId: number | null): Promise<BookWithRelations | null> {
+	const row = await db.select().from(books).where(eq(books.id, id)).limit(1);
+	if (!row[0]) return null;
+	const book = await overlayPersonal(row, viewerId);
 
 	const [bookAuthorsData, bookSeriesData, bookTagsData, statusData, genreData, formatData, narratorData] = await Promise.all([
 		db.select({
@@ -332,9 +345,15 @@ export interface CreateBookData extends Omit<NewBook, 'createdAt' | 'updatedAt'>
 	absItemId?: string | null; // Audiobookshelf item UUID (born-linked books from the ABS pipeline)
 }
 
-export async function createBook(data: CreateBookData): Promise<Book> {
+/**
+ * Create a book. Personal fields in the data (status, rating, notes, dates, DNF) go to the creating
+ * user's own user_books row, never the books row: personalUserId, else the owner. A public book
+ * with neither keeps no personal state.
+ */
+export async function createBook(data: CreateBookData, personalUserId?: number | null): Promise<Book> {
 	const now = new Date().toISOString();
-	const { authors: bookAuthorsList, series: bookSeriesList, tagIds, ...bookData } = data;
+	const { authors: bookAuthorsList, series: bookSeriesList, tagIds, ...allData } = data;
+	const { catalog: bookData, personal, statusId } = splitPersonal(allData);
 
 	// Ensure ownerId is set - personal books must have an owner (public library books have none)
 	if (!bookData.ownerId && bookData.libraryType !== 'public') {
@@ -394,19 +413,22 @@ export async function createBook(data: CreateBookData): Promise<Book> {
 		);
 	}
 
-	// Add book to owner's personal library (user_books table); public library books have no owner
-	if (bookData.ownerId) {
-		await db.insert(userBooks).values({
-			userId: bookData.ownerId,
-			bookId: newBook.id,
-			statusId: bookData.statusId || null,
-			rating: bookData.rating || null,
-			startReadingDate: bookData.startReadingDate || null,
-			completedDate: bookData.completedDate || null,
-			comments: bookData.comments || null,
-			addedAt: now,
-			createdAt: now,
-			updatedAt: now
+	// The owner's library row carries the personal state; public library books have no owner,
+	// so their state goes to the creating user's row when one is given
+	const stateUserId = personalUserId ?? bookData.ownerId ?? null;
+	const anyState = !!statusId || Object.values(personal).some((v) => v !== undefined && v !== null && v !== '' && v !== 0);
+	if (stateUserId !== null && (bookData.ownerId === stateUserId || anyState)) {
+		const blank = (v: unknown) => (v === '' || v === 0 ? null : v);
+		await writePersonal(stateUserId, newBook.id, {
+			statusId: statusId || null,
+			rating: blank(personal.rating) as number | null,
+			startReadingDate: blank(personal.startReadingDate) as string | null,
+			completedDate: blank(personal.completedDate) as string | null,
+			comments: blank(personal.comments) as string | null,
+			dnfPage: personal.dnfPage,
+			dnfPercent: personal.dnfPercent,
+			dnfReason: personal.dnfReason,
+			dnfDate: personal.dnfDate
 		});
 	}
 
@@ -415,9 +437,15 @@ export async function createBook(data: CreateBookData): Promise<Book> {
 	return newBook;
 }
 
-export async function updateBook(id: number, data: Partial<CreateBookData>): Promise<Book | null> {
+/**
+ * Update a book's catalog fields and relations. Personal fields never reach the books row: pass
+ * personalUserId to write them to that user's own row (statusId must go through applyStatusChange
+ * and is ignored here), otherwise they are dropped.
+ */
+export async function updateBook(id: number, data: Partial<CreateBookData>, personalUserId?: number | null): Promise<Book | null> {
 	const now = new Date().toISOString();
-	const { authors: bookAuthorsList, series: bookSeriesList, tagIds, ...bookData } = data;
+	const { authors: bookAuthorsList, series: bookSeriesList, tagIds, ...allData } = data;
+	const { catalog: bookData, personal } = splitPersonal(allData);
 
 	// A changed Audiobookshelf link must be free, and starts out not stale
 	if (bookData.absItemId !== undefined) {
@@ -439,6 +467,8 @@ export async function updateBook(id: number, data: Partial<CreateBookData>): Pro
 		.returning();
 
 	if (!updated) return null;
+
+	if (personalUserId != null && hasPersonal(personal)) await writePersonal(personalUserId, id, personal);
 
 	// Update author relations if provided
 	if (bookAuthorsList !== undefined) {
@@ -587,7 +617,7 @@ export async function getAllSeries() {
  * Fetch full BookCardData for a list of book IDs.
  * Used by entity detail pages (authors, series, shelves) to display rich book information.
  */
-export async function getBooksCardData(bookIds: number[]): Promise<{
+export async function getBooksCardData(bookIds: number[], viewerId: number | null): Promise<{
 	id: number;
 	title: string;
 	coverImageUrl: string | null;
@@ -608,11 +638,11 @@ export async function getBooksCardData(bookIds: number[]): Promise<{
 }[]> {
 	if (bookIds.length === 0) return [];
 
-	// Get base book data
-	const booksList = await db
+	// Get base book data; rating, completed date and status are the viewer's own
+	const booksList = await overlayPersonal(await db
 		.select()
 		.from(books)
-		.where(inArray(books.id, bookIds));
+		.where(inArray(books.id, bookIds)), viewerId);
 
 	// Fetch relations for each book in parallel
 	const results = await Promise.all(booksList.map(async (book) => {
@@ -855,19 +885,26 @@ export async function mergeBooks(targetId: number, sourceId: number): Promise<bo
 		}
 	}
 
-	// Transfer user_books entries (library memberships)
+	// Transfer user_books entries: library membership and each user's own reading state. A user
+	// with both books keeps the target's values and gains the source's where the target has none
 	const sourceUserBooks = await db.select().from(userBooks).where(eq(userBooks.bookId, sourceId));
 	for (const ub of sourceUserBooks) {
-		// Check if user already has target book
+		const { id: _id, userId, bookId: _bookId, createdAt: _c, updatedAt: _u, ...state } = ub;
 		const [existing] = await db.select().from(userBooks)
-			.where(and(eq(userBooks.userId, ub.userId), eq(userBooks.bookId, targetId)))
+			.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, targetId)))
 			.limit(1);
 		if (!existing) {
-			await db.insert(userBooks).values({
-				userId: ub.userId,
-				bookId: targetId,
-				addedAt: ub.addedAt
-			});
+			await db.insert(userBooks).values({ ...state, userId, bookId: targetId, createdAt: now, updatedAt: now });
+			continue;
+		}
+		const fill: Record<string, unknown> = {};
+		for (const [key, value] of Object.entries(state)) {
+			const current = existing[key as keyof typeof existing];
+			const empty = current === null || current === '' || (key === 'readingProgress' && !current);
+			if (empty && value !== null && value !== '') fill[key] = value;
+		}
+		if (Object.keys(fill).length > 0) {
+			await db.update(userBooks).set({ ...fill, updatedAt: now }).where(eq(userBooks.id, existing.id));
 		}
 	}
 

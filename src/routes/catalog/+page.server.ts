@@ -7,7 +7,7 @@ import { getNarrators } from '$lib/server/services/narratorService';
 import { getFormats } from '$lib/server/services/formatService';
 import { getStatuses } from '$lib/server/services/statusService';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
 	const tab = url.searchParams.get('tab') || 'authors';
 	const search = url.searchParams.get('search') || '';
 	const page = parseInt(url.searchParams.get('page') || '1');
@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 	switch (tab) {
 		case 'authors': {
-			const result = await getAuthors({ search, page, limit });
+			const result = await getAuthors({ search, page, limit, userId: locals.user?.id });
 			items = result.items;
 			total = result.total;
 			break;
@@ -37,7 +37,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			break;
 		}
 		case 'series': {
-			const result = await getAllSeries({ search, page, limit });
+			const result = await getAllSeries({ search, page, limit, userId: locals.user?.id });
 			items = result.items;
 			total = result.total;
 			break;
@@ -55,7 +55,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			break;
 		}
 		case 'statuses': {
-			const statusList = await getStatuses();
+			const statusList = await getStatuses(locals.user?.id);
 			items = statusList;
 			total = statusList.length;
 			break;

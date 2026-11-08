@@ -4,6 +4,7 @@ import { eq, sql, and, desc, asc, or, like } from 'drizzle-orm';
 import { getLibraryOverview } from '$lib/server/services/statsService';
 import { createLogger } from '$lib/server/services/loggerService';
 import { getSettingAs } from '$lib/server/services/settingsService';
+import { personalCols } from '$lib/server/services/personalState';
 
 const log = createLogger('library-page');
 
@@ -66,6 +67,9 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		conditions.push(eq(books.genreId, genreId));
 	}
 
+	// Rating on the cards and the rating sort are the viewer's own, never the owner's row
+	const personal = personalCols(userId);
+
 	// Count total
 	const countQuery = db
 		.select({ count: sql<number>`count(*)` })
@@ -85,7 +89,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			title: books.title,
 			coverImageUrl: books.coverImageUrl,
 			originalCoverUrl: books.originalCoverUrl,
-			rating: books.rating,
+			rating: personal.cols.rating,
 			libraryType: books.libraryType,
 			pageCount: books.pageCount,
 			createdAt: books.createdAt,
@@ -96,6 +100,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			genreColor: genres.color
 		})
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.leftJoin(genres, eq(books.genreId, genres.id));
 
 	if (conditions.length > 0) {
@@ -103,11 +108,11 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	}
 
 	// Sort - use explicit column mapping
-	type SortableBookColumn = typeof books.title | typeof books.createdAt | typeof books.rating;
+	type SortableBookColumn = typeof books.title | typeof books.createdAt | typeof personal.cols.rating;
 	let sortColumn: SortableBookColumn;
 	switch (sortField) {
 		case 'title': sortColumn = books.title; break;
-		case 'rating': sortColumn = books.rating; break;
+		case 'rating': sortColumn = personal.cols.rating; break;
 		default: sortColumn = books.createdAt;
 	}
 	booksQuery = booksQuery

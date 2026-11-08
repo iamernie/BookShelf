@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	// Verify book exists
-	const book = await getBookById(bookId);
+	const book = await getBookById(bookId, locals.user?.id ?? null);
 	if (!book) {
 		throw error(404, 'Book not found');
 	}
@@ -76,7 +76,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	// Verify book exists
-	const book = await getBookById(bookId);
+	const book = await getBookById(bookId, locals.user?.id ?? null);
 	if (!book) {
 		throw error(404, 'Book not found');
 	}

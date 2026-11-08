@@ -375,8 +375,8 @@ export interface SeriesNextUp {
 }
 
 /**
- * Series with a member book in the user's library whose status (books.statusId, as the
- * dashboard reads it) is Currently Reading, Next or On Hold. Sorted by series title.
+ * Series with a member book in the user's library whose status (the user's own user_books row,
+ * as the dashboard reads it) is Currently Reading, Next or On Hold. Sorted by series title.
  */
 export async function getSeriesNextUp(userId: number): Promise<SeriesNextUp> {
 	const keys = await Promise.all(['CURRENT', 'NEXT', 'ON_HOLD'].map((k) => getStatusByKey(k)));
@@ -394,7 +394,7 @@ export async function getSeriesNextUp(userId: number): Promise<SeriesNextUp> {
 		.innerJoin(bookSeries, eq(bookSeries.seriesId, series.id))
 		.innerJoin(books, eq(books.id, bookSeries.bookId))
 		.innerJoin(userBooks, and(eq(userBooks.bookId, books.id), eq(userBooks.userId, userId)))
-		.where(and(inArray(books.statusId, statusIds), statusCond))
+		.where(and(inArray(userBooks.statusId, statusIds), statusCond))
 		.orderBy(sql`${series.title} COLLATE NOCASE`, asc(series.id));
 
 	for (const s of active) {
@@ -733,8 +733,8 @@ async function selectSeries(scopeSeriesId: number | null, now: number): Promise<
 	const lastAttempt = sql`MAX(COALESCE(${series.audibleRefreshedAt}, ''), COALESCE(${series.audibleCheckedAt}, ''))`;
 	const idList = activeIds.length ? sql.join(activeIds.map((id) => sql`${id}`), sql`, `) : sql`NULL`;
 	const hasActiveBook = sql`EXISTS (SELECT 1 FROM bookseries bs INNER JOIN books b ON b.id = bs.bookId
-		LEFT JOIN user_books ub ON ub.bookId = b.id
-		WHERE bs.seriesId = ${series.id} AND (b.statusId IN (${idList}) OR ub.statusId IN (${idList})))`;
+		INNER JOIN user_books ub ON ub.bookId = b.id
+		WHERE bs.seriesId = ${series.id} AND ub.statusId IN (${idList}))`;
 	const priority = sql`CASE WHEN ${hasActiveBook} AND ${lastAttempt} < ${activeCutoff} THEN 0 ELSE 1 END`;
 
 	return db

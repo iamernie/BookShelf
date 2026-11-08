@@ -1,5 +1,6 @@
 import { db, genres, books } from '$lib/server/db';
 import { eq, like, asc, desc, sql, and, or } from 'drizzle-orm';
+import { viewerBooks as vub } from './personalState';
 import type { Genre } from '$lib/server/db/schema';
 
 export interface GenreWithStats extends Genre {
@@ -77,9 +78,10 @@ export async function getGenres(options: GetGenresOptions = {}): Promise<{
 			const statsResult = await db
 				.select({
 					count: sql<number>`count(*)`,
-					avgRating: sql<number>`avg(CASE WHEN ${books.rating} > 0 THEN ${books.rating} ELSE NULL END)`
+					avgRating: sql<number>`avg(CASE WHEN ${vub.rating} > 0 THEN ${vub.rating} ELSE NULL END)`
 				})
 				.from(books)
+				.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 				.where(and(eq(books.genreId, genre.id), userLibraryCondition));
 
 			return {
@@ -116,9 +118,10 @@ export async function getGenreById(id: number, userId?: number): Promise<GenreWi
 	const statsResult = await db
 		.select({
 			count: sql<number>`count(*)`,
-			avgRating: sql<number>`avg(CASE WHEN ${books.rating} > 0 THEN ${books.rating} ELSE NULL END)`
+			avgRating: sql<number>`avg(CASE WHEN ${vub.rating} > 0 THEN ${vub.rating} ELSE NULL END)`
 		})
 		.from(books)
+		.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(eq(books.genreId, id), userLibraryCondition));
 
 	return {
@@ -205,9 +208,10 @@ export async function getBooksInGenre(genreId: number, userId?: number): Promise
 			id: books.id,
 			title: books.title,
 			coverImageUrl: books.coverImageUrl,
-			rating: books.rating
+			rating: vub.rating
 		})
 		.from(books)
+		.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(eq(books.genreId, genreId), userLibraryCondition))
 		.orderBy(asc(books.title));
 }

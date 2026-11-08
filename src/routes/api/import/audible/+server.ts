@@ -273,9 +273,6 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 				narratorId,
 				genreId: bookData.genreId || null,
 				formatId,
-				statusId: bookData.statusId || null,
-				startReadingDate,
-				completedDate,
 				coverImageUrl,
 				originalCoverUrl,
 				asin: bookData.asin || null,
@@ -286,7 +283,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 
 			const bookId = newBook[0].id;
 
-			// Add book to user's personal library (user_books table)
+			// Add book to user's personal library (user_books table), which holds their reading state
 			await db.insert(userBooks).values({
 				userId: locals.user.id,
 				bookId,

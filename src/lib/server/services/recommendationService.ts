@@ -5,9 +5,27 @@
 
 import { db } from '$lib/server/db';
 import { books, authors, series, genres, bookAuthors, bookSeries, settings } from '$lib/server/db/schema';
-import { eq, ne, desc, sql, and, isNull, isNotNull, notInArray, inArray, gt } from 'drizzle-orm';
+import { eq, ne, desc, sql, and, isNull, isNotNull, notInArray, inArray, gt, type SQL } from 'drizzle-orm';
 import { createLogger } from './loggerService';
 import { getStatusByKey } from './statusService';
+import { viewerBooks as vub, writePersonal } from './personalState';
+
+/**
+ * Everything here is one viewer's: taste comes from their own user_books rows (status, rating),
+ * candidates are books they can reach (ownerless, public, their own, or shared with them). No
+ * other member's rating or reading ever shapes a list or reaches an AI prompt.
+ */
+function viewerJoin(userId: number) {
+	return and(eq(vub.bookId, books.id), eq(vub.userId, userId));
+}
+function reachable(userId: number) {
+	return sql`(${books.ownerId} IS NULL OR ${books.libraryType} = 'public' OR ${books.ownerId} = ${userId}
+		OR ${books.ownerId} IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId}))`;
+}
+/** Not Done for the viewer (no row, or a row with another status) */
+function notReadBy(): SQL {
+	return sql`(${vub.statusId} IS NULL OR ${vub.statusId} != ${STATUS_READ})`;
+}
 
 const log = createLogger('recommendations');
 
@@ -165,20 +183,21 @@ export async function testAIConnection(apiKey: string): Promise<{ success: boole
 /**
  * Get top rated books for AI context
  */
-async function getTopRatedBooks(limit: number = 20) {
+async function getTopRatedBooks(userId: number, limit: number = 20) {
 	const result = await db
 		.select({
 			id: books.id,
 			title: books.title,
-			rating: books.rating,
+			rating: vub.rating,
 			authorName: authors.name,
 			genreName: genres.name
 		})
 		.from(books)
+		.innerJoin(vub, viewerJoin(userId))
 		.leftJoin(authors, eq(books.authorId, authors.id))
 		.leftJoin(genres, eq(books.genreId, genres.id))
-		.where(eq(books.statusId, STATUS_READ))
-		.orderBy(desc(books.rating), desc(books.completedDate))
+		.where(eq(vub.statusId, STATUS_READ))
+		.orderBy(desc(vub.rating), desc(vub.completedDate))
 		.limit(limit);
 
 	return result;
@@ -188,6 +207,7 @@ async function getTopRatedBooks(limit: number = 20) {
  * Get AI-powered recommendations
  */
 export async function getAIRecommendations(
+	userId: number,
 	limit: number = 10
 ): Promise<{ recommendations: AIRecommendation[]; model: string; basedOnBooks: number } | { error: string }> {
 	const aiSettings = await getAISettings();
@@ -201,7 +221,7 @@ export async function getAIRecommendations(
 	}
 
 	// Get user's top rated books for context
-	const topBooks = await getTopRatedBooks(20);
+	const topBooks = await getTopRatedBooks(userId, 20);
 
 	if (topBooks.length < 3) {
 		return { error: 'Need at least 3 read books for AI recommendations' };
@@ -308,7 +328,7 @@ Example format:
 /**
  * Get rule-based recommendations (no AI needed)
  */
-export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommendation[]> {
+export async function getRuleBasedRecommendations(userId: number): Promise<RuleBasedRecommendation[]> {
 	const recommendations: RuleBasedRecommendation[] = [];
 
 	// 1. Continue your series - find series with unread books
@@ -323,11 +343,14 @@ export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommenda
 			s.id as seriesId,
 			s.title as seriesTitle,
 			s.numBooks as totalBooks,
-			(SELECT COUNT(*) FROM books b WHERE b.seriesId = s.id AND b.statusId = ${STATUS_READ}) as readCount
+			(SELECT COUNT(*) FROM books b JOIN user_books ub ON ub.bookId = b.id AND ub.userId = ${userId}
+				WHERE b.seriesId = s.id AND ub.statusId = ${STATUS_READ}) as readCount
 		FROM series s
 		WHERE s.numBooks IS NOT NULL
-		AND (SELECT COUNT(*) FROM books b WHERE b.seriesId = s.id AND b.statusId = ${STATUS_READ}) > 0
-		AND (SELECT COUNT(*) FROM books b WHERE b.seriesId = s.id AND b.statusId = ${STATUS_READ}) < s.numBooks
+		AND (SELECT COUNT(*) FROM books b JOIN user_books ub ON ub.bookId = b.id AND ub.userId = ${userId}
+			WHERE b.seriesId = s.id AND ub.statusId = ${STATUS_READ}) > 0
+		AND (SELECT COUNT(*) FROM books b JOIN user_books ub ON ub.bookId = b.id AND ub.userId = ${userId}
+			WHERE b.seriesId = s.id AND ub.statusId = ${STATUS_READ}) < s.numBooks
 		LIMIT 5
 	`);
 
@@ -342,8 +365,9 @@ export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommenda
 				authorName: authors.name
 			})
 			.from(books)
+			.leftJoin(vub, viewerJoin(userId))
 			.leftJoin(authors, eq(books.authorId, authors.id))
-			.where(and(eq(books.seriesId, sp.seriesId), ne(books.statusId, STATUS_READ)))
+			.where(and(eq(books.seriesId, sp.seriesId), notReadBy(), reachable(userId)))
 			.orderBy(books.bookNum)
 			.limit(3);
 
@@ -368,13 +392,14 @@ export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommenda
 		.select({
 			authorId: authors.id,
 			authorName: authors.name,
-			avgRating: sql<number>`AVG(${books.rating})`
+			avgRating: sql<number>`AVG(${vub.rating})`
 		})
 		.from(books)
+		.innerJoin(vub, viewerJoin(userId))
 		.innerJoin(authors, eq(books.authorId, authors.id))
-		.where(and(eq(books.statusId, STATUS_READ), gt(books.rating, 3)))
+		.where(and(eq(vub.statusId, STATUS_READ), gt(vub.rating, 3)))
 		.groupBy(authors.id)
-		.orderBy(desc(sql`AVG(${books.rating})`))
+		.orderBy(desc(sql`AVG(${vub.rating})`))
 		.limit(5);
 
 	for (const author of topAuthors) {
@@ -387,8 +412,9 @@ export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommenda
 				bookNum: books.bookNum
 			})
 			.from(books)
+			.leftJoin(vub, viewerJoin(userId))
 			.leftJoin(series, eq(books.seriesId, series.id))
-			.where(and(eq(books.authorId, author.authorId), ne(books.statusId, STATUS_READ)))
+			.where(and(eq(books.authorId, author.authorId), notReadBy(), reachable(userId)))
 			.limit(4);
 
 		if (unreadBooks.length > 0) {
@@ -416,8 +442,9 @@ export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommenda
 			bookCount: sql<number>`COUNT(*)`
 		})
 		.from(books)
+		.innerJoin(vub, viewerJoin(userId))
 		.innerJoin(genres, eq(books.genreId, genres.id))
-		.where(eq(books.statusId, STATUS_READ))
+		.where(eq(vub.statusId, STATUS_READ))
 		.groupBy(genres.id)
 		.orderBy(desc(sql`COUNT(*)`))
 		.limit(3);
@@ -432,10 +459,11 @@ export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommenda
 				seriesTitle: series.title
 			})
 			.from(books)
+			.leftJoin(vub, viewerJoin(userId))
 			.leftJoin(authors, eq(books.authorId, authors.id))
 			.leftJoin(series, eq(books.seriesId, series.id))
-			.where(and(eq(books.genreId, genre.genreId), ne(books.statusId, STATUS_READ)))
-			.orderBy(desc(books.rating))
+			.where(and(eq(books.genreId, genre.genreId), notReadBy(), reachable(userId)))
+			.orderBy(desc(books.providerRating))
 			.limit(4);
 
 		if (unreadBooks.length > 0) {
@@ -461,7 +489,7 @@ export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommenda
  * Get books similar to a specific book
  * Based on shared authors, series, genres, and tags
  */
-export async function getSimilarBooks(bookId: number, limit: number = 8): Promise<{
+export async function getSimilarBooks(bookId: number, limit: number = 8, userId: number): Promise<{
 	id: number;
 	title: string;
 	coverImageUrl: string | null;
@@ -523,22 +551,25 @@ export async function getSimilarBooks(bookId: number, limit: number = 8): Promis
 			b.title,
 			b.coverImageUrl,
 			a.name as authorName,
-			b.rating,
+			vub.rating,
 			(
 				CASE WHEN b.seriesId IN (${seriesIds.length > 0 ? sql.join(seriesIds.map(id => sql`${id}`), sql`, `) : sql`-1`}) THEN 10 ELSE 0 END +
 				CASE WHEN b.authorId IN (${authorIds.length > 0 ? sql.join(authorIds.map(id => sql`${id}`), sql`, `) : sql`-1`}) THEN 5 ELSE 0 END +
 				CASE WHEN b.genreId = ${source.genreId} AND ${source.genreId} IS NOT NULL THEN 3 ELSE 0 END +
-				CASE WHEN b.rating >= 4 THEN 2 ELSE 0 END
+				CASE WHEN vub.rating >= 4 THEN 2 ELSE 0 END
 			) as relevanceScore
 		FROM books b
 		LEFT JOIN authors a ON b.authorId = a.id
+		LEFT JOIN user_books vub ON vub.bookId = b.id AND vub.userId = ${userId}
 		WHERE b.id != ${bookId}
+		AND (b.ownerId IS NULL OR b.libraryType = 'public' OR b.ownerId = ${userId}
+			OR b.ownerId IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId}))
 		AND (
 			b.seriesId IN (${seriesIds.length > 0 ? sql.join(seriesIds.map(id => sql`${id}`), sql`, `) : sql`-1`})
 			OR b.authorId IN (${authorIds.length > 0 ? sql.join(authorIds.map(id => sql`${id}`), sql`, `) : sql`-1`})
 			OR (b.genreId = ${source.genreId} AND ${source.genreId} IS NOT NULL)
 		)
-		ORDER BY relevanceScore DESC, b.rating DESC NULLS LAST
+		ORDER BY relevanceScore DESC, vub.rating DESC NULLS LAST
 		LIMIT ${limit}
 	`);
 
@@ -556,6 +587,7 @@ export async function getSimilarBooks(bookId: number, limit: number = 8): Promis
  */
 export async function getAIRecommendationsForBook(
 	bookId: number,
+	userId: number,
 	limit: number = 5
 ): Promise<{ recommendations: AIRecommendation[]; model: string } | { error: string }> {
 	const aiSettings = await getAISettings();
@@ -578,9 +610,10 @@ export async function getAIRecommendationsForBook(
 			bookNum: books.bookNum,
 			genreName: genres.name,
 			summary: books.summary,
-			rating: books.rating
+			rating: vub.rating
 		})
 		.from(books)
+		.leftJoin(vub, viewerJoin(userId))
 		.leftJoin(authors, eq(books.authorId, authors.id))
 		.leftJoin(series, eq(books.seriesId, series.id))
 		.leftJoin(genres, eq(books.genreId, genres.id))
@@ -728,7 +761,7 @@ export async function addRecommendationToLibrary(data: {
 	title: string;
 	author: string;
 	genre?: string;
-}): Promise<{ success: boolean; bookId?: number; error?: string }> {
+}, userId: number): Promise<{ success: boolean; bookId?: number; error?: string }> {
 	try {
 		// Check if book already exists
 		const existing = await db
@@ -778,18 +811,20 @@ export async function addRecommendationToLibrary(data: {
 
 		const statusId = await getRecommendationStatusId();
 
-		// Create the book
+		// Create the book in the user's own library; the status is their own reading record
 		const [newBook] = await db
 			.insert(books)
 			.values({
 				title: data.title,
 				authorId,
 				genreId,
-				statusId,
+				libraryType: 'personal',
+				ownerId: userId,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString()
 			})
 			.returning({ id: books.id });
+		await writePersonal(userId, newBook.id, { statusId });
 
 		// Link author via junction table
 		if (authorId) {

@@ -7,6 +7,7 @@ import { db, books, authors, series, statuses, bookAuthors, bookSeries, genres, 
 import { eq, sql, desc, asc, and, isNotNull, isNull, ne, or, count, inArray, notInArray } from 'drizzle-orm';
 import { currentYearInAppTz } from '$lib/server/utils/appTime';
 import { getBooksCardData } from './bookService';
+import { viewerBooks as vub } from './personalState';
 import { getGoalForDashboard } from './goalsService';
 import { getDashboardConfig, getEnabledSections, type DashboardConfig, type DashboardSection, type FilterConfig } from './userPreferencesService';
 import { getShelfBooks } from './magicShelfService';
@@ -65,6 +66,11 @@ function getUserLibraryCondition(userId?: number) {
 
 	// Filter to books in user's personal library (user_books table)
 	return sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`;
+}
+
+// The viewer's own user_books row, joined as vub wherever a personal field is read
+function vubOn(userId?: number) {
+	return and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1));
 }
 
 // Get status ID by key
@@ -127,34 +133,34 @@ export async function getStatsOverview(userId?: number): Promise<StatsOverview> 
 		readBooksCountRes
 	] = await Promise.all([
 		db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).where(libCond),
-		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
-			.where(and(eq(books.statusId, readStatusId), sql`${books.completedDate} LIKE ${yearPattern}`, libCond))
+		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(eq(vub.statusId, readStatusId), sql`${vub.completedDate} LIKE ${yearPattern}`, libCond))
 			: Promise.resolve([{ count: 0 }]),
-		currentStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
-			.where(and(eq(books.statusId, currentStatusId), libCond))
+		currentStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(eq(vub.statusId, currentStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
 		// TBR = NEXT status
-		nextStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
-			.where(and(eq(books.statusId, nextStatusId), libCond))
+		nextStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(eq(vub.statusId, nextStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
 		db.select({ count: sql<number>`count(*)` }).from(authors),
 		db.select({ count: sql<number>`count(*)` }).from(series),
-		db.select({ avg: sql<number>`avg(rating)` }).from(books)
-			.where(and(isNotNull(books.rating), sql`rating > 0`, libCond)),
-		db.select({ total: sql<number>`coalesce(sum(pageCount), 0)` }).from(books)
-			.where(and(readStatusId ? eq(books.statusId, readStatusId) : sql`1=1`, libCond)),
-		readStatusId ? db.select({ total: sql<number>`coalesce(sum(pageCount), 0)` }).from(books)
-			.where(and(eq(books.statusId, readStatusId), sql`${books.completedDate} LIKE ${yearPattern}`, libCond))
+		db.select({ avg: sql<number>`avg(${vub.rating})` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(isNotNull(vub.rating), sql`${vub.rating} > 0`, libCond)),
+		db.select({ total: sql<number>`coalesce(sum(pageCount), 0)` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(readStatusId ? eq(vub.statusId, readStatusId) : sql`1=1`, libCond)),
+		readStatusId ? db.select({ total: sql<number>`coalesce(sum(pageCount), 0)` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(eq(vub.statusId, readStatusId), sql`${vub.completedDate} LIKE ${yearPattern}`, libCond))
 			: Promise.resolve([{ total: 0 }]),
 		// DNF count
-		dnfStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
-			.where(and(eq(books.statusId, dnfStatusId), libCond))
+		dnfStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(eq(vub.statusId, dnfStatusId), libCond))
 			: Promise.resolve([{ count: 0 }]),
 		// Total narrators (system-wide)
 		db.select({ count: sql<number>`count(*)` }).from(narrators),
 		// Count of completed books (for DNF rate calculation)
-		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
-			.where(and(eq(books.statusId, readStatusId), libCond))
+		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, vubOn(userId))
+			.where(and(eq(vub.statusId, readStatusId), libCond))
 			: Promise.resolve([{ count: 0 }])
 	]);
 
@@ -273,23 +279,21 @@ export async function getMonthlyReadingData(userId?: number, year?: number): Pro
 		return getEmptyMonthlyData();
 	}
 
-	// Build library condition for user filtering (same as getStatsOverview)
-	const libCond = userId
-		? or(eq(books.ownerId, userId), isNull(books.ownerId))
-		: sql`1=1`;
+	// The viewer's own completions (same library condition as getStatsOverview)
+	const libCond = getUserLibraryCondition(userId);
 
 	// Query books table for completed books this year (consistent with readThisYear stat)
 	const result = await db.select({
-		month: sql<string>`strftime('%m', ${books.completedDate})`,
+		month: sql<string>`strftime('%m', ${vub.completedDate})`,
 		count: sql<number>`count(*)`
 	})
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(and(
-			eq(books.statusId, readStatusId),
-			sql`${books.completedDate} LIKE ${yearPattern}`,
+			eq(vub.statusId, readStatusId),
+			sql`${vub.completedDate} LIKE ${yearPattern}`,
 			libCond
 		))
-		.groupBy(sql`strftime('%m', ${books.completedDate})`);
+		.groupBy(sql`strftime('%m', ${vub.completedDate})`);
 
 	return buildMonthlyData(result);
 }
@@ -358,8 +362,8 @@ export async function getTopAuthors(userId?: number, limit = 5): Promise<TopAuth
 			if (readStatusId) {
 				const readRes = await db.select({ count: sql<number>`count(distinct ${bookAuthors.bookId})` })
 					.from(bookAuthors)
-					.innerJoin(books, eq(bookAuthors.bookId, books.id))
-					.where(and(eq(bookAuthors.authorId, a.id), eq(books.statusId, readStatusId), libCond));
+					.innerJoin(books, eq(bookAuthors.bookId, books.id)).leftJoin(vub, vubOn(userId))
+					.where(and(eq(bookAuthors.authorId, a.id), eq(vub.statusId, readStatusId), libCond));
 				readCount = readRes[0]?.count ?? 0;
 			}
 			return { ...a, readCount };
@@ -405,8 +409,8 @@ export async function getTopNarrators(userId?: number, limit = 5): Promise<TopNa
 			let listenedCount = 0;
 			if (readStatusId) {
 				const listenedRes = await db.select({ count: sql<number>`count(distinct ${books.id})` })
-					.from(books)
-					.where(and(eq(books.narratorId, n.id), eq(books.statusId, readStatusId), libCond));
+					.from(books).leftJoin(vub, vubOn(userId))
+					.where(and(eq(books.narratorId, n.id), eq(vub.statusId, readStatusId), libCond));
 				listenedCount = listenedRes[0]?.count ?? 0;
 			}
 			return { ...n, listenedCount };
@@ -434,11 +438,11 @@ export async function getHighestRatedBook(userId?: number): Promise<HighestRated
 		id: books.id,
 		title: books.title,
 		coverImageUrl: books.coverImageUrl,
-		rating: books.rating
+		rating: vub.rating
 	})
-		.from(books)
-		.where(and(isNotNull(books.rating), sql`${books.rating} > 0`, libCond))
-		.orderBy(desc(books.rating), desc(books.updatedAt))
+		.from(books).leftJoin(vub, vubOn(userId))
+		.where(and(isNotNull(vub.rating), sql`${vub.rating} > 0`, libCond))
+		.orderBy(desc(vub.rating), desc(books.updatedAt))
 		.limit(1);
 
 	if (result.length === 0) return null;
@@ -471,12 +475,13 @@ export async function getContinueReading(userId?: number, limit = 6): Promise<Bo
 	if (!currentStatusId) return [];
 
 	const bookIds = await db.select({ id: books.id })
-		.from(books)
-		.where(and(eq(books.statusId, currentStatusId), libCond))
-		.orderBy(desc(books.updatedAt))
+		.from(books).leftJoin(vub, vubOn(userId))
+		.where(and(eq(vub.statusId, currentStatusId), libCond))
+		// A status change touches the viewer's row, a catalog edit the book: the later of the two
+		.orderBy(desc(sql`MAX(COALESCE(${vub.updatedAt}, ''), COALESCE(${books.updatedAt}, ''))`))
 		.limit(limit);
 
-	return getBooksCardData(bookIds.map(b => b.id));
+	return getBooksCardData(bookIds.map(b => b.id), userId ?? null);
 }
 
 // ============================================
@@ -491,7 +496,7 @@ export async function getRecentlyAdded(userId?: number, limit = 12): Promise<Boo
 		.orderBy(desc(books.createdAt))
 		.limit(limit);
 
-	return getBooksCardData(bookIds.map(b => b.id));
+	return getBooksCardData(bookIds.map(b => b.id), userId ?? null);
 }
 
 // ============================================
@@ -504,17 +509,17 @@ export async function getRecentlyCompleted(userId?: number, limit = 6): Promise<
 	if (!readStatusId) return [];
 
 	const bookIds = await db.select({ id: books.id })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(and(
-			eq(books.statusId, readStatusId),
-			isNotNull(books.completedDate),
-			ne(books.completedDate, ''),
+			eq(vub.statusId, readStatusId),
+			isNotNull(vub.completedDate),
+			ne(vub.completedDate, ''),
 			libCond
 		))
-		.orderBy(desc(books.completedDate))
+		.orderBy(desc(vub.completedDate))
 		.limit(limit);
 
-	return getBooksCardData(bookIds.map(b => b.id));
+	return getBooksCardData(bookIds.map(b => b.id), userId ?? null);
 }
 
 // ============================================
@@ -543,13 +548,8 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 
 	if (!readStatusId) return [];
 
-	// Same library filter the /series page uses for its card counts (seriesService.getSeries)
-	const seriesPageLibCond = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	// Same library filter the /series page uses for its card counts (seriesService.getSeries): the viewer's own books
+	const seriesPageLibCond = libCond;
 
 	// Series set to DNF or Parked are skipped; a series with no status still counts
 	const excluded = await getExcludedSeriesStatusIds();
@@ -562,8 +562,8 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 	})
 		.from(bookSeries)
 		.innerJoin(series, eq(bookSeries.seriesId, series.id))
-		.innerJoin(books, eq(bookSeries.bookId, books.id))
-		.where(and(eq(books.statusId, readStatusId), libCond, statusCond))
+		.innerJoin(books, eq(bookSeries.bookId, books.id)).leftJoin(vub, vubOn(userId))
+		.where(and(eq(vub.statusId, readStatusId), libCond, statusCond))
 		.limit(50); // Check up to 50 series
 
 	const results: UpNextInSeries[] = [];
@@ -574,10 +574,10 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 			bookId: books.id,
 			bookNum: bookSeries.bookNum,
 			title: books.title,
-			statusId: books.statusId
+			statusId: vub.statusId
 		})
 			.from(bookSeries)
-			.innerJoin(books, eq(bookSeries.bookId, books.id))
+			.innerJoin(books, eq(bookSeries.bookId, books.id)).leftJoin(vub, vubOn(userId))
 			.where(and(eq(bookSeries.seriesId, s.seriesId), libCond))
 			.orderBy(asc(bookSeries.bookNum));
 
@@ -597,13 +597,13 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 			.sort((a, b) => (b.bookNum || 0) - (a.bookNum || 0))[0];
 
 		// Get full book data
-		const bookData = await getBooksCardData([nextBook.bookId]);
+		const bookData = await getBooksCardData([nextBook.bookId], userId ?? null);
 		if (bookData.length === 0) continue;
 
 		// Series-card counts, matching the /series page definition exactly
-		const seriesPageBooks = await db.select({ statusId: books.statusId })
+		const seriesPageBooks = await db.select({ statusId: vub.statusId })
 			.from(bookSeries)
-			.innerJoin(books, eq(bookSeries.bookId, books.id))
+			.innerJoin(books, eq(bookSeries.bookId, books.id)).leftJoin(vub, vubOn(userId))
 			.where(and(eq(bookSeries.seriesId, s.seriesId), seriesPageLibCond));
 
 		results.push({
@@ -638,9 +638,9 @@ export async function getRandomTbrPick(userId?: number): Promise<BookCardData | 
 
 	// Get count first
 	const countRes = await db.select({ count: sql<number>`count(*)` })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(and(
-			sql`${books.statusId} IN (${sql.join(tbrStatusIds, sql`, `)})`,
+			sql`${vub.statusId} IN (${sql.join(tbrStatusIds, sql`, `)})`,
 			libCond
 		));
 
@@ -650,9 +650,9 @@ export async function getRandomTbrPick(userId?: number): Promise<BookCardData | 
 	// Get random book
 	const randomOffset = Math.floor(Math.random() * totalCount);
 	const randomBook = await db.select({ id: books.id })
-		.from(books)
+		.from(books).leftJoin(vub, vubOn(userId))
 		.where(and(
-			sql`${books.statusId} IN (${sql.join(tbrStatusIds, sql`, `)})`,
+			sql`${vub.statusId} IN (${sql.join(tbrStatusIds, sql`, `)})`,
 			libCond
 		))
 		.limit(1)
@@ -660,7 +660,7 @@ export async function getRandomTbrPick(userId?: number): Promise<BookCardData | 
 
 	if (randomBook.length === 0) return null;
 
-	const bookData = await getBooksCardData([randomBook[0].id]);
+	const bookData = await getBooksCardData([randomBook[0].id], userId ?? null);
 	return bookData[0] || null;
 }
 
@@ -753,7 +753,7 @@ export async function getSmartCollectionBooks(
 			const result = await getShelfBooks(section.shelfId, { userId, limit });
 
 			// getShelfBooks returns raw book rows; enrich with author/series/etc. (order preserved)
-			const shelfBooks = await getBooksCardData((result?.books || []).map(b => b.id));
+			const shelfBooks = await getBooksCardData((result?.books || []).map(b => b.id), userId ?? null);
 
 			return {
 				books: shelfBooks,

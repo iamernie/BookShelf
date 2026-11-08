@@ -9,7 +9,8 @@ import { validateWidgetToken, isApiEnabled } from '$lib/server/services/widgetSe
 import { createBook, AbsItemAlreadyLinkedError, type CreateBookData } from '$lib/server/services/bookService';
 import { findOrCreateNarratorByName } from '$lib/server/services/narratorService';
 import { db, books, authors, series, bookAuthors, bookSeries, bookTags, tags, statuses, genres, formats, narrators, users } from '$lib/server/db';
-import { eq, sql, desc, and, inArray, isNull } from 'drizzle-orm';
+import { eq, sql, desc, asc, and, inArray, isNull } from 'drizzle-orm';
+import { personalCols, overlayPersonal } from '$lib/server/services/personalState';
 
 // Helper to validate token and check API enabled
 async function validateRequest(token: string | null): Promise<{ valid: boolean; error?: string; status?: number }> {
@@ -22,11 +23,15 @@ async function validateRequest(token: string | null): Promise<{ valid: boolean; 
 	return { valid: true };
 }
 
-// Get default user ID (first admin user) for API operations
+/**
+ * The API's fixed identity: the first admin (lowest id, as statusService's getDefaultOwnerId).
+ * Every v1 personal-field read and write (status, rating, notes, dates) is this user's own.
+ */
 async function getDefaultUserId(): Promise<number | null> {
 	const [user] = await db.select({ id: users.id })
 		.from(users)
 		.where(eq(users.role, 'admin'))
+		.orderBy(asc(users.id))
 		.limit(1);
 	return user?.id ?? null;
 }
@@ -49,6 +54,10 @@ export const GET: RequestHandler = async ({ url }) => {
 	const absLinked = url.searchParams.get('absLinked') === 'false' ? false : undefined;
 
 	try {
+		// Personal fields and the status filter are the API user's own
+		const apiUserId = await getDefaultUserId();
+		const personal = personalCols(apiUserId);
+
 		// Build conditions
 		const conditions = [];
 
@@ -67,7 +76,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				.where(sql`LOWER(${statuses.name}) = LOWER(${statusFilter})`)
 				.limit(1);
 			if (status[0]) {
-				conditions.push(eq(books.statusId, status[0].id));
+				conditions.push(eq(personal.cols.statusId, status[0].id));
 			}
 		}
 
@@ -102,14 +111,15 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		// Get total count
-		const [countResult] = conditions.length > 0
-			? await db.select({ count: sql<number>`count(*)` }).from(books).where(and(...conditions))
-			: await db.select({ count: sql<number>`count(*)` }).from(books);
+		const where = conditions.length > 0 ? and(...conditions) : undefined;
+		const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(books)
+			.leftJoin(personal.table, personal.on).where(where);
 
 		// Get books
-		const booksList = conditions.length > 0
-			? await db.select().from(books).where(and(...conditions)).orderBy(desc(books.updatedAt)).limit(limit).offset(offset)
-			: await db.select().from(books).orderBy(desc(books.updatedAt)).limit(limit).offset(offset);
+		const pageRows = await db.select({ book: books }).from(books)
+			.leftJoin(personal.table, personal.on).where(where)
+			.orderBy(desc(books.updatedAt)).limit(limit).offset(offset);
+		const booksList = await overlayPersonal(pageRows.map((r) => r.book), apiUserId);
 
 		// Fetch all relations in parallel for each book
 		const booksWithDetails = await Promise.all(booksList.map(async (book) => {
@@ -319,7 +329,8 @@ export const POST: RequestHandler = async ({ url, request }) => {
 			tagIds: body.tagIds    // Array of tag IDs
 		};
 
-		const newBook = await createBook(bookData);
+		// Personal fields in the body (the pipeline's rating, a status) land on the API user's own row
+		const newBook = await createBook(bookData, ownerId);
 
 		return json({
 			book: { id: newBook.id, title: newBook.title },

@@ -7,7 +7,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
-import { books } from '$lib/server/db/schema';
+import { books, userBooks } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { canModifyBook } from '$lib/server/services/libraryShareService';
@@ -57,6 +57,9 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 			updatedAt: new Date().toISOString()
 		})
 		.where(eq(books.id, bookId));
+
+	// Every reader's saved position was in the removed file
+	await db.update(userBooks).set({ readingPosition: null }).where(eq(userBooks.bookId, bookId));
 
 	clearEbookHashes(bookId);
 

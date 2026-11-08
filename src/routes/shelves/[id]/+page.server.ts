@@ -38,7 +38,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 	// getShelfBooks returns raw book rows; enrich this page with author/series/status/etc. (order preserved)
 	const rawBooks = result?.books || [];
-	const cardData = await getBooksCardData(rawBooks.map(b => b.id));
+	const cardData = await getBooksCardData(rawBooks.map(b => b.id), locals.user?.id ?? null);
 	const cardMap = new Map(cardData.map(b => [b.id, b]));
 	const books = rawBooks.map(b => ({ ...b, ...cardMap.get(b.id) }));
 

@@ -484,7 +484,7 @@ async function setupPass(ctx: RunContext): Promise<void> {
 
 interface Scope {
 	index: MatchIndex;
-	/** Books the owner owns (status sync moves books.statusId for these) */
+	/** Books the owner owns (status sync moves the owner's own user_books row for these) */
 	ownedIds: Set<number>;
 	/** Books by id, for pushback and status sync */
 	byId: Map<number, MatchBook>;
@@ -992,9 +992,10 @@ async function statusPass(ctx: RunContext, scope: Scope): Promise<void> {
 	const linkedIds = [...scope.byId.values()].filter((b) => b.id > 0 && b.absItemId).map((b) => b.id);
 	if (linkedIds.length === 0) return;
 
-	// Re-read link + status: the match pass may have linked books in this run
+	// Re-read link + status: the match pass may have linked books in this run. Status is always the
+	// sync owner's own record (user_books), for owned books too
 	const [rows, ownerRows] = await Promise.all([
-		db.select({ id: books.id, title: books.title, absItemId: books.absItemId, statusId: books.statusId, absWritebackItemId: books.absWritebackItemId })
+		db.select({ id: books.id, title: books.title, absItemId: books.absItemId, absWritebackItemId: books.absWritebackItemId })
 			.from(books).where(and(inArray(books.id, linkedIds), isNotNull(books.absItemId))),
 		db.select({ bookId: userBooks.bookId, statusId: userBooks.statusId })
 			.from(userBooks).where(and(eq(userBooks.userId, ctx.owner.id), inArray(userBooks.bookId, linkedIds)))
@@ -1005,10 +1006,10 @@ async function statusPass(ctx: RunContext, scope: Scope): Promise<void> {
 		const raw = progressByItem.get(book.absItemId as string);
 		if (!raw) continue;
 
-		// Owned books move as a whole; other books in the owner's library move only the owner's record
+		// Owned books and other books in the owner's library both move only the owner's record
 		const owned = scope.ownedIds.has(book.id);
 		if (!owned && !ownerStatus.has(book.id)) continue;
-		const statusNow = owned ? book.statusId : ownerStatus.get(book.id) ?? null;
+		const statusNow = ownerStatus.get(book.id) ?? null;
 
 		// Done stays Done, whatever ABS says now
 		if (done && statusNow === done.id) continue;

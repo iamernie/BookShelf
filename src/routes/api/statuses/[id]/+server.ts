@@ -2,18 +2,18 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getStatusById, updateStatusName, getBooksByStatus } from '$lib/server/services/statusService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, { message: 'Invalid status ID' });
 	}
 
-	const status = await getStatusById(id);
+	const status = await getStatusById(id, locals.user?.id);
 	if (!status) {
 		throw error(404, { message: 'Status not found' });
 	}
 
-	const books = await getBooksByStatus(id);
+	const books = await getBooksByStatus(id, locals.user?.id);
 
 	return json({ status, books });
 };

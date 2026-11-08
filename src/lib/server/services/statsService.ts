@@ -2,6 +2,7 @@ import { db, books, authors, series, genres, narrators, tags, statuses, bookAuth
 import { eq, sql, desc, asc, and, isNotNull, ne, gte, lt, or } from 'drizzle-orm';
 import { toLocalDate } from '$lib/utils/date';
 import { currentYearInAppTz } from '$lib/server/utils/appTime';
+import { viewerBooks as vub } from './personalState';
 
 // Status key constants (match V1 system statuses)
 const STATUS_KEYS = {
@@ -75,18 +76,18 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 		totalTagsResult,
 		booksReadThisYearResult
 	] = await Promise.all([
-		db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).where(userLibraryCondition),
-		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).where(and(eq(books.statusId, readStatusId), userLibraryCondition)) : Promise.resolve([{ count: 0 }]),
+		db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1))).where(userLibraryCondition),
+		readStatusId ? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1))).where(and(eq(vub.statusId, readStatusId), userLibraryCondition)) : Promise.resolve([{ count: 0 }]),
 		db.select({ count: sql<number>`count(*)` }).from(series),
 		db.select({ count: sql<number>`count(*)` }).from(authors),
 		db.select({ count: sql<number>`count(*)` }).from(narrators),
 		db.select({ count: sql<number>`count(*)` }).from(tags),
 		readStatusId
-			? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books)
+			? db.select({ count: sql<number>`COALESCE(SUM(COALESCE(booksContained, 1)), 0)` }).from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 				.where(and(
-					eq(books.statusId, readStatusId),
-					gte(books.completedDate, yearStart),
-					lt(books.completedDate, yearEnd),
+					eq(vub.statusId, readStatusId),
+					gte(vub.completedDate, yearStart),
+					lt(vub.completedDate, yearEnd),
 					userLibraryCondition
 				))
 			: Promise.resolve([{ count: 0 }])
@@ -105,13 +106,13 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 
 	// Average rating (for read or DNF books in user's library)
 	const avgRatingResult = await db.select({
-		avgRating: sql<number>`avg(rating)`
-	}).from(books).where(
+		avgRating: sql<number>`avg(${vub.rating})`
+	}).from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1))).where(
 		and(
-			isNotNull(books.rating),
-			sql`rating > 0`,
+			isNotNull(vub.rating),
+			sql`${vub.rating} > 0`,
 			readStatusId && dnfStatusId
-				? sql`statusId IN (${readStatusId}, ${dnfStatusId})`
+				? sql`${vub.statusId} IN (${readStatusId}, ${dnfStatusId})`
 				: sql`1=1`,
 			userLibraryCondition
 		)
@@ -166,31 +167,32 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 	// Latest read book (in user's library)
 	let latestReadBook = null;
 	if (readStatusId) {
-		const latestResult = await db.select()
-			.from(books)
+		const latestResult = await db.select({ book: books, completedDate: vub.completedDate })
+			.from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 			.where(and(
-				eq(books.statusId, readStatusId),
-				isNotNull(books.completedDate),
-				ne(books.completedDate, ''),
+				eq(vub.statusId, readStatusId),
+				isNotNull(vub.completedDate),
+				ne(vub.completedDate, ''),
 				userLibraryCondition
 			))
-			.orderBy(desc(books.completedDate))
+			.orderBy(desc(vub.completedDate))
 			.limit(1);
 
 		if (latestResult[0]) {
+			const latest = { ...latestResult[0].book, completedDate: latestResult[0].completedDate };
 			// Get primary author
 			const authorResult = await db.select({ name: authors.name })
 				.from(bookAuthors)
 				.innerJoin(authors, eq(bookAuthors.authorId, authors.id))
-				.where(eq(bookAuthors.bookId, latestResult[0].id))
+				.where(eq(bookAuthors.bookId, latest.id))
 				.orderBy(desc(bookAuthors.isPrimary), asc(bookAuthors.displayOrder))
 				.limit(1);
 
 			latestReadBook = {
-				id: latestResult[0].id,
-				title: latestResult[0].title,
-				coverImageUrl: latestResult[0].coverImageUrl,
-				completedDate: latestResult[0].completedDate,
+				id: latest.id,
+				title: latest.title,
+				coverImageUrl: latest.coverImageUrl,
+				completedDate: latest.completedDate,
 				author: authorResult[0]?.name || null
 			};
 		}
@@ -198,17 +200,17 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 
 	// Monthly reading data for current year (in user's library)
 	const monthlyStatsResult = await db.select({
-		month: sql<string>`strftime('%m', completedDate)`,
+		month: sql<string>`strftime('%m', ${vub.completedDate})`,
 		count: sql<number>`count(*)`
 	})
-		.from(books)
+		.from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(
-			readStatusId ? eq(books.statusId, readStatusId) : sql`1=1`,
-			gte(books.completedDate, yearStart),
-			lt(books.completedDate, yearEnd),
+			readStatusId ? eq(vub.statusId, readStatusId) : sql`1=1`,
+			gte(vub.completedDate, yearStart),
+			lt(vub.completedDate, yearEnd),
 			userLibraryCondition
 		))
-		.groupBy(sql`strftime('%m', completedDate)`);
+		.groupBy(sql`strftime('%m', ${vub.completedDate})`);
 
 	const monthlyData = Array(12).fill(0);
 	for (const stat of monthlyStatsResult) {
@@ -223,10 +225,10 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 		id: statuses.id,
 		name: statuses.name,
 		color: statuses.color,
-		count: sql<number>`count(${books.id})`
+		count: sql<number>`count(${vub.id})`
 	})
 		.from(statuses)
-		.leftJoin(books, and(eq(statuses.id, books.statusId), userLibraryCondition))
+		.leftJoin(vub, and(eq(statuses.id, vub.statusId), eq(vub.userId, userId ?? -1)))
 		.groupBy(statuses.id)
 		.orderBy(asc(statuses.sortOrder));
 
@@ -262,12 +264,12 @@ export async function getDashboardStats(userId?: number): Promise<DashboardStats
 
 	// Rating distribution (in user's library)
 	const ratingDistResult = await db.select({
-		rating: books.rating,
+		rating: vub.rating,
 		count: sql<number>`count(*)`
 	})
-		.from(books)
-		.where(and(isNotNull(books.rating), sql`rating > 0`, userLibraryCondition))
-		.groupBy(books.rating);
+		.from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
+		.where(and(isNotNull(vub.rating), sql`${vub.rating} > 0`, userLibraryCondition))
+		.groupBy(vub.rating);
 
 	const ratingData = [0, 0, 0, 0, 0];
 	for (const r of ratingDistResult) {
@@ -370,16 +372,16 @@ export async function getReadingTimeline(year?: number, userId?: number): Promis
 
 	// Get all years with read books (in user's library)
 	const yearsResult = await db.selectDistinct({
-		year: sql<number>`cast(strftime('%Y', completedDate) as integer)`
+		year: sql<number>`cast(strftime('%Y', ${vub.completedDate}) as integer)`
 	})
-		.from(books)
+		.from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(
-			eq(books.statusId, readStatusId),
-			isNotNull(books.completedDate),
-			ne(books.completedDate, ''),
+			eq(vub.statusId, readStatusId),
+			isNotNull(vub.completedDate),
+			ne(vub.completedDate, ''),
 			userLibraryCondition
 		))
-		.orderBy(desc(sql`strftime('%Y', completedDate)`));
+		.orderBy(desc(sql`strftime('%Y', ${vub.completedDate})`));
 
 	const yearsWithBooks = yearsResult.map(r => r.year).filter(y => y);
 	if (yearsWithBooks.length === 0) {
@@ -390,15 +392,15 @@ export async function getReadingTimeline(year?: number, userId?: number): Promis
 	const yearStart = `${selectedYear}-01-01`;
 	const yearEnd = `${selectedYear + 1}-01-01`;
 
-	const booksForYear = await db.select()
-		.from(books)
+	const booksForYear = (await db.select({ book: books, rating: vub.rating, completedDate: vub.completedDate })
+		.from(books).leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(
-			eq(books.statusId, readStatusId),
-			gte(books.completedDate, yearStart),
-			lt(books.completedDate, yearEnd),
+			eq(vub.statusId, readStatusId),
+			gte(vub.completedDate, yearStart),
+			lt(vub.completedDate, yearEnd),
 			userLibraryCondition
 		))
-		.orderBy(desc(books.completedDate));
+		.orderBy(desc(vub.completedDate))).map((r) => ({ ...r.book, rating: r.rating, completedDate: r.completedDate }));
 
 	// Get authors and genres for each book
 	const booksWithDetails = await Promise.all(

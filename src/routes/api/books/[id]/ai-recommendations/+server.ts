@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAIRecommendationsForBook, addRecommendationToLibrary } from '$lib/server/services/recommendationService';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { canReachBook } from '$lib/server/services/libraryShareService';
 
 /**
  * GET /api/books/[id]/ai-recommendations
@@ -17,7 +18,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(400, 'Invalid book ID');
 	}
 
-	const result = await getAIRecommendationsForBook(bookId);
+	if (!(await canReachBook(locals.user.id, bookId))) {
+		throw error(404, 'Book not found');
+	}
+
+	const result = await getAIRecommendationsForBook(bookId, locals.user.id);
 
 	if ('error' in result) {
 		return json({ success: false, error: result.error }, { status: 400 });
@@ -50,7 +55,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Title and author are required');
 	}
 
-	const result = await addRecommendationToLibrary({ title, author });
+	const result = await addRecommendationToLibrary({ title, author }, locals.user.id);
 
 	if (!result.success) {
 		return json({ success: false, error: result.error, bookId: result.bookId }, { status: 400 });

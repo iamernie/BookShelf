@@ -97,7 +97,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			libraryType: isPublic ? 'public' : 'personal',
 			// Personal books are owned by the current user; public library books have no owner
 			ownerId: isPublic ? undefined : locals.user.id
-		});
+		}, locals.user.id);
 	} catch (err) {
 		// One ABS item, one book; the other book's title is only shown to users who can see it
 		if (err instanceof AbsItemAlreadyLinkedError) {

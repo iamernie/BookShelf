@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
+import { canReachBook } from '$lib/server/services/libraryShareService';
 import { getBookById } from '$lib/server/services/bookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { getSimilarBooks } from '$lib/server/services/recommendationService';
@@ -16,14 +17,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	const book = await getBookById(id);
+	// A book the viewer can't reach doesn't open; personal fields on it are the viewer's own
+	if (!locals.user || !(await canReachBook(locals.user.id, id))) {
+		throw error(404, 'Book not found');
+	}
+
+	const book = await getBookById(id, locals.user.id);
 	if (!book) {
 		throw error(404, 'Book not found');
 	}
 
 	// Get similar books, tags, statuses, and media sources
 	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes] = await Promise.all([
-		getSimilarBooks(id, 8),
+		getSimilarBooks(id, 8, locals.user.id),
 		getAllTags(),
 		getAllStatuses(),
 		getAllMediaSources(locals.user?.id),

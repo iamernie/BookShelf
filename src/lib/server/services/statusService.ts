@@ -10,39 +10,31 @@ export interface StatusWithCount extends StatusType {
 	bookCount: number;
 }
 
-export async function getStatuses(): Promise<StatusWithCount[]> {
-	// Get all statuses
+/** Status list with the viewer's own book counts (user_books); no viewer counts nothing */
+export async function getStatuses(userId?: number | null): Promise<StatusWithCount[]> {
 	const statusList = await db
 		.select()
 		.from(statuses)
 		.orderBy(asc(statuses.sortOrder), asc(statuses.name));
 
-	// Get book counts for each status
-	const items = await Promise.all(
-		statusList.map(async (status) => {
-			const countResult = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(books)
-				.where(eq(books.statusId, status.id));
+	const counts = userId == null ? [] : await db
+		.select({ statusId: userBooks.statusId, count: sql<number>`count(*)` })
+		.from(userBooks)
+		.where(eq(userBooks.userId, userId))
+		.groupBy(userBooks.statusId);
+	const byStatus = new Map(counts.map((c) => [c.statusId, c.count]));
 
-			return {
-				...status,
-				bookCount: countResult[0]?.count ?? 0
-			};
-		})
-	);
-
-	return items;
+	return statusList.map((status) => ({ ...status, bookCount: byStatus.get(status.id) ?? 0 }));
 }
 
-export async function getStatusById(id: number): Promise<StatusWithCount | null> {
+export async function getStatusById(id: number, userId?: number | null): Promise<StatusWithCount | null> {
 	const status = await db.select().from(statuses).where(eq(statuses.id, id)).limit(1);
 	if (!status[0]) return null;
 
-	const countResult = await db
+	const countResult = userId == null ? [] : await db
 		.select({ count: sql<number>`count(*)` })
-		.from(books)
-		.where(eq(books.statusId, id));
+		.from(userBooks)
+		.where(and(eq(userBooks.userId, userId), eq(userBooks.statusId, id)));
 
 	return {
 		...status[0],
@@ -63,8 +55,9 @@ export async function updateStatusName(id: number, name: string): Promise<Status
 	return updated || null;
 }
 
-// Get books with a specific status
-export async function getBooksByStatus(statusId: number): Promise<{ id: number; title: string; coverImageUrl: string | null }[]> {
+// The viewer's books with a specific status
+export async function getBooksByStatus(statusId: number, userId?: number | null): Promise<{ id: number; title: string; coverImageUrl: string | null }[]> {
+	if (userId == null) return [];
 	return db
 		.select({
 			id: books.id,
@@ -72,7 +65,8 @@ export async function getBooksByStatus(statusId: number): Promise<{ id: number; 
 			coverImageUrl: books.coverImageUrl
 		})
 		.from(books)
-		.where(eq(books.statusId, statusId))
+		.innerJoin(userBooks, and(eq(userBooks.bookId, books.id), eq(userBooks.userId, userId)))
+		.where(eq(userBooks.statusId, statusId))
 		.orderBy(asc(books.title));
 }
 
@@ -109,30 +103,40 @@ export async function getDefaultOwnerId(): Promise<number | null> {
 // Series status follows its books (2.27.3)
 // ============================================
 
-/**
- * Keep series.statusId in step with its owned (personal library) books: any unsettled book
- * makes it Ongoing, all Done or DNF makes it Finished. A series with no owned books, or one
- * set to Parked or DNF by hand, is left alone; only differing values are written. Statuses resolve by key
- * or name, so a library without those rows changes nothing. Returns the series it changed.
- */
-export async function recomputeSeriesStatuses(seriesIds: number[]): Promise<number> {
-	const ids = [...new Set(seriesIds.filter((id) => Number.isInteger(id)))];
-	if (ids.length === 0) return 0;
+interface SeriesStatusIds {
+	finishedId: number | null;
+	ongoingId: number | null;
+	parkedId: number | null;
+	dnfId: number | null;
+	settledIds: number[];
+}
 
+async function seriesStatusIds(): Promise<SeriesStatusIds> {
 	const [seriesStatusRows, settledRows] = await Promise.all([
 		db.select({ id: seriesStatuses.id, name: seriesStatuses.name, key: seriesStatuses.key }).from(seriesStatuses),
 		db.select({ id: statuses.id }).from(statuses).where(inArray(statuses.key, ['READ', 'DNF']))
 	]);
 	const find = (word: string) =>
 		seriesStatusRows.find((s) => s.key?.toUpperCase() === word.toUpperCase() || s.name.trim().toLowerCase() === word)?.id ?? null;
-	const finishedId = find('finished');
-	const ongoingId = find('ongoing');
-	const parkedId = find('parked');
-	const dnfId = find('dnf');
+	return { finishedId: find('finished'), ongoingId: find('ongoing'), parkedId: find('parked'), dnfId: find('dnf'), settledIds: settledRows.map((s) => s.id) };
+}
+
+/**
+ * Keep the stored series.statusId in step with its owned (personal library) books, read from
+ * each owner's own user_books row: any unsettled book makes it Ongoing, all Done or DNF makes it
+ * Finished. A series with no owned books, or one set to Parked or DNF by hand, is left alone; only
+ * differing values are written. Statuses resolve by key or name, so a library without those rows
+ * changes nothing. Returns the series it changed. Viewers see their own derivation via
+ * getViewerSeriesStatuses; the stored value is what shows when they have no books in the series.
+ */
+export async function recomputeSeriesStatuses(seriesIds: number[]): Promise<number> {
+	const ids = [...new Set(seriesIds.filter((id) => Number.isInteger(id)))];
+	if (ids.length === 0) return 0;
+
+	const { finishedId, ongoingId, parkedId, dnfId, settledIds } = await seriesStatusIds();
 	if (finishedId === null || ongoingId === null) return 0;
-	const settledIds = settledRows.map((s) => s.id);
 	const settled = settledIds.length > 0
-		? sql<number>`SUM(CASE WHEN ${inArray(books.statusId, settledIds)} THEN 1 ELSE 0 END)`
+		? sql<number>`SUM(CASE WHEN ${inArray(userBooks.statusId, settledIds)} THEN 1 ELSE 0 END)`
 		: sql<number>`0`;
 
 	const rows = await db
@@ -140,6 +144,7 @@ export async function recomputeSeriesStatuses(seriesIds: number[]): Promise<numb
 		.from(series)
 		.innerJoin(bookSeries, eq(bookSeries.seriesId, series.id))
 		.innerJoin(books, and(eq(books.id, bookSeries.bookId), eq(books.libraryType, 'personal')))
+		.leftJoin(userBooks, and(eq(userBooks.bookId, books.id), eq(userBooks.userId, books.ownerId)))
 		.where(inArray(series.id, ids))
 		.groupBy(series.id);
 
@@ -163,6 +168,40 @@ export async function recomputeSeriesStatusesForBooks(bookIds: number[]): Promis
 	return recomputeSeriesStatuses(rows.map((r) => r.seriesId));
 }
 
+/**
+ * Series status as one viewer sees it (owner decision: per viewer). Parked and DNF set by hand
+ * show as stored; otherwise a series with any of the viewer's library books in it is Finished
+ * when all of them are Done or DNF in the viewer's own row, else Ongoing. A series the viewer
+ * has no books in shows its stored status. Returns seriesId -> statusId for every id asked.
+ */
+export async function getViewerSeriesStatuses(seriesIds: number[], userId: number | null | undefined): Promise<Map<number, number | null>> {
+	const ids = [...new Set(seriesIds.filter((id) => Number.isInteger(id)))];
+	const out = new Map<number, number | null>();
+	if (ids.length === 0) return out;
+	const stored = await db.select({ id: series.id, statusId: series.statusId }).from(series).where(inArray(series.id, ids));
+	for (const row of stored) out.set(row.id, row.statusId);
+	if (userId == null) return out;
+
+	const { finishedId, ongoingId, parkedId, dnfId, settledIds } = await seriesStatusIds();
+	if (finishedId === null || ongoingId === null) return out;
+	const settled = settledIds.length > 0
+		? sql<number>`SUM(CASE WHEN ${inArray(userBooks.statusId, settledIds)} THEN 1 ELSE 0 END)`
+		: sql<number>`0`;
+	const rows = await db
+		.select({ id: bookSeries.seriesId, mine: sql<number>`COUNT(${userBooks.id})`, settled })
+		.from(bookSeries)
+		.innerJoin(userBooks, and(eq(userBooks.bookId, bookSeries.bookId), eq(userBooks.userId, userId)))
+		.where(inArray(bookSeries.seriesId, ids))
+		.groupBy(bookSeries.seriesId);
+	for (const row of rows) {
+		const current = out.get(row.id) ?? null;
+		if (row.mine === 0) continue;
+		if (current !== null && (current === parkedId || current === dnfId)) continue;
+		out.set(row.id, Number(row.settled) >= row.mine ? finishedId : ongoingId);
+	}
+	return out;
+}
+
 // ============================================
 // Status changes: the one place a book's status moves
 // ============================================
@@ -180,8 +219,8 @@ export interface ApplyStatusChangeOptions {
 	/** Send completion notifications (default true) */
 	notify?: boolean;
 	/**
-	 * Only move the acting user's own reading record (user_books), never books.statusId.
-	 * For books the user doesn't own (public books in their library); requires userId.
+	 * Kept for callers from before 2.30.0: every status change now moves only the acting user's
+	 * own reading record (user_books), so this only insists on a userId.
 	 */
 	userBooksOnly?: boolean;
 }
@@ -190,44 +229,37 @@ export interface ApplyStatusChangeResult {
 	changed: number[];
 	unchanged: number[];
 	userBooksUpdated: number;
+	/** user_books rows created because the user had none for the book */
+	userBooksCreated: number;
+	/** Always empty since 2.30.0 (a missing row is created); kept for the result shape */
 	userBooksSkipped: number[];
 }
 
 const isEmptyDate = (value: string | null | undefined): boolean => value == null || value === '';
 
 /**
- * Move books to a status. Books already in that status are left alone. Stamps
- * startReadingDate on Current and completedDate on Done (only when empty; explicit
- * dates win), writes books, mirrors the result onto the user's existing user_books row
- * (never creates one), and notifies on completion with series checked once per series.
+ * Move books to a status on the acting user's own reading record (user_books), creating the row
+ * when the user has none. Books already in that status for the user are left alone. Stamps
+ * startReadingDate on Current and completedDate on Done (only when empty; explicit dates win),
+ * recomputes the series statuses and notifies on completion with series checked once per user.
+ * books.statusId is never written.
  */
 export async function applyStatusChange(
 	bookIds: number[],
 	statusId: number | null,
 	opts: ApplyStatusChangeOptions
 ): Promise<ApplyStatusChangeResult> {
-	const result: ApplyStatusChangeResult = { changed: [], unchanged: [], userBooksUpdated: 0, userBooksSkipped: [] };
+	const result: ApplyStatusChangeResult = { changed: [], unchanged: [], userBooksUpdated: 0, userBooksCreated: 0, userBooksSkipped: [] };
 	const ids = [...new Set(bookIds.filter((id) => Number.isInteger(id)))];
 	if (ids.length === 0) return result;
+	if (opts.userBooksOnly && opts.userId == null) throw new Error('applyStatusChange: userBooksOnly needs a userId');
 
 	const [currentStatus, readStatus] = await Promise.all([getStatusByKey('CURRENT'), getStatusByKey('READ')]);
 	const isCurrent = statusId !== null && statusId === currentStatus?.id;
 	const isRead = statusId !== null && statusId === readStatus?.id;
 
-	if (opts.userBooksOnly) {
-		if (opts.userId == null) throw new Error('applyStatusChange: userBooksOnly needs a userId');
-		return applyUserBookStatusChange(ids, statusId, opts.userId, { isCurrent, isRead }, opts, result);
-	}
-
-	const rows = await db
-		.select({
-			id: books.id,
-			title: books.title,
-			ownerId: books.ownerId,
-			statusId: books.statusId,
-			startReadingDate: books.startReadingDate,
-			completedDate: books.completedDate
-		})
+	const bookRows = await db
+		.select({ id: books.id, title: books.title, ownerId: books.ownerId })
 		.from(books)
 		.where(inArray(books.id, ids));
 
@@ -236,13 +268,30 @@ export async function applyStatusChange(
 	let fallbackOwnerId: number | null | undefined;
 	const completions: { userId: number; id: number; title: string; completedDate: string | null }[] = [];
 
-	for (const row of rows) {
-		if (row.statusId === statusId) {
-			result.unchanged.push(row.id);
+	for (const book of bookRows) {
+		let userId = opts.userId ?? book.ownerId ?? null;
+		if (userId === null) {
+			if (fallbackOwnerId === undefined) fallbackOwnerId = await getDefaultOwnerId();
+			userId = fallbackOwnerId;
+		}
+		if (userId === null) {
+			// No acting user and no admin to fall back on: nobody's record to move
+			result.unchanged.push(book.id);
 			continue;
 		}
 
-		let startReadingDate = row.startReadingDate;
+		const [row] = await db
+			.select({ id: userBooks.id, statusId: userBooks.statusId, startReadingDate: userBooks.startReadingDate, completedDate: userBooks.completedDate })
+			.from(userBooks)
+			.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, book.id)))
+			.limit(1);
+
+		if ((row?.statusId ?? null) === statusId) {
+			result.unchanged.push(book.id);
+			continue;
+		}
+
+		let startReadingDate = row?.startReadingDate ?? null;
 		if (explicit.startReadingDate !== undefined) {
 			startReadingDate = explicit.startReadingDate;
 		} else if (isCurrent && isEmptyDate(startReadingDate)) {
@@ -251,7 +300,7 @@ export async function applyStatusChange(
 			startReadingDate = opts.stampDates.startReadingDate;
 		}
 
-		let completedDate = row.completedDate;
+		let completedDate = row?.completedDate ?? null;
 		if (explicit.completedDate !== undefined) {
 			completedDate = explicit.completedDate;
 		} else if (isRead && isEmptyDate(completedDate)) {
@@ -259,35 +308,28 @@ export async function applyStatusChange(
 		}
 
 		const now = new Date().toISOString();
-		await db
-			.update(books)
-			.set({ statusId, startReadingDate, completedDate, updatedAt: now })
-			.where(eq(books.id, row.id));
-		result.changed.push(row.id);
-
-		let userId = opts.userId ?? row.ownerId ?? null;
-		if (userId === null) {
-			if (fallbackOwnerId === undefined) fallbackOwnerId = await getDefaultOwnerId();
-			userId = fallbackOwnerId;
-		}
-
-		// Mirror onto the user's reading record; a missing row means not in their library
-		const [userBook] = userId === null ? [] : await db
-			.select({ id: userBooks.id })
-			.from(userBooks)
-			.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, row.id)))
-			.limit(1);
-		if (userBook) {
+		if (row) {
 			await db
 				.update(userBooks)
 				.set({ statusId, startReadingDate, completedDate, updatedAt: now })
-				.where(eq(userBooks.id, userBook.id));
+				.where(eq(userBooks.id, row.id));
 			result.userBooksUpdated++;
 		} else {
-			result.userBooksSkipped.push(row.id);
+			await db.insert(userBooks).values({
+				userId,
+				bookId: book.id,
+				statusId,
+				startReadingDate,
+				completedDate,
+				addedAt: now,
+				createdAt: now,
+				updatedAt: now
+			});
+			result.userBooksCreated++;
 		}
+		result.changed.push(book.id);
 
-		if (isRead && userId !== null) completions.push({ userId, id: row.id, title: row.title, completedDate });
+		if (isRead) completions.push({ userId, id: book.id, title: book.title, completedDate });
 	}
 
 	if (result.changed.length > 0) await recomputeSeriesStatusesForBooks(result.changed);
@@ -306,73 +348,6 @@ export async function applyStatusChange(
 		}
 		for (const [userId, completedIds] of seriesBooksByUser) {
 			checkAndNotifySeriesCompletion(userId, completedIds)
-				.catch(err => console.error('[notifications] Failed to check series completion:', err));
-		}
-	}
-
-	return result;
-}
-
-// The userBooksOnly branch of applyStatusChange: same stamping rules, on the user's own row only
-async function applyUserBookStatusChange(
-	ids: number[],
-	statusId: number | null,
-	userId: number,
-	kind: { isCurrent: boolean; isRead: boolean },
-	opts: ApplyStatusChangeOptions,
-	result: ApplyStatusChangeResult
-): Promise<ApplyStatusChangeResult> {
-	const rows = await db
-		.select({
-			id: userBooks.id,
-			bookId: userBooks.bookId,
-			title: books.title,
-			statusId: userBooks.statusId,
-			startReadingDate: userBooks.startReadingDate,
-			completedDate: userBooks.completedDate
-		})
-		.from(userBooks)
-		.innerJoin(books, eq(userBooks.bookId, books.id))
-		.where(and(eq(userBooks.userId, userId), inArray(userBooks.bookId, ids)));
-
-	const today = todayInAppTz();
-	const explicit = opts.dates ?? {};
-	const completions: { id: number; title: string; completedDate: string | null }[] = [];
-	const found = new Set(rows.map((r) => r.bookId));
-	for (const id of ids) if (!found.has(id)) result.userBooksSkipped.push(id);
-
-	for (const row of rows) {
-		if (row.statusId === statusId) {
-			result.unchanged.push(row.bookId);
-			continue;
-		}
-
-		let startReadingDate = row.startReadingDate;
-		if (explicit.startReadingDate !== undefined) startReadingDate = explicit.startReadingDate;
-		else if (kind.isCurrent && isEmptyDate(startReadingDate)) startReadingDate = opts.stampDates?.startReadingDate ?? today;
-		else if (kind.isRead && isEmptyDate(startReadingDate) && opts.stampDates?.startReadingDate) startReadingDate = opts.stampDates.startReadingDate;
-
-		let completedDate = row.completedDate;
-		if (explicit.completedDate !== undefined) completedDate = explicit.completedDate;
-		else if (kind.isRead && isEmptyDate(completedDate)) completedDate = opts.stampDates?.completedDate ?? today;
-
-		await db
-			.update(userBooks)
-			.set({ statusId, startReadingDate, completedDate, updatedAt: new Date().toISOString() })
-			.where(eq(userBooks.id, row.id));
-		result.changed.push(row.bookId);
-		result.userBooksUpdated++;
-		if (kind.isRead) completions.push({ id: row.bookId, title: row.title, completedDate });
-	}
-
-	if (opts.notify !== false && completions.length > 0) {
-		const toNotify = opts.source === 'abs_sync' ? completions.filter((c) => c.completedDate === today) : completions;
-		for (const c of toNotify) {
-			notifyBookCompleted(userId, { id: c.id, title: c.title })
-				.catch(err => console.error('[notifications] Failed to send book completed notification:', err));
-		}
-		if (toNotify.length > 0) {
-			checkAndNotifySeriesCompletion(userId, toNotify.map((c) => c.id))
 				.catch(err => console.error('[notifications] Failed to check series completion:', err));
 		}
 	}

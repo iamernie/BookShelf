@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { db, books, bookAuthors, bookSeries, bookTags } from '$lib/server/db';
-import { eq, inArray } from 'drizzle-orm';
+import { db, books, bookAuthors, bookSeries, bookTags, userBooks } from '$lib/server/db';
+import { and, eq, inArray } from 'drizzle-orm';
 
 /**
  * Get book IDs associated with specific catalog entities
@@ -84,12 +84,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 
 			case 'statuses': {
-				// Get books by status ID (direct FK)
+				// Status is the caller's own: books with that status in their user_books
 				const results = await db
-					.select({ id: books.id })
-					.from(books)
-					.where(inArray(books.statusId, entityIds));
-				bookIds = results.map(r => r.id);
+					.select({ id: userBooks.bookId })
+					.from(userBooks)
+					.where(and(eq(userBooks.userId, locals.user.id), inArray(userBooks.statusId, entityIds)));
+				bookIds = [...new Set(results.map(r => r.id))];
 				break;
 			}
 

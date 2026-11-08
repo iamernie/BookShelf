@@ -1,4 +1,4 @@
-import { db, bookSeries, books, series, statuses } from '$lib/server/db';
+import { db, bookSeries, books, series, statuses, userBooks } from '$lib/server/db';
 import { userPreferences } from '$lib/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getSetting, getSettingAs } from './settingsService';
@@ -356,14 +356,14 @@ export async function checkAndNotifySeriesCompletion(
 		const completedIds = new Set(bookIds);
 
 		for (const link of bookSeriesLinks) {
-			// Get all books in this series
+			// The user's own books in this series, with their own status
 			const seriesBooks = await db
 				.select({
 					bookId: bookSeries.bookId,
-					statusId: books.statusId
+					statusId: userBooks.statusId
 				})
 				.from(bookSeries)
-				.innerJoin(books, eq(bookSeries.bookId, books.id))
+				.innerJoin(userBooks, and(eq(userBooks.bookId, bookSeries.bookId), eq(userBooks.userId, userId)))
 				.where(eq(bookSeries.seriesId, link.seriesId));
 
 			const totalBooks = seriesBooks.length;

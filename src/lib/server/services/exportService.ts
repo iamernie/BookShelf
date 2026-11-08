@@ -14,14 +14,18 @@ import {
 	tags,
 	bookAuthors,
 	bookSeries,
-	bookTags
+	bookTags,
+	userBooks
 } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { overlayPersonal } from './personalState';
 import { toLocalDate } from '$lib/utils/date';
 import { todayInAppTz } from '$lib/server/utils/appTime';
 
 export interface ExportOptions {
 	format: 'csv' | 'json';
+	/** The requesting user: the export is their library, with their own reading state */
+	userId: number;
 	includeAuthors?: boolean;
 	includeSeries?: boolean;
 	includeTags?: boolean;
@@ -40,11 +44,14 @@ export interface ExportResult {
 }
 
 /**
- * Get all books with their related data for export
+ * The user's library (their user_books rows) with related data for export; status, rating,
+ * notes, dates and DNF details are the user's own
  */
-async function getBooksForExport() {
-	// Get all books
-	const allBooks = await db.select().from(books);
+async function getBooksForExport(userId: number) {
+	const libraryRows = await db.select({ book: books }).from(books)
+		.innerJoin(userBooks, eq(userBooks.bookId, books.id))
+		.where(eq(userBooks.userId, userId));
+	const allBooks = await overlayPersonal(libraryRows.map((r) => r.book), userId);
 
 	// Get all related data in parallel
 	const [
@@ -141,7 +148,7 @@ async function getBooksForExport() {
  * Export to JSON format
  */
 export async function exportToJson(options: ExportOptions): Promise<ExportResult> {
-	const booksData = await getBooksForExport();
+	const booksData = await getBooksForExport(options.userId);
 
 	// Build export object
 	const exportData: Record<string, unknown> = {
@@ -285,7 +292,7 @@ function escapeCSV(value: string | number | null | undefined): string {
  * Export to CSV format
  */
 export async function exportToCsv(options: ExportOptions): Promise<ExportResult> {
-	const booksData = await getBooksForExport();
+	const booksData = await getBooksForExport(options.userId);
 
 	let headers: string[];
 	let rows: string[][];

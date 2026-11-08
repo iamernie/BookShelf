@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	const [ruleBasedRecommendations, aiSettings] = await Promise.all([
-		getRuleBasedRecommendations(),
+		getRuleBasedRecommendations(locals.user.id),
 		getAISettings()
 	]);
 

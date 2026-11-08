@@ -2,6 +2,7 @@ import { db, magicShelves, books, bookAuthors, bookSeries, bookTags, authors, se
 import type { MagicShelf, NewMagicShelf, Book } from '$lib/server/db/schema';
 import { eq, and, or, like, gt, lt, gte, lte, isNull, isNotNull, inArray, notInArray, sql, desc, asc, type SQL } from 'drizzle-orm';
 import { todayInAppTz } from '$lib/server/utils/appTime';
+import { personalCols, overlayPersonal, viewerBooks } from './personalState';
 
 // ============================================
 // Filter Rule Types
@@ -173,18 +174,22 @@ function isFilterGroup(rule: FilterRule | FilterGroup): rule is FilterGroup {
 	return 'logic' in rule && 'rules' in rule;
 }
 
+// Personal fields filter on the viewer's own row (vub, joined by every shelf query)
+const PERSONAL_COLUMNS = {
+	statusId: viewerBooks.statusId,
+	rating: viewerBooks.rating,
+	completedDate: viewerBooks.completedDate,
+	startReadingDate: viewerBooks.startReadingDate
+} as const;
+
 // Map of valid book columns for filtering
 const BOOK_COLUMNS: Record<string, keyof typeof books> = {
 	title: 'title',
-	statusId: 'statusId',
 	genreId: 'genreId',
 	formatId: 'formatId',
-	rating: 'rating',
 	pageCount: 'pageCount',
 	publishYear: 'publishYear',
 	narratorId: 'narratorId',
-	completedDate: 'completedDate',
-	startReadingDate: 'startReadingDate',
 	releaseDate: 'releaseDate',
 	createdAt: 'createdAt',
 	ebookPath: 'ebookPath',
@@ -227,10 +232,11 @@ function buildCondition(rule: FilterRule): SQL<unknown> | null {
 	}
 
 	// Get the column reference
+	const personalColumn = PERSONAL_COLUMNS[field as keyof typeof PERSONAL_COLUMNS];
 	const columnName = BOOK_COLUMNS[field];
-	if (!columnName) return null;
+	if (!personalColumn && !columnName) return null;
 
-	const column = books[columnName];
+	const column = personalColumn ?? books[columnName];
 	if (!column) return null;
 
 	switch (operator) {
@@ -468,8 +474,8 @@ export async function getShelfBooks(
 	// Get sort column - use explicit mapping to avoid type issues
 	let sortColumn;
 	switch (sortField) {
-		case 'rating': sortColumn = books.rating; break;
-		case 'completedDate': sortColumn = books.completedDate; break;
+		case 'rating': sortColumn = viewerBooks.rating; break;
+		case 'completedDate': sortColumn = viewerBooks.completedDate; break;
 		case 'createdAt': sortColumn = books.createdAt; break;
 		case 'pageCount': sortColumn = books.pageCount; break;
 		case 'publishYear': sortColumn = books.publishYear; break;
@@ -477,22 +483,26 @@ export async function getShelfBooks(
 	}
 	const orderBy = sortOrder === 'desc' ? desc(sortColumn) : asc(sortColumn);
 
+	const personal = personalCols(userId);
+
 	// Get total count
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(finalWhere);
 
 	const total = countResult[0]?.count || 0;
 
-	// Get books
-	const result = await db
-		.select()
+	// Get books, personal fields the viewer's own
+	const result = await overlayPersonal((await db
+		.select({ book: books })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(finalWhere)
 		.orderBy(orderBy)
 		.limit(limit)
-		.offset(offset);
+		.offset(offset)).map((r) => r.book), userId);
 
 	return {
 		books: result,
@@ -561,20 +571,24 @@ export async function previewFilter(
 
 	const finalWhere = conditions.length > 0 ? and(...conditions) : undefined;
 
+	const personal = personalCols(userId);
+
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(finalWhere);
 
 	const total = countResult[0]?.count || 0;
 
-	const result = await db
-		.select()
+	const result = await overlayPersonal((await db
+		.select({ book: books })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(finalWhere)
 		.orderBy(asc(books.title))
 		.limit(limit)
-		.offset(offset);
+		.offset(offset)).map((r) => r.book), userId);
 
 	return {
 		books: result,

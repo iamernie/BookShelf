@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	const limit = parseInt(url.searchParams.get('limit') || '10', 10);
 
 	try {
-		const result = await getAIRecommendations(Math.min(limit, 20));
+		const result = await getAIRecommendations(locals.user.id, Math.min(limit, 20));
 		return json(result);
 	} catch (err) {
 		console.error('AI recommendations error:', err);
@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			throw error(400, 'Title is required');
 		}
 
-		const result = await addRecommendationToLibrary({ title, author, genre });
+		const result = await addRecommendationToLibrary({ title, author, genre }, locals.user.id);
 		return json(result);
 	} catch (err) {
 		if (err instanceof Response) throw err;

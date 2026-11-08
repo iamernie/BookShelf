@@ -5,6 +5,7 @@ import { books, authors, series, bookAuthors, bookSeries } from '$lib/server/db/
 import { eq } from 'drizzle-orm';
 import { ebookExists, parseReadingProgress } from '$lib/server/services/ebookService';
 import { canReadEbook } from '$lib/server/services/libraryShareService';
+import { getOwnPosition } from '$lib/server/services/personalState';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!locals.user) {
@@ -66,8 +67,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.where(eq(bookSeries.bookId, bookId))
 		.orderBy(bookSeries.displayOrder);
 
-	// Parse saved progress
-	const progress = parseReadingProgress(book.readingProgress);
+	// The reader's own saved position
+	const progress = parseReadingProgress((await getOwnPosition(locals.user.id, bookId)).position);
 
 	// Construct ebook URL - handle both simple filenames and full paths
 	let ebookUrl = book.ebookPath;

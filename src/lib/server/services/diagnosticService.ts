@@ -376,6 +376,26 @@ export async function runDiagnostics(): Promise<SystemHealth> {
 		overallStatus = 'warning';
 	}
 
+	// Reading records (user_books) with invalid status references: where status lives since 2.30.0
+	const userBooksWithInvalidStatus = await db
+		.select({ count: count() })
+		.from(userBooks)
+		.where(
+			sql`${userBooks.statusId} IS NOT NULL AND ${userBooks.statusId} NOT IN (SELECT id FROM statuses)`
+		);
+
+	if (userBooksWithInvalidStatus[0].count > 0) {
+		issues.push({
+			type: 'integrity',
+			severity: 'warning',
+			entity: 'user_books',
+			count: userBooksWithInvalidStatus[0].count,
+			description: 'Reading records referencing non-existent statuses',
+			canRepair: true
+		});
+		overallStatus = 'warning';
+	}
+
 	// Check for expired sessions
 	const expiredSessions = await db
 		.select({ count: count() })
@@ -586,6 +606,12 @@ export async function fixInvalidBookReferences(): Promise<RepairResult> {
 			WHERE statusId IS NOT NULL AND statusId NOT IN (SELECT id FROM statuses)
 		`);
 		repaired += statusResult.changes;
+
+		const userBookStatusResult = await db.run(sql`
+			UPDATE user_books SET statusId = NULL
+			WHERE statusId IS NOT NULL AND statusId NOT IN (SELECT id FROM statuses)
+		`);
+		repaired += userBookStatusResult.changes;
 
 		// Clear invalid format references
 		const formatResult = await db.run(sql`

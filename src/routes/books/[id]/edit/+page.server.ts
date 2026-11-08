@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
+import { canReachBook } from '$lib/server/services/libraryShareService';
 import { getBookById, getStatuses, getGenres, getFormats, getNarrators, getTags, getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 import { getAllMediaSources, getBookMediaSources } from '$lib/server/services/mediaSourceService';
 import { getAbsLinkBaseUrl } from '$lib/server/services/absService';
@@ -10,7 +11,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	const book = await getBookById(id);
+	// A book the viewer can't reach doesn't open; personal fields on it are the viewer's own
+	if (!locals.user || !(await canReachBook(locals.user.id, id))) {
+		throw error(404, 'Book not found');
+	}
+
+	const book = await getBookById(id, locals.user.id);
 	if (!book) {
 		throw error(404, 'Book not found');
 	}

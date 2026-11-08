@@ -17,6 +17,7 @@ import type { ReadingProgress } from '$lib/server/services/ebookService';
 import { syncProgressFromBrowser } from '$lib/server/services/koreaderService';
 import { syncFromWebReader as syncKoboProgress } from '$lib/server/services/koboReadingStateService';
 import { canReadEbook } from '$lib/server/services/libraryShareService';
+import { getOwnPosition, writeOwnPosition } from '$lib/server/services/personalState';
 
 // Page values are optional: anything unusable is dropped, the save still goes through.
 // 0 is a real value here, it's the first page of a comic.
@@ -38,11 +39,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 
 	const [book] = await db
-		.select({
-			id: books.id,
-			readingProgress: books.readingProgress,
-			lastReadAt: books.lastReadAt
-		})
+		.select({ id: books.id })
 		.from(books)
 		.where(eq(books.id, bookId))
 		.limit(1);
@@ -55,12 +52,14 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(403, { message: 'You do not have access to this book' });
 	}
 
-	const progress = parseReadingProgress(book.readingProgress);
+	// The caller's own position; another reader's never shows here
+	const own = await getOwnPosition(locals.user.id, bookId);
+	const progress = parseReadingProgress(own.position);
 
 	return json({
 		success: true,
 		progress,
-		lastReadAt: book.lastReadAt
+		lastReadAt: own.lastReadAt
 	});
 };
 
@@ -97,14 +96,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		savedAt: new Date().toISOString()
 	};
 
-	await db
-		.update(books)
-		.set({
-			readingProgress: stringifyReadingProgress(progress),
-			lastReadAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString()
-		})
-		.where(eq(books.id, bookId));
+	// The caller's own position (user_books); the shared book row is never written
+	await writeOwnPosition(locals.user.id, bookId, stringifyReadingProgress(progress), progress.percentage, progress.savedAt);
 
 	// Sync progress to KOReader and Kobo if user has sync enabled
 	// This is best-effort - don't fail if sync fails

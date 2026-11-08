@@ -1,5 +1,6 @@
 import { db, narrators, books, narratorTags, tags } from '$lib/server/db';
 import { eq, like, asc, desc, sql, and, or, inArray, type SQL } from 'drizzle-orm';
+import { viewerBooks as vub } from './personalState';
 import { stripHtmlTags } from './metadataProviders/types';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
@@ -85,7 +86,7 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 			orderTerms = [sql`(SELECT COUNT(*) FROM books WHERE books.narratorId = narrators.id AND ${userLibraryCondition}) ${dir}`, byName, sql`narrators.id ASC`];
 			break;
 		case 'rating':
-			orderTerms = [sql`(SELECT ROUND(AVG(books.rating), 1) FROM books WHERE books.narratorId = narrators.id AND books.rating > 0 AND ${userLibraryCondition}) ${dir} NULLS LAST`, byName, sql`narrators.id ASC`];
+			orderTerms = [sql`(SELECT ROUND(AVG(vub.rating), 1) FROM books LEFT JOIN user_books vub ON vub.bookId = books.id AND vub.userId = ${userId ?? -1} WHERE books.narratorId = narrators.id AND vub.rating > 0 AND ${userLibraryCondition}) ${dir} NULLS LAST`, byName, sql`narrators.id ASC`];
 			break;
 		case 'createdAt':
 			orderTerms = [sql`narrators.createdAt ${dir} NULLS LAST`, sql`narrators.id ${dir}`];
@@ -112,9 +113,10 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 			const bookStatsResult = await db
 				.select({
 					count: sql<number>`count(*)`,
-					avgRating: sql<number>`avg(CASE WHEN ${books.rating} > 0 THEN ${books.rating} ELSE NULL END)`
+					avgRating: sql<number>`avg(CASE WHEN ${vub.rating} > 0 THEN ${vub.rating} ELSE NULL END)`
 				})
 				.from(books)
+				.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 				.where(and(eq(books.narratorId, narrator.id), userLibraryCondition));
 
 			return {
@@ -210,9 +212,10 @@ export async function getNarratorById(id: number, userId?: number): Promise<Narr
 	const bookStatsResult = await db
 		.select({
 			count: sql<number>`count(*)`,
-			avgRating: sql<number>`avg(CASE WHEN ${books.rating} > 0 THEN ${books.rating} ELSE NULL END)`
+			avgRating: sql<number>`avg(CASE WHEN ${vub.rating} > 0 THEN ${vub.rating} ELSE NULL END)`
 		})
 		.from(books)
+		.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(eq(books.narratorId, id), userLibraryCondition));
 
 	// Get tags
@@ -358,9 +361,10 @@ export async function getBooksByNarrator(narratorId: number, userId?: number): P
 			id: books.id,
 			title: books.title,
 			coverImageUrl: books.coverImageUrl,
-			rating: books.rating
+			rating: vub.rating
 		})
 		.from(books)
+		.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
 		.where(and(eq(books.narratorId, narratorId), userLibraryCondition))
 		.orderBy(asc(books.title));
 }

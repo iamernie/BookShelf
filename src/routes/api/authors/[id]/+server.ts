@@ -2,13 +2,13 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAuthorWithBooks, updateAuthor, deleteAuthor } from '$lib/server/services/authorService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, { message: 'Invalid author ID' });
 	}
 
-	const result = await getAuthorWithBooks(id);
+	const result = await getAuthorWithBooks(id, locals.user?.id);
 	if (!result) {
 		throw error(404, { message: 'Author not found' });
 	}

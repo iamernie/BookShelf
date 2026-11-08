@@ -40,7 +40,8 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			bookCount: count(books.id)
 		})
 		.from(statuses)
-		.leftJoin(books, and(eq(books.statusId, statuses.id), userLibraryCondition))
+		.leftJoin(userBooks, and(eq(userBooks.statusId, statuses.id), eq(userBooks.userId, userId ?? -1)))
+		.leftJoin(books, eq(books.id, userBooks.bookId))
 		.groupBy(statuses.id)
 		.orderBy(statuses.sortOrder);
 

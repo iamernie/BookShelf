@@ -295,6 +295,216 @@ function safeRenameTable(oldName: string, newName: string): boolean {
 }
 
 // Run migrations
+// ============================================================================
+// PERSONAL STATE COPY (2.30.0) - books row -> the owner's user_books row
+// ============================================================================
+
+const PERSONAL_ROW_FIELDS = ['statusId', 'rating', 'comments', 'startReadingDate', 'completedDate', 'dnfPage', 'dnfPercent', 'dnfReason', 'dnfDate'] as const;
+type PersonalRowField = (typeof PERSONAL_ROW_FIELDS)[number];
+type UserBookRow = { id: number; readingProgress: unknown; readingPosition: string | null; lastReadAt: string | null } & Record<PersonalRowField, unknown>;
+
+export interface PersonalCopyReport {
+	booksChecked: number;
+	rowsInserted: number;
+	rowsUpdated: number;
+	ownerlessCopied: number;
+	ownerlessNoAdminRow: number;
+	orphanOwners: number;
+	orphanStatuses: number;
+	progressRepaired: number;
+	duplicatesMerged: number;
+	backupPath: string | null;
+}
+
+/** A reader position: the JSON object the web reader, KOReader and Kobo write */
+function readerPosition(value: unknown): string | null {
+	if (typeof value !== 'string' || value.trim() === '') return null;
+	try {
+		const parsed = JSON.parse(value);
+		return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? value : null;
+	} catch {
+		return null;
+	}
+}
+
+function positionPercent(position: string | null): number | null {
+	if (!position) return null;
+	try {
+		const pct = Number((JSON.parse(position) as { percentage?: unknown }).percentage);
+		return Number.isFinite(pct) ? pct : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Personal reading state moves to user_books, one book at a time. Copy only: the books row is
+ * left exactly as it is (blanking is a later step). For each book not yet copied
+ * (books.personalCopiedAt IS NULL), the owner's row gets every non-null row value for status,
+ * rating, notes, reading dates and DNF details (the row wins: it was the live copy), the row's JSON
+ * reader position as user_books.readingPosition, and the later lastReadAt. The owner's row is
+ * created when missing. Ownerless books copy to the first admin's row only where that row exists;
+ * no library rows are created for them. Orphan owners count as ownerless and orphan statuses are
+ * copied as NULL, so foreign keys never fail part-way. user_books.readingProgress (a REAL percent)
+ * holding JSON from an old backfill is repaired. Duplicate (userId, bookId) rows are merged and a
+ * unique index added. A backup is taken directly before the first real change; one transaction
+ * per batch of books; a second run changes nothing.
+ */
+export function copyPersonalStateToUserBooks(): PersonalCopyReport {
+	const report: PersonalCopyReport = {
+		booksChecked: 0, rowsInserted: 0, rowsUpdated: 0, ownerlessCopied: 0, ownerlessNoAdminRow: 0,
+		orphanOwners: 0, orphanStatuses: 0, progressRepaired: 0, duplicatesMerged: 0, backupPath: null
+	};
+	if (!tableExists('user_books') || !tableExists('books') || !columnExists('books', 'ownerId')) return report;
+	safeAddColumn('books', 'personalCopiedAt', 'TEXT');
+	if (!columnExists('books', 'personalCopiedAt')) return report;
+
+	const backupOnce = () => {
+		if (backupCreated) return;
+		updateStatus('Creating pre-migration backup...');
+		const backup = createPreMigrationBackup();
+		if (backup) {
+			backupCreated = true;
+			migrationStatus.backupPath = backup;
+			report.backupPath = backup;
+			completeStep('Backup created');
+		}
+	};
+	const now = new Date().toISOString();
+	const has = (col: string) => columnExists('books', col);
+	const bookCol = (col: string) => (has(col) ? `b.${col}` : 'NULL');
+
+	// 1. Duplicate (userId, bookId) rows: keep the lowest id, fill its empty fields from the others
+	const dupes = sqlite.prepare(
+		'SELECT userId, bookId FROM user_books GROUP BY userId, bookId HAVING COUNT(*) > 1'
+	).all() as { userId: number; bookId: number }[];
+	if (dupes.length > 0) {
+		backupOnce();
+		const fill = [...PERSONAL_ROW_FIELDS, 'readingPosition', 'lastReadAt'] as const;
+		sqlite.transaction(() => {
+			for (const d of dupes) {
+				const rows = sqlite.prepare(
+					'SELECT * FROM user_books WHERE userId = ? AND bookId = ? ORDER BY id'
+				).all(d.userId, d.bookId) as (UserBookRow & Record<string, unknown>)[];
+				const [keep, ...rest] = rows;
+				const set: Record<string, unknown> = {};
+				for (const field of fill) {
+					if (keep[field] != null && keep[field] !== '') continue;
+					const donor = [...rest].reverse().find((r) => r[field] != null && r[field] !== '');
+					if (donor) set[field] = donor[field];
+				}
+				const keys = Object.keys(set);
+				if (keys.length > 0) {
+					sqlite.prepare(`UPDATE user_books SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`)
+						.run(...keys.map((k) => set[k]), keep.id);
+				}
+				const del = sqlite.prepare('DELETE FROM user_books WHERE id = ?');
+				for (const r of rest) report.duplicatesMerged += del.run(r.id).changes;
+			}
+		})();
+		migrationsMade = true;
+	}
+	try {
+		sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_user_books_user_book ON user_books(userId, bookId)');
+	} catch (e) {
+		console.error('[db] Failed to add the user_books (userId, bookId) unique index:', e);
+	}
+
+	// 2. JSON stored in the REAL progress column: percent back to REAL, the JSON kept as the position
+	const jsonProgress = sqlite.prepare(
+		"SELECT id, readingProgress, readingPosition FROM user_books WHERE typeof(readingProgress) = 'text'"
+	).all() as { id: number; readingProgress: string; readingPosition: string | null }[];
+	if (jsonProgress.length > 0) {
+		backupOnce();
+		const repair = sqlite.prepare('UPDATE user_books SET readingProgress = ?, readingPosition = ? WHERE id = ?');
+		sqlite.transaction(() => {
+			for (const r of jsonProgress) {
+				const asNumber = Number(r.readingProgress);
+				const position = readerPosition(r.readingProgress);
+				const pct = Number.isFinite(asNumber) && r.readingProgress.trim() !== '' ? asNumber : (positionPercent(position) ?? 0);
+				report.progressRepaired += repair.run(pct, r.readingPosition ?? position, r.id).changes;
+			}
+		})();
+		migrationsMade = true;
+	}
+
+	// 3. Row -> user_books, books not yet copied
+	const pending = sqlite.prepare(`
+		SELECT b.id, b.ownerId, ${PERSONAL_ROW_FIELDS.map((f) => `${bookCol(f)} AS ${f}`).join(', ')},
+			${bookCol('readingProgress')} AS rowProgress, ${bookCol('readingPosition')} AS rowPosition, ${bookCol('lastReadAt')} AS lastReadAt,
+			(SELECT 1 FROM users u WHERE u.id = b.ownerId) AS ownerExists
+		FROM books b WHERE b.personalCopiedAt IS NULL ORDER BY b.id
+	`).all() as ({ id: number; ownerId: number | null; rowProgress: unknown; rowPosition: unknown; lastReadAt: string | null; ownerExists: number | null } & Record<PersonalRowField, unknown>)[];
+	report.booksChecked = pending.length;
+	if (pending.length === 0) return report;
+
+	const admin = sqlite.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get() as { id: number } | undefined;
+	const statusIds = new Set((sqlite.prepare('SELECT id FROM statuses').all() as { id: number }[]).map((r) => r.id));
+	const findRow = sqlite.prepare('SELECT * FROM user_books WHERE userId = ? AND bookId = ? ORDER BY id LIMIT 1');
+	const mark = sqlite.prepare('UPDATE books SET personalCopiedAt = ? WHERE id = ?');
+
+	type Plan = { bookId: number; insert?: Record<string, unknown>; update?: { id: number; set: Record<string, unknown> }; ownerless: boolean };
+	const plans: Plan[] = [];
+	for (const book of pending) {
+		const owned = book.ownerId !== null && book.ownerExists === 1;
+		if (book.ownerId !== null && !owned) report.orphanOwners++;
+		const userId = owned ? book.ownerId : (admin?.id ?? null);
+		const values: Record<string, unknown> = {};
+		for (const f of PERSONAL_ROW_FIELDS) {
+			const v = book[f];
+			if (v === null || v === undefined || v === '') continue;
+			if (f === 'statusId' && !statusIds.has(Number(v))) { report.orphanStatuses++; continue; }
+			values[f] = v;
+		}
+		const position = readerPosition(book.rowProgress) ?? readerPosition(book.rowPosition);
+		if (position) values.readingPosition = position;
+		if (book.lastReadAt) values.lastReadAt = book.lastReadAt;
+		const plan: Plan = { bookId: book.id, ownerless: !owned };
+		plans.push(plan);
+		if (userId === null || Object.keys(values).length === 0 && !owned) continue;
+
+		const existing = findRow.get(userId, book.id) as (UserBookRow & Record<string, unknown>) | undefined;
+		if (!existing) {
+			if (!owned) { report.ownerlessNoAdminRow++; continue; }
+			plan.insert = { userId, bookId: book.id, ...values, readingProgress: positionPercent(position) ?? 0 };
+			continue;
+		}
+		const set: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(values)) {
+			if (k === 'lastReadAt' && typeof existing.lastReadAt === 'string' && existing.lastReadAt >= String(v)) continue;
+			if (existing[k] !== v) set[k] = v;
+		}
+		if (Object.keys(set).length > 0) plan.update = { id: existing.id, set };
+	}
+
+	const changing = plans.filter((p) => p.insert || p.update);
+	if (changing.length > 0) backupOnce();
+
+	const BATCH = 200;
+	for (let i = 0; i < plans.length; i += BATCH) {
+		const batch = plans.slice(i, i + BATCH);
+		sqlite.transaction(() => {
+			for (const p of batch) {
+				if (p.insert) {
+					const keys = Object.keys(p.insert);
+					sqlite.prepare(`INSERT INTO user_books (${keys.join(', ')}, addedAt, createdAt, updatedAt) VALUES (${keys.map(() => '?').join(', ')}, ?, ?, ?)`)
+						.run(...keys.map((k) => p.insert![k]), now, now, now);
+					report.rowsInserted++;
+				} else if (p.update) {
+					const keys = Object.keys(p.update.set);
+					sqlite.prepare(`UPDATE user_books SET ${keys.map((k) => `${k} = ?`).join(', ')}, updatedAt = ? WHERE id = ?`)
+						.run(...keys.map((k) => p.update!.set[k]), now, p.update.id);
+					report.rowsUpdated++;
+					if (p.ownerless) report.ownerlessCopied++;
+				}
+				mark.run(now, p.bookId);
+			}
+		})();
+	}
+	if (report.rowsInserted + report.rowsUpdated > 0) migrationsMade = true;
+	return report;
+}
+
 function runMigrations() {
 	migrationStatus.inProgress = true;
 	migrationStatus.startTime = Date.now();
@@ -1885,8 +2095,16 @@ function runMigrations() {
 		console.error('[db] Failed to seed series statuses:', e);
 	}
 
+	// Personal reading state lives in user_books (2.30.0); copied before the series sync reads it
+	try {
+		const r = copyPersonalStateToUserBooks();
+		console.log(`[db] Personal state copy: ${r.booksChecked} books checked, ${r.rowsInserted} user_books rows created, ${r.rowsUpdated} updated (${r.ownerlessCopied} ownerless to the first admin, ${r.ownerlessNoAdminRow} ownerless left with no admin row), ${r.orphanOwners} orphan owners, ${r.orphanStatuses} orphan statuses dropped, ${r.progressRepaired} JSON progress values repaired, ${r.duplicatesMerged} duplicate rows merged`);
+	} catch (e) {
+		console.error('[db] Failed to copy personal state to user_books:', e);
+	}
+
 	// Series status follows its books (2.27.3), as recomputeSeriesStatuses in statusService: owned
-	// (personal) books all Done/DNF -> Finished, any other -> Ongoing; no owned books, Parked or DNF
+	// (personal) books all Done/DNF in the owner's user_books -> Finished, any other -> Ongoing; no owned books, Parked or DNF
 	// stay as they are. Every boot, only series whose status differs
 	try {
 		const seriesStatusId = (word: string) => (sqlite.prepare(
@@ -1899,9 +2117,11 @@ function runMigrations() {
 		const keptIds = [parkedId, dnfId].filter((id): id is number => id !== null);
 		let synced = 0;
 		if (finishedId !== null && ongoingId !== null) {
+			// Each owned book's status is its owner's own (user_books) since 2.30.0
 			const owned = `SELECT COUNT(*) FROM bookseries bs JOIN books b ON b.id = bs.bookId
+				LEFT JOIN user_books ub ON ub.bookId = b.id AND ub.userId = b.ownerId
 				WHERE bs.seriesId = series.id AND b.libraryType = 'personal'`;
-			const unsettled = `${owned} AND (b.statusId IS NULL OR b.statusId NOT IN (SELECT id FROM statuses WHERE key IN ('READ', 'DNF')))`;
+			const unsettled = `${owned} AND (ub.statusId IS NULL OR ub.statusId NOT IN (SELECT id FROM statuses WHERE key IN ('READ', 'DNF')))`;
 			const target = `CASE WHEN (${unsettled}) > 0 THEN ${ongoingId} ELSE ${finishedId} END`;
 			// NULL statusId must still sync, and NULL NOT IN (...) is never true
 			const notKept = keptIds.length === 0 ? '' : `AND (statusId IS NULL OR statusId NOT IN (${keptIds.join(', ')}))`;
@@ -1936,61 +2156,29 @@ function runMigrations() {
 
 	completeStep('Creating Audible series suggestion tables');
 
-	// ========== Migrate owned books to user_books table ==========
-	// For users who own books (via ownerId), ensure those books appear in their personal library (user_books)
+	// ========== Owned books are in their owner's library ==========
+	// An owned book with no user_books row for its owner gets a bare one. Personal state is never
+	// copied here: copyPersonalStateToUserBooks moved it once, and the row no longer holds it live.
 	if (tableExists('user_books') && tableExists('books') && columnExists('books', 'ownerId')) {
 		try {
-			// Count books that have owners but aren't in user_books
-			const missingEntries = sqlite.prepare(`
-				SELECT COUNT(*) as count
-				FROM books b
-				WHERE b.ownerId IS NOT NULL
-				  AND NOT EXISTS (
-				    SELECT 1 FROM user_books ub
-				    WHERE ub.userId = b.ownerId AND ub.bookId = b.id
-				  )
-			`).get() as { count: number };
-
+			const missing = `FROM books b WHERE b.ownerId IS NOT NULL
+				AND EXISTS (SELECT 1 FROM users u WHERE u.id = b.ownerId)
+				AND NOT EXISTS (SELECT 1 FROM user_books ub WHERE ub.userId = b.ownerId AND ub.bookId = b.id)`;
+			const missingEntries = sqlite.prepare(`SELECT COUNT(*) as count ${missing}`).get() as { count: number };
 			if (missingEntries.count > 0) {
 				ensureBackup();
-				console.log(`[db] Migrating ${missingEntries.count} owned books to user_books table...`);
-
-				// Insert into user_books for all owned books that aren't already there
 				const result = sqlite.prepare(`
-					INSERT INTO user_books (userId, bookId, statusId, rating, startReadingDate, completedDate, comments, readingProgress, readingPosition, lastReadAt, dnfPage, dnfPercent, dnfReason, dnfDate, addedAt, createdAt, updatedAt)
-					SELECT
-						b.ownerId,
-						b.id,
-						b.statusId,
-						b.rating,
-						b.startReadingDate,
-						b.completedDate,
-						b.comments,
-						b.readingProgress,
-						b.readingPosition,
-						b.lastReadAt,
-						b.dnfPage,
-						b.dnfPercent,
-						b.dnfReason,
-						b.dnfDate,
-						COALESCE(b.createdAt, CURRENT_TIMESTAMP),
-						COALESCE(b.createdAt, CURRENT_TIMESTAMP),
-						COALESCE(b.updatedAt, CURRENT_TIMESTAMP)
-					FROM books b
-					WHERE b.ownerId IS NOT NULL
-					  AND NOT EXISTS (
-					    SELECT 1 FROM user_books ub
-					    WHERE ub.userId = b.ownerId AND ub.bookId = b.id
-					  )
+					INSERT INTO user_books (userId, bookId, readingProgress, addedAt, createdAt, updatedAt)
+					SELECT b.ownerId, b.id, 0, COALESCE(b.createdAt, CURRENT_TIMESTAMP), COALESCE(b.createdAt, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+					${missing}
 				`).run();
-
 				if (result.changes > 0) {
-					console.log(`[db] Added ${result.changes} books to user_books for their owners`);
+					console.log(`[db] Added ${result.changes} owned books to their owners' libraries`);
 					migrationsMade = true;
 				}
 			}
 		} catch (e) {
-			console.error('[db] Failed to migrate owned books to user_books:', e);
+			console.error('[db] Failed to add owned books to user_books:', e);
 		}
 	}
 

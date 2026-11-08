@@ -1,5 +1,6 @@
 import { db, books, authors, series, narrators, bookAuthors, bookSeries, statuses, genres, formats, tags, bookTags, userBooks } from '$lib/server/db';
 import { like, eq, sql, asc, desc, and, or, gte, lte, ne, isNull, isNotNull, inArray } from 'drizzle-orm';
+import { personalCols, overlayPersonal, viewerBooks as vub } from './personalState';
 
 export interface AutocompleteResult {
 	books: {
@@ -209,6 +210,9 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 	const { page = 1, limit = 24, userId } = filters;
 	const offset = (page - 1) * limit;
 
+	// Notes, status, rating and completed date are the viewer's own row (vub)
+	const personal = personalCols(userId);
+
 	// Build where conditions
 	const conditions: ReturnType<typeof eq>[] = [];
 
@@ -230,14 +234,14 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 		conditions.push(
 			or(
 				like(books.summary, term),
-				like(books.comments, term)
+				like(vub.comments, term)
 			)!
 		);
 	}
 
 	// Status filter
 	if (filters.statusId) {
-		conditions.push(eq(books.statusId, filters.statusId));
+		conditions.push(eq(vub.statusId, filters.statusId));
 	}
 
 	// Genre filter
@@ -252,10 +256,10 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 
 	// Rating range
 	if (filters.ratingMin !== undefined) {
-		conditions.push(gte(books.rating, filters.ratingMin));
+		conditions.push(gte(vub.rating, filters.ratingMin));
 	}
 	if (filters.ratingMax !== undefined) {
-		conditions.push(lte(books.rating, filters.ratingMax));
+		conditions.push(lte(vub.rating, filters.ratingMax));
 	}
 
 	// Page count range
@@ -268,10 +272,10 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 
 	// Date ranges
 	if (filters.completedFrom) {
-		conditions.push(gte(books.completedDate, filters.completedFrom));
+		conditions.push(gte(vub.completedDate, filters.completedFrom));
 	}
 	if (filters.completedTo) {
-		conditions.push(lte(books.completedDate, filters.completedTo));
+		conditions.push(lte(vub.completedDate, filters.completedTo));
 	}
 	if (filters.releaseFrom) {
 		conditions.push(gte(books.releaseDate, filters.releaseFrom));
@@ -285,10 +289,10 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 		conditions.push(isNotNull(books.narratorId));
 	}
 	if (filters.hasRating) {
-		conditions.push(and(isNotNull(books.rating), gte(books.rating, 0.1))!);
+		conditions.push(and(isNotNull(vub.rating), gte(vub.rating, 0.1))!);
 	}
 	if (filters.noRating) {
-		conditions.push(or(isNull(books.rating), eq(books.rating, 0))!);
+		conditions.push(or(isNull(vub.rating), eq(vub.rating, 0))!);
 	}
 	if (filters.hasCover) {
 		conditions.push(and(isNotNull(books.coverImageUrl), ne(books.coverImageUrl, ''))!);
@@ -364,6 +368,7 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(whereClause);
 	const total = countResult[0]?.count ?? 0;
 	const totalPages = Math.ceil(total / limit);
@@ -375,13 +380,13 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 			orderClause = desc(books.title);
 			break;
 		case 'rating':
-			orderClause = desc(books.rating);
+			orderClause = desc(vub.rating);
 			break;
 		case 'rating_asc':
-			orderClause = asc(books.rating);
+			orderClause = asc(vub.rating);
 			break;
 		case 'completedDate':
-			orderClause = desc(books.completedDate);
+			orderClause = desc(vub.completedDate);
 			break;
 		case 'releaseDate':
 			orderClause = desc(books.releaseDate);
@@ -399,13 +404,14 @@ export async function advancedSearch(filters: AdvancedSearchFilters): Promise<Ad
 	}
 
 	// Get books
-	const booksList = await db
-		.select()
+	const booksList = await overlayPersonal((await db
+		.select({ book: books })
 		.from(books)
+		.leftJoin(personal.table, personal.on)
 		.where(whereClause)
 		.orderBy(orderClause)
 		.limit(limit)
-		.offset(offset);
+		.offset(offset)).map((r) => r.book), userId);
 
 	// Fetch relations for each book
 	const items = await Promise.all(
