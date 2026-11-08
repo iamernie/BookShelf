@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const sort = (url.searchParams.get('sort') as 'title' | 'bookCount' | 'createdAt') || 'title';
 	const order = (url.searchParams.get('order') as 'asc' | 'desc') || 'asc';
 
-	const result = await getAllSeries({ page, limit, search, sort, order, userId: locals.user?.id });
+	const result = await getAllSeries({ page, limit, search, sort, order, viewer: locals.user });
 	return json(result);
 };
 

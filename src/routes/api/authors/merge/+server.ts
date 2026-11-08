@@ -12,6 +12,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 
+	// Only admins can access cleanup tools
+	if (locals.user.role !== 'admin') {
+		throw error(403, 'Admin access required');
+	}
+
 	const data = await request.json();
 	const { targetId, sourceId } = data;
 

@@ -1,7 +1,12 @@
 import { db, libraryShares, users, books, userBooks } from '$lib/server/db';
-import { eq, and, or, inArray } from 'drizzle-orm';
+import { eq, and, or, inArray, sql, type SQL } from 'drizzle-orm';
 import type { LibrarySharePermission } from '$lib/server/db/schema';
-import { hasPermission, Permission } from '$lib/server/services/permissionService';
+import { hasPermission, isLibrarianOrAbove, Permission } from '$lib/server/services/permissionService';
+
+/** Who is looking: the role decides the catalog-manager branch, the id everything else */
+export type Viewer = { id: number; role: string | null } | null | undefined;
+
+export type EntityKind = 'series' | 'author' | 'narrator';
 
 export interface LibraryShareInfo {
 	id: number;
@@ -200,6 +205,69 @@ export async function canReachBook(userId: number, bookId: number): Promise<bool
 		.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, bookId)))
 		.get();
 	return !!member;
+}
+
+/**
+ * Check if a viewer can see a book: canReachBook, plus every book for admins and librarians (the
+ * catalog managers). Only viewing uses this (the book page, GET /api/books/[id], entity pages);
+ * Add, reading and the edit paths stay on the role-blind canReachBook, so a manager can look at a
+ * member's private book but never take it into their own library. SQL twin: reachableBookCond.
+ */
+export async function canViewBook(viewer: Viewer, bookId: number): Promise<boolean> {
+	if (!viewer) return false;
+	if (isLibrarianOrAbove(viewer)) {
+		const book = await db.select({ id: books.id }).from(books).where(eq(books.id, bookId)).get();
+		return !!book;
+	}
+	return canReachBook(viewer.id, bookId);
+}
+
+/**
+ * Row-level book reach on the books table aliased `alias`, the SQL twin of canViewBook: nothing
+ * without a viewer, everything for admins and librarians, otherwise canReachBook's clauses
+ * (ownerless, public, own, shared with the viewer, or in their library). The alias is spliced
+ * raw, so it must always be a constant from the calling code, never request input. A caller
+ * wanting canReachBook's role-blind set passes the viewer with role 'member'.
+ */
+export function reachableBookCond(viewer: Viewer, alias = 'books'): SQL {
+	if (!viewer) return sql`1=0`;
+	if (isLibrarianOrAbove(viewer)) return sql`1=1`;
+	const a = sql.raw(alias);
+	return sql`(${a}.ownerId IS NULL OR ${a}.libraryType = 'public' OR ${a}.ownerId = ${viewer.id}
+		OR ${a}.ownerId IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${viewer.id})
+		OR ${a}.id IN (SELECT bookId FROM user_books WHERE userId = ${viewer.id}))`;
+}
+
+/**
+ * Entity gate: the series, author or narrator with id `idExpr` touches at least one book the
+ * viewer can see (series by bookseries, authors by bookauthors, narrators by books.narratorId).
+ * Admins and librarians pass for every entity, books or not. Inner aliases are e-prefixed so they
+ * never shadow the caller's.
+ */
+export function reachableEntityCond(viewer: Viewer, kind: EntityKind, idExpr: SQL): SQL {
+	if (!viewer) return sql`1=0`;
+	if (isLibrarianOrAbove(viewer)) return sql`1=1`;
+	const reach = reachableBookCond(viewer, 'eb');
+	switch (kind) {
+		case 'series':
+			return sql`EXISTS (SELECT 1 FROM bookseries ebs JOIN books eb ON eb.id = ebs.bookId WHERE ebs.seriesId = ${idExpr} AND ${reach})`;
+		case 'author':
+			return sql`EXISTS (SELECT 1 FROM bookauthors eba JOIN books eb ON eb.id = eba.bookId WHERE eba.authorId = ${idExpr} AND ${reach})`;
+		case 'narrator':
+			return sql`EXISTS (SELECT 1 FROM books eb WHERE eb.narratorId = ${idExpr} AND ${reach})`;
+	}
+}
+
+const ENTITY_TABLES: Record<EntityKind, string> = { series: 'series', author: 'authors', narrator: 'narrators' };
+
+/** The entity exists and passes reachableEntityCond: detail pages and their APIs 404 otherwise */
+export async function canReachEntity(viewer: Viewer, kind: EntityKind, id: number): Promise<boolean> {
+	if (!viewer || !Number.isSafeInteger(id)) return false;
+	const table = sql.raw(ENTITY_TABLES[kind]);
+	const row = await db.get<{ ok: number }>(
+		sql`SELECT 1 AS ok FROM ${table} WHERE ${table}.id = ${id} AND ${reachableEntityCond(viewer, kind, sql`${table}.id`)}`
+	);
+	return !!row;
 }
 
 /**

@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(400, { message: 'Invalid author ID' });
 	}
 
-	const result = await getAuthorWithBooks(id, locals.user?.id);
+	const result = await getAuthorWithBooks(id, locals.user);
 	if (!result) {
 		throw error(404, { message: 'Author not found' });
 	}

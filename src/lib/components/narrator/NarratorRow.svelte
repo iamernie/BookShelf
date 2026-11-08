@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Mic, Star } from 'lucide-svelte';
-	import type { NarratorWithStats } from '$lib/server/services/narratorService';
+	import type { NarratorListItem } from '$lib/server/services/narratorService';
 
-	let { narrator }: { narrator: NarratorWithStats } = $props();
+	let { narrator }: { narrator: NarratorListItem } = $props();
 
 	// Narrator photo, else a cover from their books, else the mic icon (as NarratorCard)
 	const imageUrl = $derived(narrator.photoUrl || narrator.coverBook?.coverImageUrl || null);

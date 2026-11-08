@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(400, { message: 'Invalid series ID' });
 	}
 
-	const result = await getSeriesWithBooks(id, locals.user?.id);
+	const result = await getSeriesWithBooks(id, locals.user);
 	if (!result) {
 		throw error(404, { message: 'Series not found' });
 	}

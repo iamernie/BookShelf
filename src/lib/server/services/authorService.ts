@@ -3,6 +3,7 @@ import { eq, like, sql, desc, asc, and, inArray, or, type SQL } from 'drizzle-or
 import type { Author, NewAuthor } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
 import { viewerBooks as vub } from './personalState';
+import { reachableBookCond, reachableEntityCond, canReachEntity, type Viewer } from './libraryShareService';
 import type { BookCardData } from '$lib/types';
 import { dateInAppTz } from '$lib/server/utils/appTime';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
@@ -15,15 +16,10 @@ interface TagInfo {
 }
 
 /**
- * Generate SQL condition to filter books by user's library: the viewer's own (user_books). Other
- * members' personal books never count toward a viewer's author figures; no viewer matches nothing.
+ * Author lists, cards and detail pages are reach-scoped (2.31.0): an author shows when one of their
+ * books is one the viewer can see (reachableEntityCond), and every count, cover and book list runs
+ * over those books (reachableBookCond). Read counts and ratings stay the viewer's own rows.
  */
-function getUserLibraryCondition(userId: number | undefined, bookTableAlias: string = 'b') {
-	if (!userId) {
-		return sql.raw('1=0');
-	}
-	return sql`${sql.raw(bookTableAlias)}.id IN (SELECT bookId FROM user_books WHERE userId = ${userId})`;
-}
 
 /** The viewer's own row for b, for status and rating inside the raw aggregate subqueries */
 function viewerJoin(userId: number | undefined) {
@@ -54,7 +50,7 @@ export interface GetAuthorsOptions {
 	sort?: AuthorSort;
 	order?: 'asc' | 'desc';
 	includeStats?: boolean;
-	userId?: number; // Filter stats to user's library (personal + added from public)
+	viewer?: Viewer; // Scopes the list and its figures to the books this viewer can see
 }
 
 /**
@@ -85,25 +81,22 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 		sort = 'name',
 		order = 'asc',
 		includeStats = true,
-		userId
+		viewer
 	} = options;
+	const userId = viewer?.id;
 	const offset = (page - 1) * limit;
 
-	// User library condition for filtering - only show authors with books in user's library
-	const libCond = getUserLibraryCondition(userId, 'b');
+	// Figures count the books the viewer can see
+	const libCond = reachableBookCond(viewer, 'b');
 
-	// Build where clause - only authors that have books in the user's library
-	const hasLibraryBooks = sql`EXISTS (
-		SELECT 1 FROM bookauthors ba
-		JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
-		WHERE ba.authorId = authors.id AND ${libCond}
-	)`;
+	// Only authors with at least one book the viewer can see
+	const hasLibraryBooks = reachableEntityCond(viewer, 'author', sql`authors.id`);
 
 	const whereClause = search
 		? and(like(authors.name, `%${search}%`), hasLibraryBooks)
 		: hasLibraryBooks;
 
-	// Get total count (only authors with books in user's library)
+	// Get total count (same gate as the list)
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(authors)
@@ -228,7 +221,7 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 			});
 		}
 
-		// Get all books for these authors
+		// The books the viewer can see for these authors (cover and inferred genre)
 		const authorBooks = await db
 			.select({
 				authorId: bookAuthors.authorId,
@@ -242,7 +235,7 @@ export async function getAuthors(options: GetAuthorsOptions = {}): Promise<{
 			.from(bookAuthors)
 			.innerJoin(books, eq(bookAuthors.bookId, books.id))
 			.leftJoin(vub, and(eq(vub.bookId, books.id), eq(vub.userId, userId ?? -1)))
-			.where(inArray(bookAuthors.authorId, authorIds));
+			.where(and(inArray(bookAuthors.authorId, authorIds), reachableBookCond(viewer, 'books')));
 
 		// Get all genres
 		const genreList = await db.select().from(genres);
@@ -319,9 +312,10 @@ export async function getAuthorById(id: number): Promise<Author | null> {
 	return result[0] || null;
 }
 
-export async function getAuthorWithStats(id: number, userId?: number): Promise<AuthorWithStats | null> {
+export async function getAuthorWithStats(id: number, viewer: Viewer): Promise<AuthorWithStats | null> {
+	const userId = viewer?.id;
 	const { readId, dnfId } = await getReadStatusIds();
-	const libCond = getUserLibraryCondition(userId, 'b');
+	const libCond = reachableBookCond(viewer, 'b');
 
 	const result = await db
 		.select({
@@ -380,7 +374,8 @@ export async function getAuthorWithStats(id: number, userId?: number): Promise<A
 	};
 }
 
-export async function getAuthorWithBooks(id: number, userId?: number): Promise<{
+/** Null when the author doesn't exist or has no book the viewer can see, so callers 404 alike */
+export async function getAuthorWithBooks(id: number, viewer: Viewer): Promise<{
 	author: AuthorWithStats;
 	books: BookCardData[];
 	series: {
@@ -389,13 +384,14 @@ export async function getAuthorWithBooks(id: number, userId?: number): Promise<{
 		bookCount: number;
 	}[];
 } | null> {
-	const author = await getAuthorWithStats(id, userId);
+	if (!(await canReachEntity(viewer, 'author', id))) return null;
+	const userId = viewer?.id;
+	const author = await getAuthorWithStats(id, viewer);
 	if (!author) return null;
 
-	// Build library condition for filtering: the viewer's own library
-	const libCondition = userId ? sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})` : sql`1=0`;
+	const libCondition = reachableBookCond(viewer, 'books');
 
-	// Get book IDs for this author (filtered by user's library, ordered by title)
+	// Get book IDs for this author (the books the viewer can see, ordered by title)
 	const authorBookIds = await db
 		.select({
 			id: books.id,
@@ -415,7 +411,7 @@ export async function getAuthorWithBooks(id: number, userId?: number): Promise<{
 	let authorSeries: { id: number; title: string; bookCount: number }[] = [];
 
 	if (bookIds.length > 0) {
-		// Get all series that contain books by this author (in user's library)
+		// Get all series that contain this author's books listed above
 		const seriesData = await db
 			.select({
 				id: series.id,
@@ -623,11 +619,15 @@ function filterIgnoredPairs<T extends { id: number }>(items: T[], ignoredPairs: 
 }
 
 /**
- * Export authors to CSV format
+ * Export authors to CSV format: the authors of the requesting user's own library (user_books), with
+ * Total Books counted over that library. Read count and average rating are the user's own.
  */
-/** Read count and average rating are the requesting user's own */
 export async function exportAuthorsToCSV(userId?: number): Promise<string> {
 	const { readId, dnfId } = await getReadStatusIds();
+	const inLibrary = userId
+		? sql`EXISTS (SELECT 1 FROM bookauthors ba JOIN user_books ub ON ub.bookId = ba.bookId
+			WHERE ba.authorId = authors.id AND ub.userId = ${userId})`
+		: sql`1=0`;
 
 	const authorData = await db
 		.select({
@@ -640,7 +640,8 @@ export async function exportAuthorsToCSV(userId?: number): Promise<string> {
 			website: authors.website,
 			wikipediaUrl: authors.wikipediaUrl,
 			createdAt: authors.createdAt,
-			bookCount: sql<number>`(SELECT COUNT(*) FROM bookauthors WHERE bookauthors.authorId = authors.id)`,
+			bookCount: sql<number>`(SELECT COUNT(*) FROM bookauthors ba JOIN user_books ub ON ub.bookId = ba.bookId
+				WHERE ba.authorId = authors.id AND ub.userId = ${userId ?? -1})`,
 			readCount: sql<number>`(
 				SELECT COUNT(*) FROM bookauthors ba
 				JOIN books b ON ba.bookId = b.id ${viewerJoin(userId)}
@@ -655,6 +656,7 @@ export async function exportAuthorsToCSV(userId?: number): Promise<string> {
 			)`
 		})
 		.from(authors)
+		.where(inLibrary)
 		.orderBy(authors.name);
 
 	const headers = [

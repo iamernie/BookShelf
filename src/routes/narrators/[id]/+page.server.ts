@@ -9,11 +9,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(400, 'Invalid narrator ID');
 	}
 
-	const userId = locals.user?.id;
-
 	const [narrator, books, narratorTags, tags] = await Promise.all([
-		getNarratorById(id, userId),
-		getBooksByNarrator(id, userId),
+		getNarratorById(id, locals.user),
+		getBooksByNarrator(id, locals.user),
 		getNarratorTags(id),
 		getAllTags()
 	]);

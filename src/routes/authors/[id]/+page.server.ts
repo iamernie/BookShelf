@@ -14,10 +14,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(400, 'Invalid author ID');
 	}
 
-	const userId = locals.user?.id;
-
 	const [result, tags, authorTags, statuses, authors, narrators, allSeries, formats, genres] = await Promise.all([
-		getAuthorWithBooks(id, userId),
+		getAuthorWithBooks(id, locals.user),
 		getAllTags(),
 		getAuthorTags(id),
 		getAllStatuses(),

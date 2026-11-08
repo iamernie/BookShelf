@@ -5,23 +5,15 @@ import type { Series, NewSeries } from '$lib/server/db/schema';
 import { getBooksCardData } from './bookService';
 import { getViewerSeriesStatuses } from './statusService';
 import { viewerBooks as vub } from './personalState';
+import { reachableBookCond, reachableEntityCond, canReachEntity, type Viewer } from './libraryShareService';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
 /**
- * Generate SQL condition to filter books by user's library: the viewer's own (user_books). Other
- * members' personal books never count toward a viewer's series figures; no viewer matches nothing.
+ * Series lists, cards and detail pages are reach-scoped (2.31.0): a series shows when one of its
+ * books is one the viewer can see (reachableEntityCond), and card counts, covers, next book and the
+ * detail book list run over those books (reachableBookCond). Status and rating stay the viewer's
+ * own rows. The dashboard's Up Next stays on the viewer's own library on purpose (dashboardService).
  */
-function getUserLibraryCondition(userId: number | undefined, bookTableAlias: string = 'books') {
-	if (!userId) {
-		return sql.raw('1=0');
-	}
-	return sql`${sql.raw(bookTableAlias)}.id IN (SELECT bookId FROM user_books WHERE userId = ${userId})`;
-}
-
-/** The same library condition on the Drizzle books table */
-function libraryBooksCondition(userId: number | undefined): SQL {
-	return userId ? sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})` : sql`1=0`;
-}
 
 /** Series statuses as this viewer sees them (statusService.getViewerSeriesStatuses), names and colours resolved */
 async function withViewerSeriesStatus<T extends { id: number; statusId: number | null; statusName?: string | null; statusColor?: string | null; statusIcon?: string | null }>(rows: T[], userId: number | undefined): Promise<T[]> {
@@ -105,7 +97,7 @@ export interface GetSeriesOptions {
 	search?: string;
 	sort?: SeriesSort;
 	order?: 'asc' | 'desc';
-	userId?: number; // Filter stats to user's library
+	viewer?: Viewer; // Scopes the list and its figures to the books this viewer can see
 }
 
 export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
@@ -114,17 +106,19 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 	page: number;
 	limit: number;
 }> {
-	const { page = 1, limit = 24, search, sort = 'title', order = 'asc', userId } = options;
+	const { page = 1, limit = 24, search, sort = 'title', order = 'asc', viewer } = options;
+	const userId = viewer?.id;
 	const offset = (page - 1) * limit;
 
-	// User library condition for filtering
-	const libCond = getUserLibraryCondition(userId, 'b');
-	const libCondBooks = libraryBooksCondition(userId);
+	// Figures count the books the viewer can see
+	const libCond = reachableBookCond(viewer, 'b');
+	const libCondBooks = reachableBookCond(viewer, 'books');
 
-	// Build where clause
-	const whereClause = search ? like(series.title, `%${search}%`) : undefined;
+	// Only series with at least one book the viewer can see
+	const hasReachableBooks = reachableEntityCond(viewer, 'series', sql`series.id`);
+	const whereClause = search ? and(like(series.title, `%${search}%`), hasReachableBooks) : hasReachableBooks;
 
-	// Get total count
+	// Get total count (same gate as the list)
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(series)
@@ -215,7 +209,7 @@ export async function getAllSeries(options: GetSeriesOptions = {}): Promise<{
 	const viewerItems = await withViewerSeriesStatus(basicItems, userId);
 	const items: SeriesCardData[] = await Promise.all(
 		viewerItems.map(async (s) => {
-			// Get books in this series with their details (filtered by user library)
+			// Get books in this series with their details (the books the viewer can see)
 			const seriesBooks = await db
 				.select({
 					id: books.id,
@@ -367,20 +361,25 @@ export async function getSeriesById(id: number): Promise<Series | null> {
 	return result[0] || null;
 }
 
-/** storedStatus: the series' own stored status (the edit form) instead of the viewer's derived one */
-export async function getSeriesWithBooks(id: number, userId?: number, opts: { storedStatus?: boolean } = {}): Promise<{
+/**
+ * storedStatus: the series' own stored status (the edit form) instead of the viewer's derived one.
+ * Null when the series doesn't exist or has no book the viewer can see, so callers 404 alike.
+ */
+export async function getSeriesWithBooks(id: number, viewer: Viewer, opts: { storedStatus?: boolean } = {}): Promise<{
 	series: SeriesWithBookCount;
 	books: BookCardData[];
 	stats: SeriesStats;
 } | null> {
-	// User library condition for filtering books: the viewer's own
-	const libCondBooks = libraryBooksCondition(userId);
+	if (!(await canReachEntity(viewer, 'series', id))) return null;
+	const userId = viewer?.id;
 
-	// Build book count subquery that respects user library filter
+	// The books the viewer can see
+	const libCondBooks = reachableBookCond(viewer, 'books');
+
 	const bookCountSubquery = sql<number>`(SELECT COUNT(*) FROM bookseries bs
 			INNER JOIN books b ON b.id = bs.bookId
 			WHERE bs.seriesId = ${series.id}
-			AND ${getUserLibraryCondition(userId, 'b')})`;
+			AND ${reachableBookCond(viewer, 'b')})`;
 
 	const seriesResult = await db
 		.select({
@@ -408,7 +407,7 @@ export async function getSeriesWithBooks(id: number, userId?: number, opts: { st
 	const [seriesData] = opts.storedStatus ? seriesResult : await withViewerSeriesStatus(seriesResult, userId);
 	if (!seriesData) return null;
 
-	// Get book IDs with their order in the series (filtered by user library)
+	// Get book IDs with their order in the series (the books the viewer can see)
 	const seriesBookIds = await db
 		.select({
 			id: books.id,

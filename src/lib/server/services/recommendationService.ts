@@ -9,6 +9,7 @@ import { eq, ne, desc, sql, and, isNull, isNotNull, notInArray, inArray, gt, typ
 import { createLogger } from './loggerService';
 import { getStatusByKey } from './statusService';
 import { viewerBooks as vub, writePersonal } from './personalState';
+import { reachableBookCond } from './libraryShareService';
 
 /**
  * Everything here is one viewer's: taste comes from their own user_books rows (status, rating),
@@ -18,10 +19,13 @@ import { viewerBooks as vub, writePersonal } from './personalState';
 function viewerJoin(userId: number) {
 	return and(eq(vub.bookId, books.id), eq(vub.userId, userId));
 }
-function reachable(userId: number) {
-	return sql`(${books.ownerId} IS NULL OR ${books.libraryType} = 'public' OR ${books.ownerId} = ${userId}
-		OR ${books.ownerId} IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId})
-		OR ${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId}))`;
+/**
+ * Candidates use member reach whatever the viewer's role (role 'member' skips the helper's
+ * admin/librarian branch on purpose): a manager's recommendations stay drawn from what they could
+ * Add, never from every member's private library.
+ */
+function reachable(userId: number, alias = 'books') {
+	return reachableBookCond({ id: userId, role: 'member' }, alias);
 }
 /** Not Done for the viewer (no row, or a row with another status) */
 function notReadBy(): SQL {
@@ -563,9 +567,7 @@ export async function getSimilarBooks(bookId: number, limit: number = 8, userId:
 		LEFT JOIN authors a ON b.authorId = a.id
 		LEFT JOIN user_books vub ON vub.bookId = b.id AND vub.userId = ${userId}
 		WHERE b.id != ${bookId}
-		AND (b.ownerId IS NULL OR b.libraryType = 'public' OR b.ownerId = ${userId}
-			OR b.ownerId IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId})
-			OR b.id IN (SELECT bookId FROM user_books WHERE userId = ${userId}))
+		AND ${reachable(userId, 'b')}
 		AND (
 			b.seriesId IN (${seriesIds.length > 0 ? sql.join(seriesIds.map(id => sql`${id}`), sql`, `) : sql`-1`})
 			OR b.authorId IN (${authorIds.length > 0 ? sql.join(authorIds.map(id => sql`${id}`), sql`, `) : sql`-1`})

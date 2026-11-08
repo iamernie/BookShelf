@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, { message: 'Invalid narrator ID' });
 	}
 
-	const narrator = await getNarratorById(id);
+	const narrator = await getNarratorById(id, locals.user);
 	if (!narrator) {
 		throw error(404, { message: 'Narrator not found' });
 	}

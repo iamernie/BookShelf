@@ -212,7 +212,7 @@
 
 	// Reading needs the book in your library (2.30.0): Read or Download on a book you only reach
 	// asks to Add it first, then goes on. The reader sends such a book back here with ?read=1
-	const askToRead = $derived(!data.inLibrary && !!data.book.ebookPath && $page.url.searchParams.get('read') === '1');
+	const askToRead = $derived(data.canAdd && !data.inLibrary && !!data.book.ebookPath && $page.url.searchParams.get('read') === '1');
 	let addingToRead = $state(false);
 	async function addThen(url: string) {
 		addingToRead = true;
@@ -587,7 +587,7 @@
 			</button>
 
 			<div class="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-				{#if data.book.ebookPath}
+				{#if data.book.ebookPath && data.canAdd}
 					{#if data.ebookMissing}
 						<span
 							class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm rounded-lg"
@@ -622,6 +622,7 @@
 						<ExternalLink class="w-3 h-3" />
 					</a>
 				{/if}
+				{#if data.canAdd}
 				<button
 					type="button"
 					class="btn-ghost flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
@@ -651,6 +652,7 @@
 				>
 					<Trash2 class="w-4 h-4" />
 				</button>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -762,6 +764,8 @@
 					{/if}
 				</div>
 
+				<!-- Rating and status are the viewer's own: hidden on a book they can't Add -->
+				{#if data.canAdd}
 				<!-- Inline Rating -->
 				<div class="mb-3">
 					<div
@@ -808,6 +812,7 @@
 						{/each}
 					</select>
 				</div>
+				{/if}
 
 				<!-- Format & Genre Pills -->
 				<div class="flex flex-wrap gap-1.5 mb-3">
@@ -831,7 +836,7 @@
 				</div>
 
 				<!-- Quick Actions -->
-				{#if data.book.ebookPath}
+				{#if data.book.ebookPath && data.canAdd}
 					<a
 						href="/api/ebooks/{data.book.id}/download"
 						onclick={(e) => addFirst(e, 'download')}
@@ -1152,7 +1157,8 @@
 
 				<!-- Notes Grid - combined in a row -->
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-					<!-- Personal Notes -->
+					<!-- Personal Notes (the viewer's own; hidden on a book they can't Add) -->
+					{#if data.canAdd}
 					<div class="card p-4">
 						<div class="flex items-center justify-between mb-2">
 							<h2 class="text-sm font-semibold flex items-center gap-1.5" style="color: var(--text-primary);">
@@ -1212,6 +1218,7 @@
 							</button>
 						{/if}
 					</div>
+					{/if}
 
 					<!-- Series Notes (show first series or placeholder) -->
 					{#if data.book.series.length > 0}
@@ -1390,6 +1397,7 @@
 											{/if}
 										</div>
 									</div>
+									{#if data.canAdd}
 									<div class="flex items-center gap-2 w-full sm:w-auto">
 										<a
 											href="/reader/{data.book.id}"
@@ -1415,6 +1423,7 @@
 											<Download class="w-4 h-4" />
 										</a>
 									</div>
+									{/if}
 								</div>
 							</div>
 						{:else}

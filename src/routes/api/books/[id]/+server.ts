@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getBookById, updateBook, deleteBook, AbsItemAlreadyLinkedError } from '$lib/server/services/bookService';
 import { removeBookFromUserLibrary, getUserBook } from '$lib/server/services/userBookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
-import { canReachBook, canModifyBook, canDeleteBook, hideOwnerFrom } from '$lib/server/services/libraryShareService';
+import { canReachBook, canViewBook, canModifyBook, canDeleteBook, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { applyStatusChange } from '$lib/server/services/statusService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
@@ -30,9 +30,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(404, { message: 'Book not found' });
 	}
 
-	// Check if user has access to this book
+	// Check if user can see this book (admins and librarians see every book; writes stay on canReachBook)
 	if (locals.user) {
-		const hasAccess = await canReachBook(locals.user.id, id);
+		const hasAccess = await canViewBook(locals.user, id);
 		if (!hasAccess) {
 			throw error(403, { message: 'You do not have access to this book' });
 		}

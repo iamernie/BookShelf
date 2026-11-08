@@ -7,9 +7,8 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	// URL params win; the saved browse cookie fills in sort, order, limit and the view
 	const { view, sort, order, limit, page } = resolveBrowse('authors', url.searchParams, cookies.get(browseCookieName('authors')));
 	const search = url.searchParams.get('search') || undefined;
-	const userId = locals.user?.id;
 
-	const result = await getAuthors({ page, limit, search, sort: sort as AuthorSort, order, userId });
+	const result = await getAuthors({ page, limit, search, sort: sort as AuthorSort, order, viewer: locals.user });
 
 	const pastEnd = pastEndRedirect(url, { page, limit, total: result.total, count: result.items.length });
 	if (pastEnd) redirect(302, pastEnd);

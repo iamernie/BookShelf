@@ -11,10 +11,8 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	// Narrator detail pages link here with ?tag=N
 	const tagParam = parseInt(url.searchParams.get('tag') || '', 10);
 	const tagId = Number.isSafeInteger(tagParam) && tagParam > 0 ? tagParam : undefined;
-	const userId = locals.user?.id;
-
 	const [result, tag] = await Promise.all([
-		getNarrators({ page, limit, search, sort: sort as NarratorSort, order, userId, tagId, includeStats: true }),
+		getNarrators({ page, limit, search, sort: sort as NarratorSort, order, viewer: locals.user, tagId, includeStats: true }),
 		tagId ? getTagById(tagId) : Promise.resolve(null)
 	]);
 

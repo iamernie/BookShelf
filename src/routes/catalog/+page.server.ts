@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
 	switch (tab) {
 		case 'authors': {
-			const result = await getAuthors({ search, page, limit, userId: locals.user?.id });
+			const result = await getAuthors({ search, page, limit, viewer: locals.user });
 			items = result.items;
 			total = result.total;
 			break;
@@ -37,13 +37,13 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			break;
 		}
 		case 'series': {
-			const result = await getAllSeries({ search, page, limit, userId: locals.user?.id });
+			const result = await getAllSeries({ search, page, limit, viewer: locals.user });
 			items = result.items;
 			total = result.total;
 			break;
 		}
 		case 'narrators': {
-			const result = await getNarrators({ search });
+			const result = await getNarrators({ search, viewer: locals.user });
 			items = result.items;
 			total = result.total;
 			break;

@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { canReachBook, holdsBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
+import { canReachBook, canViewBook, holdsBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { getBookById } from '$lib/server/services/bookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { getSimilarBooks } from '$lib/server/services/recommendationService';
@@ -17,8 +17,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	// A book the viewer can't reach doesn't open; personal fields on it are the viewer's own
-	if (!locals.user || !(await canReachBook(locals.user.id, id))) {
+	// A book the viewer can't see doesn't open (admins and librarians see every book); personal
+	// fields on it are the viewer's own
+	if (!locals.user || !(await canViewBook(locals.user, id))) {
 		throw error(404, 'Book not found');
 	}
 
@@ -33,14 +34,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const isOwner = found.ownerId !== null && found.ownerId === locals.user.id;
 
 	// Get similar books, tags, statuses, and media sources
-	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes, inLibrary] = await Promise.all([
+	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes, inLibrary, canAdd] = await Promise.all([
 		getSimilarBooks(id, 8, locals.user.id),
 		getAllTags(),
 		getAllStatuses(),
 		getAllMediaSources(locals.user?.id),
 		getBookMediaSources(id),
 		getSeriesBookNotes(book.series.map((s) => s.id), locals.user?.id),
-		holdsBook(locals.user.id, id)
+		holdsBook(locals.user.id, id),
+		canReachBook(locals.user.id, id)
 	]);
 
 	// Check if ebook file exists (using proper path resolution)
@@ -64,6 +66,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		canUnpromote: found.libraryType === 'public' && isAdmin,
 		// Reading needs the book in the viewer's library; Read on a book they only reach asks to Add it
 		inLibrary,
+		// Add, reading and every personal or edit write stay on role-blind reach: a manager looking at
+		// a member's private book by role alone gets the page without the controls that would 403
+		canAdd,
 		allTags,
 		allStatuses,
 		allMediaSources,

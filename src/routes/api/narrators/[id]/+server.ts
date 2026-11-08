@@ -2,13 +2,13 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getNarratorById, updateNarrator, deleteNarrator, getNarratorTags } from '$lib/server/services/narratorService';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
 		throw error(400, { message: 'Invalid narrator ID' });
 	}
 
-	const narrator = await getNarratorById(id);
+	const narrator = await getNarratorById(id, locals.user);
 	if (!narrator) {
 		throw error(404, { message: 'Narrator not found' });
 	}

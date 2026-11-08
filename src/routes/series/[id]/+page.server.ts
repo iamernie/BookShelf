@@ -20,8 +20,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const userId = locals.user?.id;
 
-	const [result, allTags, allStatuses, authors, narrators, allSeries, formats, genres, audible] = await Promise.all([
-		getSeriesWithBooks(id, userId),
+	// The gate first: nothing else about a series the viewer can't reach is loaded
+	const result = await getSeriesWithBooks(id, locals.user);
+	if (!result) {
+		throw error(404, 'Series not found');
+	}
+
+	const [allTags, allStatuses, authors, narrators, allSeries, formats, genres, audible] = await Promise.all([
 		getAllTags(),
 		getAllStatuses(),
 		getAllAuthors(),
@@ -32,10 +37,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		// Saved Audible list only: never calls Audible on page load
 		userId ? getSeriesSuggestions(id, userId) : Promise.resolve(null)
 	]);
-
-	if (!result) {
-		throw error(404, 'Series not found');
-	}
 
 	// Get tags for this series
 	const seriesTagsList = await db

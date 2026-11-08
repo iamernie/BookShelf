@@ -8,9 +8,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const search = url.searchParams.get('search') || undefined;
 	const sort = (url.searchParams.get('sort') as 'name' | 'createdAt' | 'bookCount') || 'name';
 	const order = (url.searchParams.get('order') as 'asc' | 'desc') || 'asc';
-	const userId = locals.user?.id;
-
-	const result = await getNarrators({ page, limit, search, sort, order, userId });
+	const result = await getNarrators({ page, limit, search, sort, order, viewer: locals.user });
 	return json(result);
 };
 

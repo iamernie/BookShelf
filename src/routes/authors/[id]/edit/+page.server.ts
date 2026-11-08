@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 
 	const [result, allTags, authorTags] = await Promise.all([
-		getAuthorWithBooks(id, locals.user?.id),
+		getAuthorWithBooks(id, locals.user),
 		getAllTags(),
 		getAuthorTags(id)
 	]);

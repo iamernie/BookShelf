@@ -536,7 +536,7 @@ export interface UpNextInSeries {
 		total: number;
 		percentage: number;
 	};
-	// Read / total counts matching SeriesCardData.readBooks / bookCount on the /series page
+	// Read / total counts over the viewer's own library (not the /series card counts, which are reach-scoped)
 	seriesReadCount: number;
 	seriesBookCount: number;
 }
@@ -548,7 +548,9 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 
 	if (!readStatusId) return [];
 
-	// Same library filter the /series page uses for its card counts (seriesService.getSeries): the viewer's own books
+	// Up Next is "my next book", so it stays on the viewer's own library (user_books) and never
+	// offers a book they don't hold. Since 2.31.0 the /series cards count every book the viewer can
+	// reach (seriesService.getAllSeries), so these counts can be lower than the card's: by design.
 	const seriesPageLibCond = libCond;
 
 	// Series set to DNF or Parked are skipped; a series with no status still counts
@@ -600,7 +602,7 @@ export async function getUpNextInSeries(userId?: number, limit = 6): Promise<UpN
 		const bookData = await getBooksCardData([nextBook.bookId], userId ?? null);
 		if (bookData.length === 0) continue;
 
-		// Series-card counts, matching the /series page definition exactly
+		// Read / total over the viewer's own library (see seriesPageLibCond)
 		const seriesPageBooks = await db.select({ statusId: vub.statusId })
 			.from(bookSeries)
 			.innerJoin(books, eq(bookSeries.bookId, books.id)).leftJoin(vub, vubOn(userId))

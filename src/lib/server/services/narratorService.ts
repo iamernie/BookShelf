@@ -1,6 +1,7 @@
 import { db, narrators, books, narratorTags, tags } from '$lib/server/db';
-import { eq, like, asc, desc, sql, and, or, inArray, type SQL } from 'drizzle-orm';
+import { eq, like, asc, desc, sql, and, inArray, getTableColumns, type SQL } from 'drizzle-orm';
 import { viewerBooks as vub } from './personalState';
+import { reachableBookCond, reachableEntityCond, canReachEntity, type Viewer } from './libraryShareService';
 import { stripHtmlTags } from './metadataProviders/types';
 import { duplicateNameKey } from '$lib/server/utils/nameNormalization';
 
@@ -25,6 +26,19 @@ export interface NarratorWithStats extends NarratorType {
 	tags?: TagInfo[];
 }
 
+/** List rows carry no shared comments (the detail page still does until per-user notes land) */
+export type NarratorListItem = Omit<NarratorWithStats, 'comments'>;
+
+// Every narrator column but comments, for list rows
+const { comments: _comments, ...narratorListColumns } = getTableColumns(narrators);
+
+/**
+ * Narrator lists, cards and detail pages are reach-scoped (2.31.0): a narrator shows when a book
+ * they narrate (books.narratorId) is one the viewer can see (reachableEntityCond), and counts,
+ * covers and the detail book list run over those books (reachableBookCond). Ratings stay the
+ * viewer's own rows.
+ */
+
 export type NarratorSort = 'name' | 'createdAt' | 'updatedAt' | 'bookCount' | 'rating';
 
 export interface GetNarratorsOptions {
@@ -33,22 +47,23 @@ export interface GetNarratorsOptions {
 	search?: string;
 	sort?: NarratorSort;
 	order?: 'asc' | 'desc';
-	userId?: number; // Filter stats to user's library
+	viewer?: Viewer; // Scopes the list and its figures to the books this viewer can see
 	tagId?: number; // Filter by tag
 	includeStats?: boolean;
 }
 
 export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
-	items: NarratorWithStats[];
+	items: NarratorListItem[];
 	total: number;
 	page: number;
 	limit: number;
 }> {
-	const { page = 1, limit = 50, search, sort = 'name', order = 'asc', userId, tagId, includeStats = true } = options;
+	const { page = 1, limit = 50, search, sort = 'name', order = 'asc', viewer, tagId, includeStats = true } = options;
+	const userId = viewer?.id;
 	const offset = (page - 1) * limit;
 
-	// Build where conditions
-	const conditions: ReturnType<typeof eq>[] = [];
+	// Only narrators with at least one book the viewer can see
+	const conditions: SQL[] = [reachableEntityCond(viewer, 'narrator', sql`narrators.id`)];
 	if (search) {
 		conditions.push(like(narrators.name, `%${search}%`));
 	}
@@ -58,26 +73,21 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 		);
 	}
 
-	const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+	const whereClause = and(...conditions);
 
-	// Get total count
+	// Get total count (same gate as the list)
 	const countResult = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(narrators)
 		.where(whereClause);
 	const total = countResult[0]?.count ?? 0;
 
-	// User library condition for stats
-	const userLibraryCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	// Stats count the books the viewer can see
+	const userLibraryCondition = reachableBookCond(viewer, 'books');
 
 	// Sorted in SQL over the whole list, so every page is in order. sort and order are never
 	// interpolated: direction is one of two literals, the column comes from the switch. The stat
-	// subqueries read unaliased FROM books because userLibraryCondition renders "books"."libraryType".
+	// subqueries read unaliased FROM books because userLibraryCondition is written on books.
 	const dir = order === 'asc' ? sql`ASC` : sql`DESC`;
 	const byName = sql`narrators.name COLLATE NOCASE ASC`;
 	let orderTerms: SQL[];
@@ -99,7 +109,7 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 	}
 
 	const narratorsList = await db
-		.select()
+		.select(narratorListColumns)
 		.from(narrators)
 		.where(whereClause)
 		.orderBy(...orderTerms)
@@ -158,7 +168,7 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 			});
 		}
 
-		// Get a representative cover book for each narrator
+		// Get a representative cover book for each narrator, from the books the viewer can see
 		const coverBooksData = await db
 			.select({
 				narratorId: books.narratorId,
@@ -170,7 +180,8 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 			.where(
 				and(
 					inArray(books.narratorId, narratorIds),
-					sql`${books.coverImageUrl} IS NOT NULL AND ${books.coverImageUrl} != ''`
+					sql`${books.coverImageUrl} IS NOT NULL AND ${books.coverImageUrl} != ''`,
+					userLibraryCondition
 				)
 			);
 
@@ -188,25 +199,23 @@ export async function getNarrators(options: GetNarratorsOptions = {}): Promise<{
 
 		// Enrich items with tags and cover books
 		for (const item of items) {
-			(item as NarratorWithStats).tags = tagsByNarrator.get(item.id) || [];
-			(item as NarratorWithStats).coverBook = coverBookByNarrator.get(item.id) || null;
+			(item as NarratorListItem).tags = tagsByNarrator.get(item.id) || [];
+			(item as NarratorListItem).coverBook = coverBookByNarrator.get(item.id) || null;
 		}
 	}
 
 	return { items, total, page, limit };
 }
 
-export async function getNarratorById(id: number, userId?: number): Promise<NarratorWithStats | null> {
+/** Null when the narrator doesn't exist or narrates no book the viewer can see, so callers 404 alike */
+export async function getNarratorById(id: number, viewer: Viewer): Promise<NarratorWithStats | null> {
+	if (!(await canReachEntity(viewer, 'narrator', id))) return null;
+	const userId = viewer?.id;
 	const narrator = await db.select().from(narrators).where(eq(narrators.id, id)).limit(1);
 	if (!narrator[0]) return null;
 
-	// User library condition
-	const userLibraryCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+	// Stats count the books the viewer can see
+	const userLibraryCondition = reachableBookCond(viewer, 'books');
 
 	// Book stats
 	const bookStatsResult = await db
@@ -346,15 +355,10 @@ export async function deleteNarrator(id: number): Promise<boolean> {
 	return result.changes > 0;
 }
 
-// Get books by a narrator (filtered by user's library)
-export async function getBooksByNarrator(narratorId: number, userId?: number): Promise<{ id: number; title: string; coverImageUrl: string | null; rating: number | null }[]> {
-	// User library condition
-	const userLibraryCondition = userId
-		? or(
-				eq(books.libraryType, 'personal'),
-				sql`${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId})`
-		  )
-		: eq(books.libraryType, 'personal');
+// Get books by a narrator: the books the viewer can see
+export async function getBooksByNarrator(narratorId: number, viewer: Viewer): Promise<{ id: number; title: string; coverImageUrl: string | null; rating: number | null }[]> {
+	const userId = viewer?.id;
+	const userLibraryCondition = reachableBookCond(viewer, 'books');
 
 	return db
 		.select({

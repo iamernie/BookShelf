@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(400, 'Invalid series ID');
 	}
 
-	const result = await getSeriesWithBooks(id, locals.user?.id, { storedStatus: true });
+	const result = await getSeriesWithBooks(id, locals.user, { storedStatus: true });
 	if (!result) {
 		throw error(404, 'Series not found');
 	}
