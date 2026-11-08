@@ -505,6 +505,68 @@ export function copyPersonalStateToUserBooks(): PersonalCopyReport {
 	return report;
 }
 
+// ============================================================================
+// PERSONAL STATE BLANK (2.30.0) - the books row stops holding anyone's reading state
+// ============================================================================
+
+/** Every personal field the books row used to hold; dnfPercentComplete is deprecated in place */
+const BLANKED_ROW_FIELDS = [...PERSONAL_ROW_FIELDS, 'readingProgress', 'readingPosition', 'lastReadAt', 'purchasePrice'] as const;
+
+export interface PersonalBlankReport {
+	booksBlanked: number;
+	ownerlessBlanked: number;
+	notCopiedSkipped: number;
+	backupPath: string | null;
+}
+
+/**
+ * NULL the personal fields on every books row whose state copyPersonalStateToUserBooks has
+ * already moved (personalCopiedAt set), ownerless public books included: user_books is the only
+ * home for status, rating, notes, dates, DNF details and positions, and purchasePrice lives on
+ * book_media_sources. A row the copy hasn't reached yet is never blanked (it is counted instead).
+ * The readingProgress column default (0) on books created later is not state and is left.
+ * A backup is taken directly before the first real change, one transaction, and a second run
+ * finds nothing to blank.
+ */
+export function blankPersonalRowFields(): PersonalBlankReport {
+	const report: PersonalBlankReport = { booksBlanked: 0, ownerlessBlanked: 0, notCopiedSkipped: 0, backupPath: null };
+	if (!tableExists('books') || !columnExists('books', 'personalCopiedAt')) return report;
+	const fields = BLANKED_ROW_FIELDS.filter((f) => columnExists('books', f));
+	if (fields.length === 0) return report;
+
+	// books.readingProgress defaults to 0 on runtime-created tables, so every new book carries it:
+	// that's nobody's state, and counting it would blank (and back up) again on every boot
+	const holds = `(${fields.map((f) => (f === 'readingProgress' ? `(${f} IS NOT NULL AND ${f} NOT IN (0, '0'))` : `${f} IS NOT NULL`)).join(' OR ')})`;
+	const counts = sqlite.prepare(`
+		SELECT
+			SUM(CASE WHEN personalCopiedAt IS NOT NULL THEN 1 ELSE 0 END) AS ready,
+			SUM(CASE WHEN personalCopiedAt IS NOT NULL AND ownerId IS NULL THEN 1 ELSE 0 END) AS ownerless,
+			SUM(CASE WHEN personalCopiedAt IS NULL THEN 1 ELSE 0 END) AS notCopied
+		FROM books WHERE ${holds}
+	`).get() as { ready: number | null; ownerless: number | null; notCopied: number | null };
+	report.notCopiedSkipped = counts.notCopied ?? 0;
+	if (!counts.ready) return report;
+
+	if (!backupCreated) {
+		updateStatus('Creating pre-migration backup...');
+		const backup = createPreMigrationBackup();
+		if (backup) {
+			backupCreated = true;
+			migrationStatus.backupPath = backup;
+			report.backupPath = backup;
+			completeStep('Backup created');
+		}
+	}
+	sqlite.transaction(() => {
+		report.booksBlanked = sqlite.prepare(
+			`UPDATE books SET ${fields.map((f) => `${f} = NULL`).join(', ')} WHERE personalCopiedAt IS NOT NULL AND ${holds}`
+		).run().changes;
+	})();
+	report.ownerlessBlanked = counts.ownerless ?? 0;
+	if (report.booksBlanked > 0) migrationsMade = true;
+	return report;
+}
+
 function runMigrations() {
 	migrationStatus.inProgress = true;
 	migrationStatus.startTime = Date.now();
@@ -1422,35 +1484,37 @@ function runMigrations() {
 	if (tableExists('books')) {
 		safeAddColumn('books', 'ownerId', 'INTEGER REFERENCES users(id)');
 
-		// Migrate existing PERSONAL books to admin user if they don't have an owner
-		// Public library books (libraryType = 'public') should NOT have an owner
+		// Ownerless personal books go to the first admin (or first user), so nothing personal stays
+		// open to everyone. Public books keep whatever owner they have: a promoted book keeps its
+		// owner (2.30.0; only admins see it). A book some other user has in their library is left
+		// alone: it isn't the admin's, and giving it to them would put it in the admin's private
+		// library and attribute it to them. Un-promote assigns the acting admin itself.
 		try {
-			// Check if we have any personal books without an owner
-			const unownedBooks = sqlite.prepare(`
-				SELECT COUNT(*) as count FROM books
-				WHERE ownerId IS NULL
+			const adminUser = sqlite.prepare(`
+				SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1
+			`).get() as { id: number } | undefined;
+
+			const fallbackUser = sqlite.prepare(`
+				SELECT id FROM users ORDER BY id ASC LIMIT 1
+			`).get() as { id: number } | undefined;
+
+			const ownerId = adminUser?.id || fallbackUser?.id || 1;
+			const unowned = `FROM books WHERE ownerId IS NULL
 				AND (libraryType IS NULL OR libraryType = 'personal')
-			`).get() as { count: number };
+				AND NOT EXISTS (SELECT 1 FROM user_books ub WHERE ub.bookId = books.id AND ub.userId != ?)`;
+			const holdersTable = tableExists('user_books');
+
+			// Check if we have any personal books without an owner
+			const unownedBooks = (holdersTable
+				? sqlite.prepare(`SELECT COUNT(*) as count ${unowned}`).get(ownerId)
+				: sqlite.prepare(`SELECT COUNT(*) as count FROM books WHERE ownerId IS NULL AND (libraryType IS NULL OR libraryType = 'personal')`).get()
+			) as { count: number };
 
 			if (unownedBooks.count > 0) {
 				ensureBackup();
-				// Get the first admin user (or first user if no admin)
-				const adminUser = sqlite.prepare(`
-					SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1
-				`).get() as { id: number } | undefined;
-
-				const fallbackUser = sqlite.prepare(`
-					SELECT id FROM users ORDER BY id ASC LIMIT 1
-				`).get() as { id: number } | undefined;
-
-				const ownerId = adminUser?.id || fallbackUser?.id || 1;
-
-				// Only assign owner to personal books, NOT public library books
-				const result = sqlite.prepare(`
-					UPDATE books SET ownerId = ?
-					WHERE ownerId IS NULL
-					AND (libraryType IS NULL OR libraryType = 'personal')
-				`).run(ownerId);
+				const result = holdersTable
+					? sqlite.prepare(`UPDATE books SET ownerId = ? WHERE id IN (SELECT id ${unowned})`).run(ownerId, ownerId)
+					: sqlite.prepare(`UPDATE books SET ownerId = ? WHERE ownerId IS NULL AND (libraryType IS NULL OR libraryType = 'personal')`).run(ownerId);
 
 				if (result.changes > 0) {
 					console.log(`[db] Assigned ${result.changes} existing personal books to user ${ownerId}`);
@@ -1459,29 +1523,6 @@ function runMigrations() {
 			}
 		} catch (e) {
 			console.error('[db] Failed to migrate book ownership:', e);
-		}
-
-		// Fix: Clear ownerId from public library books (they shouldn't have an owner)
-		try {
-			const publicWithOwner = sqlite.prepare(`
-				SELECT COUNT(*) as count FROM books
-				WHERE libraryType = 'public' AND ownerId IS NOT NULL
-			`).get() as { count: number };
-
-			if (publicWithOwner.count > 0) {
-				ensureBackup();
-				const result = sqlite.prepare(`
-					UPDATE books SET ownerId = NULL
-					WHERE libraryType = 'public' AND ownerId IS NOT NULL
-				`).run();
-
-				if (result.changes > 0) {
-					console.log(`[db] Cleared ownerId from ${result.changes} public library books`);
-					migrationsMade = true;
-				}
-			}
-		} catch (e) {
-			console.error('[db] Failed to clear ownerId from public books:', e);
 		}
 
 		// Create index for ownerId queries
@@ -2101,6 +2142,14 @@ function runMigrations() {
 		console.log(`[db] Personal state copy: ${r.booksChecked} books checked, ${r.rowsInserted} user_books rows created, ${r.rowsUpdated} updated (${r.ownerlessCopied} ownerless to the first admin, ${r.ownerlessNoAdminRow} ownerless left with no admin row), ${r.orphanOwners} orphan owners, ${r.orphanStatuses} orphan statuses dropped, ${r.progressRepaired} JSON progress values repaired, ${r.duplicatesMerged} duplicate rows merged`);
 	} catch (e) {
 		console.error('[db] Failed to copy personal state to user_books:', e);
+	}
+
+	// Then the books row is blanked: only books the copy has reached, so nothing is lost
+	try {
+		const r = blankPersonalRowFields();
+		console.log(`[db] Personal state blank: ${r.booksBlanked} books rows blanked (${r.ownerlessBlanked} ownerless), ${r.notCopiedSkipped} not yet copied left as they are`);
+	} catch (e) {
+		console.error('[db] Failed to blank personal state on the books row:', e);
 	}
 
 	// Series status follows its books (2.27.3), as recomputeSeriesStatuses in statusService: owned

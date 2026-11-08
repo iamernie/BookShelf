@@ -5,6 +5,7 @@ import { getLibraryOverview } from '$lib/server/services/statsService';
 import { createLogger } from '$lib/server/services/loggerService';
 import { getSettingAs } from '$lib/server/services/settingsService';
 import { personalCols } from '$lib/server/services/personalState';
+import { sharedByForViewer } from '$lib/server/services/libraryShareService';
 
 const log = createLogger('library-page');
 
@@ -91,6 +92,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			originalCoverUrl: books.originalCoverUrl,
 			rating: personal.cols.rating,
 			libraryType: books.libraryType,
+			ownerId: books.ownerId,
 			pageCount: books.pageCount,
 			createdAt: books.createdAt,
 			absItemId: books.absItemId,
@@ -159,11 +161,15 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		userLibraryBookIds = new Set(userLibrary.map(ub => ub.bookId));
 	}
 
+	// "Shared by" on public cards is admin-only; the owner id itself never leaves the server
+	const sharedBy = await sharedByForViewer(locals.user, bookResults);
+
 	// Format books for display
-	const booksWithDetails = bookResults.map(book => ({
+	const booksWithDetails = bookResults.map(({ ownerId: _ownerId, ...book }) => ({
 		...book,
 		authors: authorsByBook.get(book.id) || [],
-		inUserLibrary: userLibraryBookIds.has(book.id)
+		inUserLibrary: userLibraryBookIds.has(book.id),
+		sharedBy: sharedBy.get(book.id) ?? null
 	}));
 
 	// Get library overview stats

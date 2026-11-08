@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { canReachBook } from '$lib/server/services/libraryShareService';
+import { canReachBook, sharedByForViewer, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { getBookById } from '$lib/server/services/bookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
 import { getSimilarBooks } from '$lib/server/services/recommendationService';
@@ -22,10 +22,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Book not found');
 	}
 
-	const book = await getBookById(id, locals.user.id);
-	if (!book) {
+	const found = await getBookById(id, locals.user.id);
+	if (!found) {
 		throw error(404, 'Book not found');
 	}
+	// A public book's owner is admin-only ("shared by"); members get neither the id nor the name
+	const book = hideOwnerFrom(locals.user, found);
+	const sharedBy = (await sharedByForViewer(locals.user, [found])).get(found.id) ?? null;
+	const isAdmin = locals.user.role === 'admin';
+	const isOwner = found.ownerId !== null && found.ownerId === locals.user.id;
 
 	// Get similar books, tags, statuses, and media sources
 	const [similarBooks, allTags, allStatuses, allMediaSources, bookMediaSources, seriesBookNotes] = await Promise.all([
@@ -50,7 +55,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		book,
 		similarBooks,
 		canManagePublicLibrary: canManagePublicLibrary(locals.user),
-		isAdmin: locals.user?.role === 'admin',
+		isAdmin,
+		sharedBy,
+		// Promote: the owner or an admin; un-promote: admins only (PATCH /api/books/[id]/library)
+		canPromote: found.libraryType !== 'public' && (isAdmin || isOwner),
+		canUnpromote: found.libraryType === 'public' && isAdmin,
 		allTags,
 		allStatuses,
 		allMediaSources,

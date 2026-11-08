@@ -77,8 +77,8 @@ export async function getReadingState(
 		return null;
 	}
 
-	// Check ownership - allow if owned by user or unowned (null)
-	if (book.ownerId !== null && book.ownerId !== userId) {
+	// Check ownership - allow if owned by user, unowned (null) or public (promoted books keep their owner)
+	if (book.ownerId !== null && book.ownerId !== userId && book.libraryType !== 'public') {
 		return null;
 	}
 
@@ -191,8 +191,8 @@ export async function saveReadingState(
 		};
 	}
 
-	// Check ownership - allow if owned by user or unowned (null)
-	if (book.ownerId !== null && book.ownerId !== userId) {
+	// Check ownership - allow if owned by user, unowned (null) or public (promoted books keep their owner)
+	if (book.ownerId !== null && book.ownerId !== userId && book.libraryType !== 'public') {
 		return {
 			EntitlementId: `bookshelf-${bookId}`,
 			CurrentBookmarkResult: { Result: 'NotFound' },

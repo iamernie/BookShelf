@@ -413,7 +413,7 @@
 						<!-- Library Type Badge -->
 						{#if book.libraryType === 'public'}
 							<span class="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-medium text-white" style="background-color: rgba(59, 130, 246, 0.9);">
-								Public
+								Public{#if book.sharedBy} · shared by {book.sharedBy}{/if}
 							</span>
 						{/if}
 					</div>
@@ -445,7 +445,7 @@
 							<div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
 								{#if book.libraryType === 'public'}
 									<span class="px-2 py-0.5 rounded text-[10px] font-medium text-white" style="background-color: rgba(59, 130, 246, 0.9);">
-										Public
+										Public{#if book.sharedBy} · shared by {book.sharedBy}{/if}
 									</span>
 								{/if}
 								{#if book.inUserLibrary}

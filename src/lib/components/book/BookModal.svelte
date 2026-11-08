@@ -77,7 +77,6 @@
 	let publishYear = $state(book?.publishYear?.toString() || '');
 	let edition = $state(book?.edition || '');
 	let language = $state(book?.language || 'English');
-	let purchasePrice = $state(book?.purchasePrice?.toString() || '');
 	let ebookPath = $state(book?.ebookPath || '');
 
 	// Audiobookshelf manual linking (admins, integration enabled); applies immediately, not on Save
@@ -603,7 +602,6 @@
 			publishYear: publishYear ? parseInt(publishYear) : null,
 			edition: edition.trim() || null,
 			language: language.trim() || 'English',
-			purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
 			authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
 			series: selectedSeries.map(s => ({
 				id: s.id,
@@ -1282,10 +1280,6 @@
 									<div>
 										<label for="edition" class="block text-sm font-medium text-gray-700 mb-1">Edition</label>
 										<input id="edition" type="text" bind:value={edition} placeholder="e.g., 1st" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-									</div>
-									<div>
-										<label for="purchasePrice" class="block text-sm font-medium text-gray-700 mb-1">Purchase Price</label>
-										<input id="purchasePrice" type="number" step="0.01" bind:value={purchasePrice} placeholder="0.00" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
 									</div>
 								</div>
 							</div>

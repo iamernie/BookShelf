@@ -305,7 +305,7 @@ function toReaderPage(format: string | null | undefined, location: string | unde
 /**
  * Sync KOReader progress to the user's own reading position (user_books), so the browser reader
  * continues where KOReader left off: position, percent and last-read; no status. The row-creation
- * rule is writeOwnPosition's (public books and the user's own only).
+ * rule is writeOwnPosition's (any book the user can reach, shared ones included).
  */
 async function syncProgressToBook(
 	userId: number,

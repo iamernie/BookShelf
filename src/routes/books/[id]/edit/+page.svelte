@@ -30,6 +30,7 @@
 	import { toInputDate } from '$lib/utils/date';
 	import { pushLayer } from '$lib/utils/layers';
 	import { guardNavigation, sortedIds, trackDirty } from '$lib/utils/unsavedChanges';
+	import { saveBookEdits, splitBookBody } from '$lib/utils/bookSave';
 	import { applyMetadataResult, metadataApplyToast, type MetadataResult } from '$lib/utils/bookMetadataApply';
 	import { findByNameKey, nameMatchesSearch } from '$lib/utils/nameNormalization';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
@@ -74,7 +75,6 @@
 	let publishYear = $state(book.publishYear?.toString() || '');
 	let edition = $state(book.edition || '');
 	let language = $state(book.language || 'English');
-	let purchasePrice = $state(book.purchasePrice?.toString() || '');
 	let ebookPath = $state(book.ebookPath || '');
 
 	// Cover/lookup state
@@ -555,7 +555,6 @@
 			publishYear: publishYear ? parseInt(publishYear) : null,
 			edition: edition.trim() || null,
 			language: language.trim() || 'English',
-			purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
 			authors: selectedAuthors.map(a => ({ id: a.id, role: a.role })),
 			series: selectedSeries.map(s => ({
 				id: s.id,
@@ -586,7 +585,12 @@
 		mediaSourceIds: sortedIds(selectedMediaSourceIds),
 		...pickerText()
 	}));
-	onMount(() => form.capture());
+	// What the server holds, split as it is saved: personal (the viewer's own) and catalog
+	let savedSplit = splitBookBody(buildPayload());
+	onMount(() => {
+		form.capture();
+		savedSplit = splitBookBody(buildPayload());
+	});
 	guardNavigation(form.isDirty);
 
 	function closeDropdowns() {
@@ -612,12 +616,11 @@
 		const picker = pickerText();
 		const mediaSourceIds = [...selectedMediaSourceIds];
 		try {
-			const res = await fetch(`/api/books/${book.id}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			if (res.ok) {
+			// Personal and catalog halves are saved apart, so the viewer's own rating, notes and
+			// status save even when they can't edit the catalog (e.g. their promoted book)
+			const result = await saveBookEdits(book.id, payload, savedSplit);
+			if (result.ok) {
+				savedSplit = splitBookBody(payload);
 				// Before goto: the guard runs after finally has cleared saving
 				form.adopt({ ...snapshotOf(payload), ...picker });
 
@@ -646,8 +649,10 @@
 				await tick(); // Ensure toast is added before navigation
 				goto(`/books/${book.id}`);
 			} else {
-				const err = await res.json();
-				toasts.error(err.message || 'Failed to save book');
+				if (result.personalSaved) savedSplit = { ...savedSplit, personal: splitBookBody(payload).personal };
+				toasts.error(result.personalSaved
+					? `Your rating, notes and status were saved, but the book details weren't: ${result.message}`
+					: result.message || 'Failed to save book');
 			}
 		} catch (err) {
 			toasts.error(err instanceof Error ? err.message : 'Failed to save book');

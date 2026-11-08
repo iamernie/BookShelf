@@ -210,6 +210,32 @@
 	// Derived: is this a public library book?
 	const isPublicLibraryBook = $derived(data.book.libraryType === 'public');
 
+	// Promote (owner or admin) / un-promote (admin): the owner is kept; only admins see "shared by"
+	let changingLibrary = $state(false);
+	async function setLibraryType(libraryType: 'public' | 'personal') {
+		const question = libraryType === 'public'
+			? 'Move this book to the public library? Everyone will be able to see it and add it to their own library. Your rating, notes and status stay yours.'
+			: 'Move this book out of the public library? Anyone who already added it keeps it in their library.';
+		if (!confirm(question)) return;
+		changingLibrary = true;
+		try {
+			const res = await fetch(`/api/books/${data.book.id}/library`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ libraryType })
+			});
+			if (res.ok) {
+				toasts.success(libraryType === 'public' ? 'Moved to the public library' : 'Moved out of the public library');
+				await invalidateAll();
+			} else {
+				const err = await res.json().catch(() => null);
+				toasts.error(err?.message || 'Failed to change library');
+			}
+		} finally {
+			changingLibrary = false;
+		}
+	}
+
 	// Inline editing state
 	let editingSummary = $state(false);
 	let editingNotes = $state(false);
@@ -687,6 +713,39 @@
 						{/each}
 					</select>
 				</div>
+
+				<!-- Library: public badge, admin-only "shared by", promote / un-promote -->
+				{#if isPublicLibraryBook || data.canPromote}
+					<div class="mb-3 flex flex-col gap-1.5">
+						{#if isPublicLibraryBook}
+							<div class="flex items-center justify-center gap-1.5 text-xs" style="color: var(--text-secondary);">
+								<Globe class="w-3.5 h-3.5" />
+								<span>Public library{#if data.sharedBy} · shared by {data.sharedBy}{/if}</span>
+							</div>
+						{/if}
+						{#if data.canPromote}
+							<button
+								type="button"
+								class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm"
+								disabled={changingLibrary}
+								onclick={() => setLibraryType('public')}
+							>
+								<Globe class="w-3.5 h-3.5" />
+								Share to public library
+							</button>
+						{:else if data.canUnpromote}
+							<button
+								type="button"
+								class="w-full btn-ghost flex items-center justify-center gap-1.5 py-1.5 text-sm"
+								disabled={changingLibrary}
+								onclick={() => setLibraryType('personal')}
+							>
+								<Library class="w-3.5 h-3.5" />
+								Move out of public library
+							</button>
+						{/if}
+					</div>
+				{/if}
 
 				<!-- Format & Genre Pills -->
 				<div class="flex flex-wrap gap-1.5 mb-3">

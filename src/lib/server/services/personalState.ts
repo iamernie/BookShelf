@@ -8,6 +8,7 @@ import { db, books, userBooks, statuses } from '$lib/server/db';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { Book } from '$lib/server/db/schema';
+import { canReachBook } from './libraryShareService';
 
 /** The viewer's user_books row, aliased so it never collides with other user_books joins */
 export const viewerBooks = alias(userBooks, 'vub');
@@ -51,8 +52,8 @@ export const EMPTY_PERSONAL: PersonalFields = {
 /**
  * Left join of the viewer's user_books row onto books, and the personal columns read from it.
  * Use as `.leftJoin(p.table, p.on)` and spread `p.cols` into the select. readingProgress is the
- * book-shaped JSON position (user_books.readingPosition). purchasePrice is not personal state
- * yet (it stays on the row until it is blanked) and shows only to the book's owner.
+ * book-shaped JSON position (user_books.readingPosition). purchasePrice was never moved: the
+ * row's value is blanked at boot (book_media_sources holds prices) and showed only to the owner.
  */
 export function personalCols(userId: number | null | undefined, bookId: SQL | typeof books.id = books.id) {
 	const uid = userId ?? NO_VIEWER;
@@ -165,10 +166,11 @@ export const PERSONAL_WRITE_KEYS = ['rating', 'comments', 'startReadingDate', 'c
 
 /**
  * Split a book create/update body into catalog fields and personal fields. statusId comes out on
- * its own; readingProgress / lastReadAt never pass through a book body. purchasePrice stays catalog.
+ * its own; readingProgress / lastReadAt never pass through a book body. purchasePrice is dropped:
+ * the books row no longer holds it (book_media_sources is the price home).
  */
 export function splitPersonal<T extends Record<string, unknown>>(data: T): {
-	catalog: Omit<T, (typeof PERSONAL_WRITE_KEYS)[number] | 'statusId' | 'readingProgress' | 'lastReadAt'>;
+	catalog: Omit<T, (typeof PERSONAL_WRITE_KEYS)[number] | 'statusId' | 'readingProgress' | 'lastReadAt' | 'purchasePrice'>;
 	personal: PersonalWrite;
 	statusId: number | null | undefined;
 } {
@@ -182,6 +184,7 @@ export function splitPersonal<T extends Record<string, unknown>>(data: T): {
 	}
 	const statusId = catalog.statusId as number | null | undefined;
 	delete catalog.statusId;
+	delete catalog.purchasePrice;
 	delete catalog.readingProgress;
 	delete catalog.lastReadAt;
 	return { catalog: catalog as never, personal: personal as PersonalWrite, statusId };
@@ -218,10 +221,10 @@ export function hasPersonal(personal: PersonalWrite): boolean {
 
 
 /**
- * Save a reader position (the JSON the web reader, KOReader and Kobo write) on the user's own row,
- * with the percent and last-read time. A user_books row grants no access, but it does put a book
- * on the user's library list and it outlives a revoked share, so a missing row is only created for
- * public books and the user's own (KOReader's rule). Returns false when nothing was saved.
+ * Save a reader position (the JSON the web reader and KOReader write) on the user's own row, with
+ * the percent and last-read time. A missing row is created for any book the user can reach,
+ * including one reached through a library share: the position is theirs, so the book joins their
+ * library (and stays reachable through that row). Returns false when nothing was saved.
  */
 export async function writeOwnPosition(userId: number, bookId: number, position: string, percent: number, at: string): Promise<boolean> {
 	const [existing] = await db.select({ id: userBooks.id }).from(userBooks)
@@ -232,8 +235,7 @@ export async function writeOwnPosition(userId: number, bookId: number, position:
 			.where(eq(userBooks.id, existing.id));
 		return true;
 	}
-	const [book] = await db.select({ ownerId: books.ownerId, libraryType: books.libraryType }).from(books).where(eq(books.id, bookId)).limit(1);
-	if (!book || (book.libraryType !== 'public' && book.ownerId !== userId)) return false;
+	if (!(await canReachBook(userId, bookId))) return false;
 	await db.insert(userBooks).values({
 		userId,
 		bookId,

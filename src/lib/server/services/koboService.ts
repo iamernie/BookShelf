@@ -313,8 +313,9 @@ export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 	// Get books tagged with "kobo" that are either:
 	// 1. Owned by this user (ownerId = userId)
 	// 2. Unowned (ownerId is null) - for backwards compatibility with single-user setups
+	// 3. Public: a promoted book keeps its owner but is everyone's (2.30.0)
 	const taggedBooks = await db
-		.select({ bookId: bookTags.bookId, ownerId: books.ownerId })
+		.select({ bookId: bookTags.bookId, ownerId: books.ownerId, libraryType: books.libraryType })
 		.from(bookTags)
 		.innerJoin(books, eq(bookTags.bookId, books.id))
 		.where(eq(bookTags.tagId, tagId));
@@ -323,7 +324,7 @@ export async function getKoboTaggedBooks(userId: number): Promise<number[]> {
 
 	// Filter to books owned by user or unowned
 	const filtered = taggedBooks
-		.filter((b) => b.ownerId === userId || b.ownerId === null)
+		.filter((b) => b.ownerId === userId || b.ownerId === null || b.libraryType === 'public')
 		.map((b) => b.bookId);
 
 	console.log(`[KoboService] Books filtered for user ${userId} (owned or unowned):`, filtered);

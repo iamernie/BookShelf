@@ -12,7 +12,7 @@ import { viewerBooks as vub, writePersonal } from './personalState';
 
 /**
  * Everything here is one viewer's: taste comes from their own user_books rows (status, rating),
- * candidates are books they can reach (ownerless, public, their own, or shared with them). No
+ * candidates are books they can reach (ownerless, public, their own, shared with them, or in their library). No
  * other member's rating or reading ever shapes a list or reaches an AI prompt.
  */
 function viewerJoin(userId: number) {
@@ -20,7 +20,8 @@ function viewerJoin(userId: number) {
 }
 function reachable(userId: number) {
 	return sql`(${books.ownerId} IS NULL OR ${books.libraryType} = 'public' OR ${books.ownerId} = ${userId}
-		OR ${books.ownerId} IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId}))`;
+		OR ${books.ownerId} IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId})
+		OR ${books.id} IN (SELECT bookId FROM user_books WHERE userId = ${userId}))`;
 }
 /** Not Done for the viewer (no row, or a row with another status) */
 function notReadBy(): SQL {
@@ -563,7 +564,8 @@ export async function getSimilarBooks(bookId: number, limit: number = 8, userId:
 		LEFT JOIN user_books vub ON vub.bookId = b.id AND vub.userId = ${userId}
 		WHERE b.id != ${bookId}
 		AND (b.ownerId IS NULL OR b.libraryType = 'public' OR b.ownerId = ${userId}
-			OR b.ownerId IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId}))
+			OR b.ownerId IN (SELECT ownerId FROM library_shares WHERE sharedWithId = ${userId})
+			OR b.id IN (SELECT bookId FROM user_books WHERE userId = ${userId}))
 		AND (
 			b.seriesId IN (${seriesIds.length > 0 ? sql.join(seriesIds.map(id => sql`${id}`), sql`, `) : sql`-1`})
 			OR b.authorId IN (${authorIds.length > 0 ? sql.join(authorIds.map(id => sql`${id}`), sql`, `) : sql`-1`})

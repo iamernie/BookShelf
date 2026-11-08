@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getBookById, updateBook, deleteBook, AbsItemAlreadyLinkedError } from '$lib/server/services/bookService';
 import { removeBookFromUserLibrary, getUserBook } from '$lib/server/services/userBookService';
 import { canManagePublicLibrary } from '$lib/server/services/permissionService';
-import { canReachBook, canModifyBook, canDeleteBook } from '$lib/server/services/libraryShareService';
+import { canReachBook, canModifyBook, canDeleteBook, hideOwnerFrom } from '$lib/server/services/libraryShareService';
 import { applyStatusChange } from '$lib/server/services/statusService';
 import { downloadCoverImage } from '$lib/server/services/coverService';
 import { applyAbsTagParity } from '$lib/server/services/absService';
@@ -38,7 +38,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		}
 	}
 
-	return json(book);
+	return json(hideOwnerFrom(locals.user, book));
 };
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
@@ -126,7 +126,6 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	// Number fields
 	if (data.pageCount !== undefined) updateData.pageCount = data.pageCount || null;
 	if (data.publishYear !== undefined) updateData.publishYear = data.publishYear || null;
-	if (data.purchasePrice !== undefined) updateData.purchasePrice = data.purchasePrice || null;
 
 	// Provider (external) rating fields - separate from the user's personal rating
 	if (data.providerRating !== undefined) updateData.providerRating = data.providerRating ?? null;
@@ -191,7 +190,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const [row] = await db.select().from(books).where(eq(books.id, id)).limit(1);
 	if (!row) throw error(404, { message: 'Book not found' });
 	const [book] = await overlayPersonal([row], locals.user.id);
-	return json(book);
+	return json(hideOwnerFrom(locals.user, book));
 };
 
 export const DELETE: RequestHandler = async ({ params, request, url, locals }) => {

@@ -49,12 +49,12 @@ export const GET: RequestHandler = async ({ params, request }) => {
 		throw error(404, 'Book not found');
 	}
 
-	// Get the book - allow books owned by user OR unowned (for single-user setups)
+	// Get the book - allow books owned by user OR unowned (for single-user setups) OR public
 	console.log('[Kobo Download] Looking up book:', { bookId: numericId, userId: user.userId });
 	const book = await db.query.books.findFirst({
 		where: and(
 			eq(books.id, numericId),
-			or(eq(books.ownerId, user.userId), isNull(books.ownerId))
+			or(eq(books.ownerId, user.userId), isNull(books.ownerId), eq(books.libraryType, 'public'))
 		)
 	});
 

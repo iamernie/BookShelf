@@ -16,7 +16,6 @@ import {
 } from '$lib/server/services/userBookService';
 import { canReachBook } from '$lib/server/services/libraryShareService';
 import { applyStatusChange } from '$lib/server/services/statusService';
-// Permission service used for full User type - for simplified locals.user, check role directly
 import type { LibraryType } from '$lib/server/db/schema';
 
 /**
@@ -188,17 +187,14 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 /**
  * PATCH /api/books/[id]/library
  * Change the book's library type (personal <-> public)
- * Requires librarian/admin permission
+ * Promote (personal -> public): the book's owner or an admin. Un-promote (public -> personal):
+ * admins only. The owner is kept either way; an ownerless book un-promoted goes to the acting
+ * admin, so it doesn't stay open to everyone as ownerless. Members' own rows are never touched:
+ * anyone who added the book keeps it in their library after an un-promote.
  */
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!locals.user) {
 		throw error(401, 'Unauthorized');
-	}
-
-	// Check for librarian/admin permission (manually check role since locals.user is simplified)
-	const userRole = locals.user.role;
-	if (userRole !== 'admin' && userRole !== 'librarian') {
-		throw error(403, 'Insufficient permissions to manage library type');
 	}
 
 	const bookId = parseInt(params.id);
@@ -213,11 +209,36 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, 'Invalid library type. Must be "personal" or "public"');
 	}
 
+	const [book] = await db
+		.select({ id: books.id, libraryType: books.libraryType, ownerId: books.ownerId })
+		.from(books)
+		.where(eq(books.id, bookId))
+		.limit(1);
+
+	if (!book) {
+		throw error(404, 'Book not found');
+	}
+
+	const isAdmin = locals.user.role === 'admin';
+	if (libraryType === 'public') {
+		if (!isAdmin && book.ownerId !== locals.user.id) {
+			throw error(403, 'Only the book\'s owner or an admin can move it to the public library');
+		}
+	} else if (!isAdmin) {
+		throw error(403, 'Only admins can move a book out of the public library');
+	}
+
+	if ((book.libraryType ?? 'personal') === libraryType) {
+		return json({ success: true, libraryType });
+	}
+
 	const now = new Date().toISOString();
+	const set: { libraryType: LibraryType; updatedAt: string; ownerId?: number } = { libraryType, updatedAt: now };
+	if (libraryType === 'personal' && book.ownerId === null) set.ownerId = locals.user.id;
 
 	await db
 		.update(books)
-		.set({ libraryType, updatedAt: now })
+		.set(set)
 		.where(eq(books.id, bookId));
 
 	return json({

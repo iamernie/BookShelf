@@ -90,7 +90,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			publishYear: data.publishYear || null,
 			language: data.language?.trim() || 'English',
 			edition: data.edition?.trim() || null,
-			purchasePrice: data.purchasePrice || null,
 			authors: data.authors || [],
 			series: data.series || [],
 			tagIds: data.tagIds || [],

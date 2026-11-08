@@ -1,4 +1,4 @@
-import { db, libraryShares, users, books } from '$lib/server/db';
+import { db, libraryShares, users, books, userBooks } from '$lib/server/db';
 import { eq, and, or, inArray } from 'drizzle-orm';
 import type { LibrarySharePermission } from '$lib/server/db/schema';
 import { hasPermission, Permission } from '$lib/server/services/permissionService';
@@ -169,9 +169,11 @@ export async function getBookPermission(
 
 /**
  * Check if a user can reach a book: ownerless and public books are open to everyone, anything
- * else needs ownership or an active share. A user_books row is only a reading record, it survives
- * a revoked share and grants nothing. Ownerless is checked here and not in getBookPermission
- * because bulk imports have no owner and are still the library's own books.
+ * else needs ownership, an active share, or the book being in the user's own library (a
+ * user_books row). Membership is permanent reach: a book someone added while it was public stays
+ * theirs after it is un-promoted, and a share recipient who has read or tracked a shared book keeps
+ * it (2.30.0). Ownerless is checked here and not in getBookPermission because bulk imports have no
+ * owner and are still the library's own books. Reach never grants catalog edits.
  */
 export async function canReachBook(userId: number, bookId: number): Promise<boolean> {
 	const book = await db
@@ -188,7 +190,16 @@ export async function canReachBook(userId: number, bookId: number): Promise<bool
 		return true;
 	}
 
-	return (await getBookPermission(userId, bookId)) !== null;
+	if ((await getBookPermission(userId, bookId)) !== null) {
+		return true;
+	}
+
+	const member = await db
+		.select({ id: userBooks.id })
+		.from(userBooks)
+		.where(and(eq(userBooks.userId, userId), eq(userBooks.bookId, bookId)))
+		.get();
+	return !!member;
 }
 
 /**
@@ -289,4 +300,41 @@ export async function getShareableUsers(currentUserId: number): Promise<{ id: nu
 
 	// Filter out current user
 	return allUsers.filter((u) => u.id !== currentUserId);
+}
+
+/**
+ * "Shared by" for public books (2.30.0): a promoted book keeps its owner, and only admins are told
+ * who that is. Returns the owner's username by book id for an admin viewer, and nothing at all for
+ * anyone else, so the name never leaves the server for members.
+ */
+export async function sharedByForViewer(
+	viewer: { role: string | null } | null | undefined,
+	list: { id: number; ownerId: number | null; libraryType: string | null }[]
+): Promise<Map<number, string>> {
+	const result = new Map<number, string>();
+	if (viewer?.role !== 'admin') return result;
+	const owned = list.filter((b) => b.libraryType === 'public' && b.ownerId !== null);
+	if (owned.length === 0) return result;
+	const ownerIds = [...new Set(owned.map((b) => b.ownerId!))];
+	const names = await db
+		.select({ id: users.id, username: users.username })
+		.from(users)
+		.where(inArray(users.id, ownerIds))
+		.all();
+	const byId = new Map(names.map((u) => [u.id, u.username]));
+	for (const b of owned) {
+		const name = byId.get(b.ownerId!);
+		if (name) result.set(b.id, name);
+	}
+	return result;
+}
+
+/** A public book's owner is admin-only: everyone else but the owner gets the book without it */
+export function hideOwnerFrom<T extends { ownerId: number | null; libraryType: string | null }>(
+	viewer: { id: number; role: string | null } | null | undefined,
+	book: T
+): T {
+	if (book.libraryType !== 'public' || book.ownerId === null) return book;
+	if (viewer?.role === 'admin' || viewer?.id === book.ownerId) return book;
+	return { ...book, ownerId: null };
 }
