@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.30.0] - 2026-11-08
+
+### Added
+- A public library: promote any of your books to the public shelf (the Promote button on a book's page; admins can un-promote). A public book keeps its owner, admins see who shared it, and members add it to their own library with their own status, rating and notes.
+- Your reading state is yours alone, everywhere: status, rating, notes, reading dates, DNF and reader position now live in your own library record, and every screen reads and writes yours (books, cards, lists, dashboard, stats, goals, series, authors, narrators, genres, search, shelves, recommendations, export, Kobo, KOReader and the web reader). Nobody else's state shows on a shared book, and your personal edits no longer need catalog permissions.
+- Reading requires library membership: a book's content (the web reader and its file, downloads, OPDS, Kobo and KOReader) opens only when the book is in your own library. A book you can see but haven't added offers to add it first ("Add and read"), and your e-readers never see books that aren't in your library.
+
+### Changed
+- A book stays in your library once you add it: un-promoting or revoking a share never takes it away from members who hold it; their notes, status and progress keep working. Only deleting the book, or removing it from your library, removes it.
+- Adding a book that is already in your library now saves the rating, notes and status you sent instead of quietly ignoring them.
+- Reading positions on a shared book save to the reader's own record, never the owner's.
+- The purchase price field is gone from the book forms and the API.
+
+### Migration note
+- On the first start after updating, BookShelf writes a backup, then copies each book's personal fields (status, rating, notes, reading dates, DNF, position) from the shared row into each owner's own library record and clears them from the shared row. Nothing you see changes; the step is skipped for anything already copied and is safe to repeat.
+
 ## [2.29.0] - 2026-11-07
 
 ### Added
