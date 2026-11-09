@@ -75,7 +75,7 @@ export const authors = sqliteTable('authors', {
 	photoUrl: text('photoUrl'),
 	website: text('website'),
 	wikipediaUrl: text('wikipediaUrl'),
-	comments: text('comments'),
+	comments: text('comments'), // Deprecated in place (2.31.0): per-user notes replace it; blanked at boot once the copied note matches
 	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
 	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
 });
@@ -85,7 +85,7 @@ export const series = sqliteTable('series', {
 	title: text('title').notNull(),
 	description: text('description'),
 	numBooks: integer('numBooks'),
-	comments: text('comments'),
+	comments: text('comments'), // Deprecated in place (2.31.0): per-user notes replace it; blanked at boot once the copied note matches
 	statusId: integer('statusId').references(() => seriesStatuses.id),
 	genreId: integer('genreId').references(() => genres.id),
 	// Audible series suggestions (2.27.0). audibleStatus describes the match only:
@@ -145,7 +145,7 @@ export const narrators = sqliteTable('narrators', {
 	photoUrl: text('photoUrl'),
 	website: text('website'),
 	wikipediaUrl: text('wikipediaUrl'),
-	comments: text('comments'),
+	comments: text('comments'), // Deprecated in place (2.31.0): per-user notes replace it; blanked at boot once the copied note matches
 	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
 	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
 });

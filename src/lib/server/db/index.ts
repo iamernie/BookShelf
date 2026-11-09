@@ -581,6 +581,17 @@ const ENTITY_NOTES_COPY = [
 // JS trim() whitespace for the common cases: SQLite's one-argument TRIM strips spaces only
 const TRIM_WS = 'char(32, 9, 10, 13)';
 
+/** Whether the one-time copy has run (its marker row exists); the settings table must exist */
+function entityNotesCopied(): boolean {
+	return !!sqlite.prepare('SELECT 1 FROM settings WHERE key = ?').get(schema.ENTITY_NOTES_COPIED_SETTING);
+}
+
+/** The copy's target: user 1 when that user is an admin, otherwise the lowest-id admin, or none */
+function entityNotesTargetUser(): { id: number } | undefined {
+	return (sqlite.prepare("SELECT id FROM users WHERE id = 1 AND role = 'admin'").get()
+		?? sqlite.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get()) as { id: number } | undefined;
+}
+
 export interface EntityNotesCopyReport {
 	skipped: 'marker' | 'no-admin' | 'no-tables' | null;
 	targetUserId: number | null;
@@ -594,7 +605,7 @@ export interface EntityNotesCopyReport {
  * of user 1 when that user is an admin, otherwise the lowest-id admin: they were the catalog's
  * editor, so the text becomes their own notes and nobody else sees it. An existing per-user note
  * always wins (ON CONFLICT DO NOTHING). The text is copied trimmed, as the /notes route writes it.
- * Copy only: the shared columns keep their text (blanking is a later step). Runs once, gated by
+ * Copy only: blankEntityComments clears the shared columns afterwards. Runs once, gated by
  * the ENTITY_NOTES_COPIED_SETTING row written in the same transaction, so a note the admin
  * deletes later is never copied back. With no admin nothing is copied and the marker stays unset.
  */
@@ -610,12 +621,11 @@ export function copyEntityCommentsToNotes(): EntityNotesCopyReport {
 		report.skipped = 'no-tables';
 		return report;
 	}
-	if (sqlite.prepare('SELECT 1 FROM settings WHERE key = ?').get(schema.ENTITY_NOTES_COPIED_SETTING)) {
+	if (entityNotesCopied()) {
 		report.skipped = 'marker';
 		return report;
 	}
-	const admin = (sqlite.prepare("SELECT id FROM users WHERE id = 1 AND role = 'admin'").get()
-		?? sqlite.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get()) as { id: number } | undefined;
+	const admin = entityNotesTargetUser();
 	if (!admin) {
 		report.skipped = 'no-admin';
 		return report;
@@ -656,6 +666,83 @@ export function copyEntityCommentsToNotes(): EntityNotesCopyReport {
 		`).run(schema.ENTITY_NOTES_COPIED_SETTING, now, now, now);
 	})();
 	if (Object.values(report.copied).some((n) => n > 0)) migrationsMade = true;
+	return report;
+}
+
+export interface EntityCommentsBlankReport {
+	skipped: 'no-marker' | 'no-admin' | 'no-tables' | null;
+	targetUserId: number | null;
+	blanked: Record<(typeof ENTITY_NOTES_COPY)[number]['kind'], number>;
+	kept: Record<(typeof ENTITY_NOTES_COPY)[number]['kind'], number>;
+	backupPath: string | null;
+}
+
+/**
+ * NULL the shared `comments` on series, authors and narrators once copyEntityCommentsToNotes has
+ * run (its marker row exists): the text now lives in the copy target's own notes. A row is blanked
+ * only when its text is whitespace-only or the target (resolved by the copy's own rule, never
+ * guessed: no admin means no blank) has a note on that entity equal to it, both sides trimmed of
+ * the same whitespace. Anything else (note deleted or edited since the copy) is a mismatch and
+ * keeps its shared text, counted in `kept`. Backup first, one transaction, and a second run finds
+ * nothing to blank. Only the three entity `comments` columns are written.
+ */
+export function blankEntityComments(): EntityCommentsBlankReport {
+	const report: EntityCommentsBlankReport = {
+		skipped: null, targetUserId: null,
+		blanked: { series: 0, authors: 0, narrators: 0 },
+		kept: { series: 0, authors: 0, narrators: 0 },
+		backupPath: null
+	};
+	if (!tableExists('settings') || !tableExists('users')) {
+		report.skipped = 'no-tables';
+		return report;
+	}
+	if (!entityNotesCopied()) {
+		report.skipped = 'no-marker';
+		return report;
+	}
+	const target = entityNotesTargetUser();
+	if (!target) {
+		report.skipped = 'no-admin';
+		return report;
+	}
+	report.targetUserId = target.id;
+
+	const usable = (e: (typeof ENTITY_NOTES_COPY)[number]) => tableExists(e.entity) && columnExists(e.entity, 'comments') && tableExists(e.table);
+	const blankable = (e: (typeof ENTITY_NOTES_COPY)[number]) => `(TRIM(${e.entity}.comments, ${TRIM_WS}) = '' OR EXISTS (
+		SELECT 1 FROM ${e.table} n WHERE n.userId = ? AND n.${e.fk} = ${e.entity}.id
+			AND TRIM(n.notes, ${TRIM_WS}) = TRIM(${e.entity}.comments, ${TRIM_WS}) COLLATE BINARY))`;
+	const ready = { series: 0, authors: 0, narrators: 0 };
+	for (const e of ENTITY_NOTES_COPY) {
+		if (!usable(e)) continue;
+		const c = sqlite.prepare(`
+			SELECT SUM(CASE WHEN ${blankable(e)} THEN 1 ELSE 0 END) AS ready, SUM(CASE WHEN ${blankable(e)} THEN 0 ELSE 1 END) AS kept
+			FROM ${e.entity} WHERE comments IS NOT NULL
+		`).get(target.id, target.id) as { ready: number | null; kept: number | null };
+		ready[e.kind] = c.ready ?? 0;
+		report.kept[e.kind] = c.kept ?? 0;
+	}
+	if (!Object.values(ready).some((n) => n > 0)) return report;
+
+	if (!backupCreated) {
+		updateStatus('Creating pre-migration backup...');
+		const backup = createPreMigrationBackup();
+		if (backup) {
+			backupCreated = true;
+			migrationStatus.backupPath = backup;
+			report.backupPath = backup;
+			completeStep('Backup created');
+		}
+	}
+	sqlite.transaction(() => {
+		for (const e of ENTITY_NOTES_COPY) {
+			if (!usable(e) || ready[e.kind] === 0) continue;
+			report.blanked[e.kind] = sqlite.prepare(
+				`UPDATE ${e.entity} SET comments = NULL WHERE comments IS NOT NULL AND ${blankable(e)}`
+			).run(target.id).changes;
+		}
+	})();
+	if (Object.values(report.blanked).some((n) => n > 0)) migrationsMade = true;
 	return report;
 }
 
@@ -2354,7 +2441,7 @@ function runMigrations() {
 
 	completeStep('Creating per-user entity notes tables');
 
-	// Then the shared comments become the admin's own notes, once (the columns keep their text)
+	// Then the shared comments become the admin's own notes, once
 	try {
 		const r = copyEntityCommentsToNotes();
 		if (r.skipped === 'no-admin') {
@@ -2365,6 +2452,19 @@ function runMigrations() {
 		}
 	} catch (e) {
 		console.error('[db] Failed to copy shared entity comments to per-user notes:', e);
+	}
+
+	// Once copied, the shared columns are blanked wherever the target's note still holds the text
+	try {
+		const r = blankEntityComments();
+		if (r.skipped === 'no-admin') {
+			console.warn('[db] Shared entity comments blank: no admin user, shared comments left in place');
+		} else if (Object.values(r.blanked).some((n) => n > 0)) {
+			const { blanked: b, kept: k } = r;
+			console.log(`[db] blanked shared entity comments: series=${b.series}, authors=${b.authors}, narrators=${b.narrators} (kept as mismatch: ${k.series} series, ${k.authors} authors, ${k.narrators} narrators)`);
+		}
+	} catch (e) {
+		console.error('[db] Failed to blank shared entity comments:', e);
 	}
 
 	// ========== Data migrations for V1 compatibility ==========
