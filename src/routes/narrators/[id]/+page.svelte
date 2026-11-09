@@ -16,6 +16,7 @@
 		BookOpen,
 		X
 	} from 'lucide-svelte';
+	import EntityShareActions from '$lib/components/bulk/EntityShareActions.svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { formatDate } from '$lib/utils/date';
@@ -210,8 +211,16 @@
 				</div>
 			</div>
 		</div>
-		{#if data.canEdit}
+		{#if data.canEdit || (data.publicLibraryEnabled && (data.shareable > 0 || data.unshareable > 0))}
 		<div class="header-actions">
+			<EntityShareActions
+				kind="narrator"
+				entityId={data.narrator.id}
+				enabled={data.publicLibraryEnabled}
+				shareable={data.shareable}
+				unshareable={data.unshareable}
+			/>
+			{#if data.canEdit}
 			<a href="/narrators/{data.narrator.id}/edit" class="btn-secondary">
 				<Edit2 class="w-4 h-4" />
 				Edit
@@ -225,6 +234,7 @@
 				<Trash2 class="w-4 h-4" />
 				Delete
 			</button>
+			{/if}
 		</div>
 		{/if}
 	</div>
@@ -564,6 +574,7 @@
 
 	.header-actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 	}
 

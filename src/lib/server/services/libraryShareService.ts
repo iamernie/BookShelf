@@ -1,7 +1,8 @@
-import { db, libraryShares, users, books, userBooks } from '$lib/server/db';
+import { db, libraryShares, users, books, userBooks, bookSeries, bookAuthors } from '$lib/server/db';
 import { eq, and, or, inArray, sql, type SQL } from 'drizzle-orm';
 import type { LibrarySharePermission } from '$lib/server/db/schema';
-import { canManagePublicLibrary, hasPermission, isLibrarianOrAbove, Permission } from '$lib/server/services/permissionService';
+import { getSettingAs } from '$lib/server/services/settingsService';
+import { canManagePublicLibrary, hasPermission, isAdmin, isLibrarianOrAbove, Permission } from '$lib/server/services/permissionService';
 
 /** Who is looking: the role decides the catalog-manager branch, the id everything else */
 export type Viewer = { id: number; role: string | null } | null | undefined;
@@ -268,6 +269,122 @@ export async function canReachEntity(viewer: Viewer, kind: EntityKind, id: numbe
 		sql`SELECT 1 AS ok FROM ${table} WHERE ${table}.id = ${id} AND ${reachableEntityCond(viewer, kind, sql`${table}.id`)}`
 	);
 	return !!row;
+}
+
+/** Every book in the series, author or narrator (series by bookseries, authors by bookauthors, narrators by books.narratorId) */
+function entityBooksCond(kind: EntityKind, id: number): SQL {
+	switch (kind) {
+		case 'series':
+			return inArray(books.id, db.select({ id: bookSeries.bookId }).from(bookSeries).where(eq(bookSeries.seriesId, id)));
+		case 'author':
+			return inArray(books.id, db.select({ id: bookAuthors.bookId }).from(bookAuthors).where(eq(bookAuthors.authorId, id)));
+		case 'narrator':
+			return eq(books.narratorId, id);
+	}
+}
+
+const isPublicBook = sql<number>`COALESCE(${books.libraryType}, 'personal') = 'public'`;
+
+type EntityBook = { id: number; ownerId: number | null; public: number };
+
+function entityBooks(tx: Pick<typeof db, 'select'>, kind: EntityKind, id: number): EntityBook[] {
+	return tx
+		.select({ id: books.id, ownerId: books.ownerId, public: isPublicBook })
+		.from(books)
+		.where(entityBooksCond(kind, id))
+		.all();
+}
+
+/** Admins see the whole split; anyone else only their own count (a skip count would reveal others' private books) */
+export type EntityPromoteResult = { promoted: number; alreadyPublic?: number; skipped?: number };
+
+/**
+ * Share every book in a series, author or narrator to the public library: the bulk form of the
+ * single-book promote (PATCH /api/books/[id]/library), with the same per-book rule. An admin
+ * promotes every personal book, ownerless ones included; anyone else only the books they own,
+ * other users' books being left alone and never counted for them. Unlike the single-book button
+ * there is no content rule: every book goes, with or without an ebook or Audiobookshelf link. One
+ * transaction sets libraryType and updatedAt; owners are kept and no user_books row is touched.
+ * dryRun selects the same books and writes nothing.
+ */
+export async function promoteEntityBooks(
+	viewer: Viewer,
+	kind: EntityKind,
+	id: number,
+	opts: { dryRun?: boolean } = {}
+): Promise<EntityPromoteResult> {
+	if (!viewer) return { promoted: 0 };
+	const admin = isAdmin(viewer);
+	const plan = (tx: Pick<typeof db, 'select'>) => {
+		const all = entityBooks(tx, kind, id);
+		const personal = all.filter((b) => !b.public);
+		const promote = personal.filter((b) => admin || b.ownerId === viewer.id).map((b) => b.id);
+		return { promote, alreadyPublic: all.length - personal.length, skipped: personal.length - promote.length };
+	};
+	const result = opts.dryRun
+		? plan(db)
+		: db.transaction((tx) => {
+				const p = plan(tx);
+				if (p.promote.length > 0) {
+					tx.update(books)
+						.set({ libraryType: 'public', updatedAt: new Date().toISOString() })
+						.where(inArray(books.id, p.promote))
+						.run();
+				}
+				return p;
+			});
+	if (!admin) return { promoted: result.promote.length };
+	return { promoted: result.promote.length, alreadyPublic: result.alreadyPublic, skipped: result.skipped };
+}
+
+/**
+ * Un-share a series, author or narrator (admins only; null for anyone else): every public book in
+ * it goes back to personal in one transaction, owners kept, personal books never touched. No
+ * user_books row is created or deleted, so members who added a book keep it (permanent reach,
+ * 2.30.0); only members without a row lose sight of it. dryRun counts without writing.
+ */
+export async function unshareEntityBooks(
+	viewer: Viewer,
+	kind: EntityKind,
+	id: number,
+	opts: { dryRun?: boolean } = {}
+): Promise<{ unshared: number; alreadyPersonal: number } | null> {
+	if (!viewer || !isAdmin(viewer)) return null;
+	const plan = (tx: Pick<typeof db, 'select'>) => {
+		const all = entityBooks(tx, kind, id);
+		const unshare = all.filter((b) => b.public).map((b) => b.id);
+		return { unshare, alreadyPersonal: all.length - unshare.length };
+	};
+	const result = opts.dryRun
+		? plan(db)
+		: db.transaction((tx) => {
+				const p = plan(tx);
+				if (p.unshare.length > 0) {
+					tx.update(books)
+						.set({ libraryType: 'personal', updatedAt: new Date().toISOString() })
+						.where(inArray(books.id, p.unshare))
+						.run();
+				}
+				return p;
+			});
+	return { unshared: result.unshare.length, alreadyPersonal: result.alreadyPersonal };
+}
+
+/**
+ * The detail pages' share buttons: the public library setting (both buttons hide when it is off),
+ * the viewer's promotable count, and the public count an admin's un-share would move (0 for
+ * everyone else). One dry run feeds both counts.
+ */
+export async function entityShareState(
+	viewer: Viewer,
+	kind: EntityKind,
+	id: number
+): Promise<{ publicLibraryEnabled: boolean; shareable: number; unshareable: number }> {
+	const [enabled, preview] = await Promise.all([
+		getSettingAs<boolean>('library.enable_public_library', 'boolean'),
+		promoteEntityBooks(viewer, kind, id, { dryRun: true })
+	]);
+	return { publicLibraryEnabled: !!enabled, shareable: preview.promoted, unshareable: preview.alreadyPublic ?? 0 };
 }
 
 /**

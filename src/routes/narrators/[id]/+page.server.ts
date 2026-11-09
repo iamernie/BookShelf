@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { getNarratorById, getBooksByNarrator, getNarratorTags } from '$lib/server/services/narratorService';
 import { getAllTags } from '$lib/server/services/tagService';
 import { getEntityNotes } from '$lib/server/services/entityNotesService';
+import { entityShareState } from '$lib/server/services/libraryShareService';
 import { hasPermission, Permission, canManageEntities } from '$lib/server/services/permissionService';
 import { error } from '@sveltejs/kit';
 
@@ -24,6 +25,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	// The viewer's own notes only
 	const myNotes = locals.user ? await getEntityNotes(locals.user.id, 'narrator', id) : null;
+	// Share to public library (and the admin un-share) counts
+	const share = await entityShareState(locals.user, 'narrator', id);
 
 	return {
 		narrator,
@@ -33,6 +36,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		canEdit: canManageEntities(locals.user ?? null),
 		myNotes,
 		canWriteNotes: hasPermission(locals.user ?? null, Permission.EDIT_OWN_BOOKS),
+		...share,
 		options: {
 			tags
 		}

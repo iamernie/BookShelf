@@ -21,6 +21,7 @@
 		Headphones,
 		RefreshCw
 	} from 'lucide-svelte';
+	import EntityShareActions from '$lib/components/bulk/EntityShareActions.svelte';
 	import DynamicIcon from '$lib/components/ui/DynamicIcon.svelte';
 	import BookCard from '$lib/components/book/BookCard.svelte';
 	import BookRow from '$lib/components/book/BookRow.svelte';
@@ -270,8 +271,16 @@
 				</div>
 			</div>
 		</div>
-		{#if data.canEdit}
+		{#if data.canEdit || (data.publicLibraryEnabled && (data.shareable > 0 || data.unshareable > 0))}
 		<div class="header-actions">
+			<EntityShareActions
+				kind="series"
+				entityId={data.series.id}
+				enabled={data.publicLibraryEnabled}
+				shareable={data.shareable}
+				unshareable={data.unshareable}
+			/>
+			{#if data.canEdit}
 			<a href="/series/{data.series.id}/edit" class="btn-secondary">
 				<Edit2 class="w-4 h-4" />
 				Edit
@@ -285,6 +294,7 @@
 				<Trash2 class="w-4 h-4" />
 				Delete
 			</button>
+			{/if}
 		</div>
 		{/if}
 	</div>
@@ -792,6 +802,7 @@
 
 	.header-actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 	}
 

@@ -11,6 +11,8 @@ export interface BookCardData {
 	rating?: number | null;
 	bookNum?: number | null;
 	ebookPath?: string | null;
+	/** Whether the book has an ebook, for cards served without the server file path; wins over ebookPath */
+	hasEbook?: boolean;
 	absItemId?: string | null;
 	releaseDate?: string | null;
 	authorName?: string | null;

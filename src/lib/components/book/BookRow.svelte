@@ -29,6 +29,9 @@
 		onClick?: (book: BookCardData) => void;
 	} = $props();
 
+	// Cards that never carry the server file path say whether there is an ebook through hasEbook
+	let hasEbook = $derived(book.hasEbook ?? !!book.ebookPath);
+
 	function handleClick(e: MouseEvent) {
 		// Don't trigger click if clicking checkbox
 		if ((e.target as HTMLElement).closest('input[type=checkbox]')) {
@@ -86,7 +89,7 @@
 				loading="lazy"
 				onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = '/placeholder.png'; }}
 			/>
-			{#if book.ebookPath}
+			{#if hasEbook}
 				<div class="ebook-indicator" title="Has ebook">
 					<FileText class="w-2 h-2" />
 				</div>

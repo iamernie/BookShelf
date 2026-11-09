@@ -157,6 +157,9 @@
 	// Get first 4 tags for display (to show more tags without cluttering)
 	let displayTags = $derived((book.tags || []).slice(0, 4));
 
+	// Cards that never carry the server file path say whether there is an ebook through hasEbook
+	let hasEbook = $derived(book.hasEbook ?? !!book.ebookPath);
+
 	let absListenUrl = $derived(book.absItemId && absBaseUrl ? `${absBaseUrl}/item/${book.absItemId}` : null);
 
 	let prerelease = $derived(isPrerelease(book.releaseDate));
@@ -166,7 +169,7 @@
 	// Hover action handlers
 	function handleReadClick(e: MouseEvent) {
 		e.stopPropagation();
-		if (book.ebookPath) {
+		if (hasEbook) {
 			window.location.href = `/reader/${book.id}`;
 		}
 	}
@@ -263,7 +266,7 @@
 			<div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center pointer-events-none">
 				<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
 					<!-- Read Button (if ebook exists) -->
-					{#if book.ebookPath}
+					{#if hasEbook}
 						<button
 							type="button"
 							class="hover-action-btn p-2.5 rounded-full bg-white/90 text-gray-800 hover:bg-white hover:scale-110 transition-all shadow-lg"
@@ -306,11 +309,11 @@
 			<div class="book-card-menu absolute {topBadgeClass} right-1 opacity-0 group-hover:opacity-100 transition-opacity">
 				<BookCardMenu
 					bookId={book.id}
-					hasEbook={!!book.ebookPath}
+					{hasEbook}
 					onViewDetails={() => { window.location.href = `/books/${book.id}`; }}
 					onEdit={handleEditAction}
 					onQuickEdit={quickEdit ? () => handleQuickEditClick() : undefined}
-					onDownload={book.ebookPath ? handleDownloadAction : undefined}
+					onDownload={hasEbook ? handleDownloadAction : undefined}
 					onDelete={onDelete ? handleDeleteAction : undefined}
 					onAssignShelf={onAssignShelf ? handleAssignShelfAction : undefined}
 				/>
@@ -356,9 +359,9 @@
 		{/if}
 
 		<!-- Media Format Badges (eBook, Audiobookshelf) - Always visible, tappable -->
-		{#if book.ebookPath || absListenUrl}
+		{#if hasEbook || absListenUrl}
 			<div class="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1.5 justify-start format-badges">
-				{#if book.ebookPath}
+				{#if hasEbook}
 					<button
 						type="button"
 						class="format-badge flex items-center p-1 rounded-md text-white shadow-md hover:scale-105 active:scale-95 transition-transform"

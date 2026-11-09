@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { db, books, authors, bookAuthors, genres, statuses, userBooks } from '$lib/server/db';
+import { db, books, authors, bookAuthors, bookSeries, series, genres, statuses, userBooks } from '$lib/server/db';
 import { eq, sql, and, desc, asc, or, like } from 'drizzle-orm';
 import { getLibraryOverview } from '$lib/server/services/statsService';
 import { createLogger } from '$lib/server/services/loggerService';
@@ -102,6 +102,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			pageCount: books.pageCount,
 			createdAt: books.createdAt,
 			absItemId: books.absItemId,
+			// Whether there is an ebook; the server file path itself is never sent
+			hasEbook: sql<boolean>`(${books.ebookPath} IS NOT NULL AND ${books.ebookPath} != '')`,
 			releaseDate: books.releaseDate,
 			genreId: books.genreId,
 			genreName: genres.name,
@@ -152,6 +154,26 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		authorsByBook.get(a.bookId)!.push(a.authorName);
 	}
 
+	// Primary series per book (the junction's own number), for the card's series line
+	const seriesData = bookIds.length > 0
+		? await db
+				.select({
+					bookId: bookSeries.bookId,
+					seriesName: series.title,
+					bookNum: bookSeries.bookNum
+				})
+				.from(bookSeries)
+				.innerJoin(series, eq(bookSeries.seriesId, series.id))
+				.where(sql`${bookSeries.bookId} IN (${sql.join(bookIds.map(id => sql`${id}`), sql`, `)})`)
+				.orderBy(desc(bookSeries.isPrimary), asc(bookSeries.displayOrder))
+		: [];
+	const seriesByBook = new Map<number, { seriesName: string; bookNum: number | null }>();
+	for (const s of seriesData) {
+		if (!seriesByBook.has(s.bookId)) {
+			seriesByBook.set(s.bookId, { seriesName: s.seriesName, bookNum: s.bookNum });
+		}
+	}
+
 	// Check which books are in user's library (if logged in)
 	let userLibraryBookIds = new Set<number>();
 	if (userId && bookIds.length > 0) {
@@ -171,8 +193,11 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const sharedBy = await sharedByForViewer(locals.user, bookResults);
 
 	// Format books for display
-	const booksWithDetails = bookResults.map(({ ownerId: _ownerId, ...book }) => ({
+	const booksWithDetails = bookResults.map(({ ownerId: _ownerId, hasEbook, ...book }) => ({
 		...book,
+		hasEbook: !!hasEbook,
+		seriesName: seriesByBook.get(book.id)?.seriesName ?? null,
+		bookNum: seriesByBook.get(book.id)?.bookNum ?? null,
 		authors: authorsByBook.get(book.id) || [],
 		inUserLibrary: userLibraryBookIds.has(book.id),
 		sharedBy: sharedBy.get(book.id) ?? null

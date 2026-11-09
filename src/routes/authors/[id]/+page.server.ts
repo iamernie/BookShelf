@@ -8,6 +8,7 @@ import { getAllGenres } from '$lib/server/services/genreService';
 import { getAllAuthors, getAllSeries } from '$lib/server/services/bookService';
 import { hasPermission, Permission, canManageEntities } from '$lib/server/services/permissionService';
 import { getEntityNotes } from '$lib/server/services/entityNotesService';
+import { entityShareState } from '$lib/server/services/libraryShareService';
 import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -38,6 +39,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	// The viewer's own notes only
 	const myNotes = locals.user ? await getEntityNotes(locals.user.id, 'author', id) : null;
+	// Share to public library (and the admin un-share) counts
+	const share = await entityShareState(locals.user, 'author', id);
 
 	return {
 		author: result.author,
@@ -47,6 +50,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		canEdit,
 		myNotes,
 		canWriteNotes: hasPermission(locals.user ?? null, Permission.EDIT_OWN_BOOKS),
+		...share,
 		options: {
 			tags,
 			statuses,
