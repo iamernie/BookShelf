@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.32.0] - 2026-11-09
+
+### Added
+- "Share to public library" actions on the series, author and narrator pages: in one step, every book in that series, by that author, or read by that narrator that you may promote becomes visible to all users. Administrators share everything including books nobody owns; members share only their own books; each book keeps its owner. A confirm modal states how many books will change before anything does.
+- An "Un-share" action on those same pages for administrators, moving the entity's public books back to personal lists in one step. Members who added one of those books keep it in their library.
+
+### Changed
+- The public library's book cards now show the ebook badge and the book's series name and number on every tab, including for books you don't hold. Tapping the ebook badge on a book you haven't added still starts with Add, as before.
+- The old shared series, author and narrator comments are retired for good: once a start-up has confirmed the old texts were copied into the administrator's personal notes, it clears them from the shared record. Personal notes are untouched, and anything that was copied before but changed since is deliberately kept rather than cleared.
+
+### Security
+- Sharing a series, author or narrator requires being able to see that entity; un-sharing requires an administrator account.
+
 ## [2.31.0] - 2026-11-08
 
 ### Added
