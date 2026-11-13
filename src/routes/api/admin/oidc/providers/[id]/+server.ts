@@ -9,6 +9,7 @@ import {
 	isSlugUnique,
 	normalizeProviderGroupFields
 } from '$lib/server/services/oidcService';
+import { lastProviderRefusal } from '$lib/server/services/localLoginService';
 
 // GET /api/admin/oidc/providers/[id] - Get single provider
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -49,6 +50,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	const data = await request.json();
+
+	// Password sign-in off: the last enabled provider can't be switched off (F3)
+	if (data.enabled === false || data.enabled === 0) {
+		const refusal = await lastProviderRefusal(id);
+		if (refusal) throw error(409, { message: refusal, code: 'last_sso_provider' });
+	}
 
 	// Handle slug update
 	if (data.slug && data.slug !== provider.slug) {
@@ -127,6 +134,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!provider) {
 		throw error(404, 'Provider not found');
 	}
+
+	// Password sign-in off: the last enabled provider can't be deleted (F3); its links would cascade away
+	const refusal = await lastProviderRefusal(id);
+	if (refusal) throw error(409, { message: refusal, code: 'last_sso_provider' });
 
 	const success = await deleteProvider(id);
 

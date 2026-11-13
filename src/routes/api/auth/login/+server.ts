@@ -4,8 +4,25 @@ import { login, isEmailVerified, getUserByEmail, getUserApprovalStatus } from '$
 import { getSetting } from '$lib/server/services/settingsService';
 import { loginLimiter } from '$lib/server/middleware/rateLimiter';
 import { getSessionCookieOptions } from '$lib/server/utils/cookies';
+import { checkLocalLoginGate, recordBypassLogin, BYPASS_COOKIE } from '$lib/server/services/localLoginService';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
+	// Password sign-in switch first, before the limiter, the body and login(): a refused attempt
+	// never counts toward an account's lockout or this IP's login budget
+	const gate = await checkLocalLoginGate(cookies, request);
+	if (!gate.allowed) {
+		if (gate.reason === 'check_failed') {
+			throw error(503, {
+				message: "Couldn't check whether password sign-in is available. Try again in a moment.",
+				code: 'local_login_check_failed'
+			});
+		}
+		throw error(403, {
+			message: 'Password sign-in is turned off. Sign in with your single sign-on provider.',
+			code: 'local_login_disabled'
+		});
+	}
+
 	// Check rate limit first
 	const rateLimit = loginLimiter.check(request, 'login');
 	if (!rateLimit.allowed) {
@@ -54,6 +71,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	// Set session cookie with options appropriate for self-hosted deployments
 	cookies.set('session', result.sessionId!, getSessionCookieOptions());
+
+	// An emergency sign-in is recorded, and its window closes on this browser (one sign-in per grant)
+	if (gate.viaBypass && result.user) {
+		recordBypassLogin(result.user, request);
+		cookies.delete(BYPASS_COOKIE, { path: '/' });
+	}
 
 	return json({ user: result.user });
 };

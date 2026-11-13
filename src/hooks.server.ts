@@ -8,6 +8,7 @@ import { checkSetupNeeded } from '$lib/server/services/setupService';
 import { migrationStatus } from '$lib/server/db';
 import { startAbsSyncScheduler } from '$lib/server/services/absSyncService';
 import { startAudibleSuggestScheduler } from '$lib/server/services/audibleSuggestService';
+import { bypassNeedsRepair } from '$lib/server/services/localLoginService';
 
 const log = createLogger('hooks');
 
@@ -23,6 +24,12 @@ export const init: ServerInit = () => {
 	} catch (e) {
 		log.error('Failed to start Audible series refresh scheduler', { error: e instanceof Error ? e.message : String(e) });
 	}
+	// Read-only: password sign-in off with no emergency URL can only come from a hand edit or a restore
+	bypassNeedsRepair()
+		.then((broken) => {
+			if (broken) log.error('Password sign-in is off but no emergency sign-in URL exists. An admin can create one with Rotate URL on the single sign-on settings page.');
+		})
+		.catch((e) => log.error('Failed to check the password sign-in setting', { error: e instanceof Error ? e.message : String(e) }));
 };
 
 // Optional analytics snippet (operator-set env var, full script tag).
@@ -68,6 +75,17 @@ const WIDGET_KEY_PATH = /^\/widgets\/(api|embed)\/w\/[^/]+/;
 
 function redactWidgetKey(pathname: string): string {
 	return pathname.replace(WIDGET_KEY_PATH, '/widgets/$1/w/[key]');
+}
+
+// Full URL for the debug log: the emergency sign-in secret (?t=) is replaced, then widget keys
+function redactUrlForLog(url: URL): string {
+	let href = url.href;
+	if (url.searchParams.has('t')) {
+		const copy = new URL(url.href);
+		copy.searchParams.set('t', '[redacted]');
+		href = copy.href;
+	}
+	return href.replace(url.pathname, redactWidgetKey(url.pathname));
 }
 
 // KOReader sync routes that use header-based auth (x-auth-user, x-auth-key)
@@ -267,7 +285,7 @@ export const handleError: HandleServerError = async ({ error: err, event, status
 	log.debug('Error details', {
 		status,
 		message,
-		url: event.url.href.replace(event.url.pathname, redactWidgetKey(event.url.pathname)),
+		url: redactUrlForLog(event.url),
 		method: event.request.method,
 		userAgent: event.request.headers.get('user-agent')
 	});

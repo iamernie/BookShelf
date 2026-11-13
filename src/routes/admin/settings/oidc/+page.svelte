@@ -17,6 +17,8 @@
 		ChevronLeft
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
+	import LocalLoginPanel from '$lib/components/admin/LocalLoginPanel.svelte';
+	import ConfirmDialog from '$lib/components/admin/ConfirmDialog.svelte';
 
 	interface Provider {
 		id: number;
@@ -172,7 +174,20 @@
 		}
 	}
 
+	// Password sign-in off: a changed required group can shut everyone out, so it gets a confirm first
+	let confirmGroup = $state(false);
+	function requestSave() {
+		const before = (editingProvider?.requiredGroup ?? '').trim();
+		const after = formData.requiredGroup.trim();
+		if (data.localLogin?.disabled && after !== '' && after !== before) {
+			confirmGroup = true;
+			return;
+		}
+		saveProvider();
+	}
+
 	async function saveProvider() {
+		confirmGroup = false;
 		saving = true;
 
 		try {
@@ -223,7 +238,8 @@
 			});
 
 			if (!res.ok) {
-				toasts.error('Failed to delete provider');
+				const body = res.status === 409 ? await res.json().catch(() => null) : null;
+				toasts.error(body?.message || 'Failed to delete provider');
 				return;
 			}
 
@@ -245,7 +261,8 @@
 			});
 
 			if (!res.ok) {
-				toasts.error('Failed to update provider');
+				const body = res.status === 409 ? await res.json().catch(() => null) : null;
+				toasts.error(body?.message || 'Failed to update provider');
 				return;
 			}
 
@@ -294,9 +311,17 @@
 	<div class="rounded-lg p-4 mb-6" style="background: var(--bg-tertiary); border: 1px solid var(--border-color);">
 		<p class="text-sm" style="color: var(--text-secondary);">
 			OIDC (OpenID Connect) allows users to sign in with external identity providers like Authentik, Keycloak, or Google.
-			Local email/password login always remains available.
+			{#if data.localLogin?.disabled}
+				Password sign-in is turned off, so single sign-on is the only way in.
+			{:else}
+				Local email/password login stays available unless you turn it off below.
+			{/if}
 		</p>
 	</div>
+
+	{#if data.localLogin}
+		<LocalLoginPanel state={data.localLogin} origin={data.localLoginOrigin} />
+	{/if}
 
 	<!-- Setup Instructions -->
 	<details class="rounded-lg mb-6" style="background: var(--bg-secondary); border: 1px solid var(--border-color);">
@@ -545,7 +570,7 @@
 				</button>
 			</div>
 
-			<form onsubmit={(e) => { e.preventDefault(); saveProvider(); }} class="p-6 space-y-6">
+			<form onsubmit={(e) => { e.preventDefault(); requestSave(); }} class="p-6 space-y-6">
 				<!-- Presets -->
 				{#if isNew}
 					<div>
@@ -841,4 +866,19 @@
 			</form>
 		</div>
 	</div>
+{/if}
+
+{#if confirmGroup}
+	<ConfirmDialog
+		title="Change the required group?"
+		confirmLabel="Save with this group"
+		onConfirm={saveProvider}
+		onCancel={() => (confirmGroup = false)}
+	>
+		<p class="group-confirm-text">
+			Password sign-in is off, so anyone outside <strong>{formData.requiredGroup.trim()}</strong> won't be able to sign in
+			with {formData.name || 'this provider'}, admins included. Make sure your own account is in this group, and keep the
+			emergency sign-in URL handy.
+		</p>
+	</ConfirmDialog>
 {/if}

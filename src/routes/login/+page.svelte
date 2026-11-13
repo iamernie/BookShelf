@@ -109,7 +109,11 @@
 				<form onsubmit={handleSubmit} class="space-y-6">
 					<div class="text-center mb-6">
 						<h2 class="text-xl font-semibold" style="color: var(--text-primary);">Welcome back</h2>
-						<p class="text-sm mt-1" style="color: var(--text-muted);">Sign in to continue to your library</p>
+						{#if data.localLogin.formVisible}
+							<p class="text-sm mt-1" style="color: var(--text-muted);">Sign in to continue to your library</p>
+						{:else}
+							<p class="text-sm mt-1" style="color: var(--text-muted);">Sign in with your single sign-on provider</p>
+						{/if}
 					</div>
 
 					{#if error || data.oidcError}
@@ -122,8 +126,19 @@
 							<Info class="w-5 h-5 flex-shrink-0" style="color: var(--text-muted);" />
 							<span class="text-sm" style="color: var(--text-secondary);">{data.oidcNotice}</span>
 						</div>
+					{/if}{#if data.localLogin.emergency}
+						<div class="oidc-notice local-login-emergency flex items-center gap-3 p-4 rounded-lg border" style="background: var(--bg-tertiary); border-color: var(--border-color);">
+							<Info class="w-5 h-5 flex-shrink-0" style="color: var(--text-muted);" />
+							<span class="text-sm" style="color: var(--text-secondary);">Emergency sign-in is open for 15 minutes. This sign-in is recorded.</span>
+						</div>
+					{/if}{#if data.localLogin.noProviderMessage}
+						<div class="oidc-notice local-login-no-provider flex items-center gap-3 p-4 rounded-lg border" style="background: var(--bg-tertiary); border-color: var(--border-color);">
+							<Info class="w-5 h-5 flex-shrink-0" style="color: var(--text-muted);" />
+							<span class="text-sm" style="color: var(--text-secondary);">{data.localLogin.noProviderMessage}</span>
+						</div>
 					{/if}
 
+					{#if data.localLogin.formVisible}
 					<div class="space-y-4">
 						<div>
 							<label for="email" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
@@ -200,8 +215,10 @@
 							Sign in
 						{/if}
 					</button>
+					{/if}
 
 					{#if data.oidcProviders && data.oidcProviders.length > 0}
+						{#if data.localLogin.formVisible}
 						<div class="relative my-6">
 							<div class="absolute inset-0 flex items-center">
 								<div class="w-full border-t" style="border-color: var(--border-color);"></div>
@@ -212,6 +229,7 @@
 								</span>
 							</div>
 						</div>
+						{/if}
 
 						<div class="space-y-3">
 							{#each data.oidcProviders as provider}

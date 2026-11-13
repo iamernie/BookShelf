@@ -13,6 +13,7 @@ import {
 import { loginLimiter } from '$lib/server/middleware/rateLimiter';
 import { db, users } from '$lib/server/db';
 import { getSessionCookieOptions } from '$lib/server/utils/cookies';
+import { readPendingCookie } from '$lib/server/services/oidcPendingCookie';
 
 interface OidcPendingData {
 	providerId: number;
@@ -36,10 +37,9 @@ export const load: PageServerLoad = async ({ cookies }) => {
 		throw redirect(302, '/login?error=session_expired');
 	}
 
-	let pendingData: OidcPendingData;
-	try {
-		pendingData = JSON.parse(pendingCookie);
-	} catch {
+	// A cookie this server did not sign (forged, tampered, expired) is an invalid session
+	const pendingData = readPendingCookie<OidcPendingData>(pendingCookie);
+	if (!pendingData) {
 		throw redirect(302, '/login?error=invalid_session');
 	}
 
@@ -83,10 +83,9 @@ export const actions: Actions = {
 			throw redirect(302, '/login?error=session_expired');
 		}
 
-		let pendingData: OidcPendingData;
-		try {
-			pendingData = JSON.parse(pendingCookie);
-		} catch {
+		// A cookie this server did not sign (forged, tampered, expired) is an invalid session
+		const pendingData = readPendingCookie<OidcPendingData>(pendingCookie);
+		if (!pendingData) {
 			throw redirect(302, '/login?error=invalid_session');
 		}
 
@@ -153,10 +152,9 @@ export const actions: Actions = {
 			throw redirect(302, '/login?error=session_expired');
 		}
 
-		let pendingData: OidcPendingData;
-		try {
-			pendingData = JSON.parse(pendingCookie);
-		} catch {
+		// A cookie this server did not sign (forged, tampered, expired) is an invalid session
+		const pendingData = readPendingCookie<OidcPendingData>(pendingCookie);
+		if (!pendingData) {
 			throw redirect(302, '/login?error=invalid_session');
 		}
 

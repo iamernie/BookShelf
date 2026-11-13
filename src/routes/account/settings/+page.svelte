@@ -640,7 +640,9 @@
 			});
 
 			if (!res.ok) {
-				toasts.error('Failed to unlink account');
+				// The last-link refusal explains itself; anything else keeps the generic text
+				const body = res.status === 409 ? await res.json().catch(() => null) : null;
+				toasts.error(body?.code === 'last_sso_link' && body.message ? body.message : 'Failed to unlink account');
 				return;
 			}
 

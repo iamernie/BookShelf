@@ -715,6 +715,10 @@
 				<p class="mb-6" style="color: var(--text-muted);">
 					Configure OIDC providers like Google, GitHub, Authentik, or Keycloak for SSO authentication.
 				</p>
+				<p class="local-login-status text-sm mb-6" style="color: var(--text-secondary);">
+					Password sign-in: <strong>{data.localLoginDisabled ? 'off' : 'on'}</strong>
+					<a href="/admin/settings/oidc" class="hover:underline" style="color: var(--accent);">(change)</a>
+				</p>
 				<a
 					href="/admin/settings/oidc"
 					class="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors"

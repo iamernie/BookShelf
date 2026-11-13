@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { getSetting } from '$lib/server/services/settingsService';
 import { getEnabledProviders, getProviderBySlug } from '$lib/server/services/oidcService';
+import { resolveLoginPageAccess } from '$lib/server/services/localLoginService';
 
 // Fixed copy for the OIDC codes added in 2.33.0: these never reflect a ?message= value.
 // {provider} is the provider's name looked up from ?provider=<slug>, never text from the URL.
@@ -45,11 +46,19 @@ const OIDC_NOTICE_COPY: Record<string, string> = {
 	approval_pending: 'Account created. An administrator needs to approve it before you can sign in.'
 };
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+// Password sign-in off (2.34.0): an error code outside the table above shows this instead of URL text
+const GENERIC_SIGN_IN_ERROR = "Sign-in didn't complete. Try again or contact your administrator.";
+const NO_PROVIDER_COPY =
+	'Password sign-in is turned off and no single sign-on provider is available. Contact your administrator.';
+
+export const load: PageServerLoad = async ({ locals, url, cookies, request }) => {
 	// If already logged in, redirect to home
 	if (locals.user) {
 		throw redirect(302, '/');
 	}
+
+	// Password sign-in switch and the emergency URL (a t= URL always redirects from here)
+	const access = await resolveLoginPageAccess(url, cookies, request);
 
 	// Check if signup is enabled to show the link
 	const allowSignup = await getSetting('registration.allow_signup');
@@ -75,6 +84,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		oidcError = provider ? copy.named.replace('{provider}', provider.name) : copy.plain;
 	}
 
+	// On the SSO-only page, never echo text from the URL
+	if (access.disabled && error && !copy) {
+		oidcError = GENERIC_SIGN_IN_ERROR;
+	}
+
 	const notice = url.searchParams.get('notice');
 	const oidcNotice = notice && Object.hasOwn(OIDC_NOTICE_COPY, notice) ? OIDC_NOTICE_COPY[notice] : null;
 
@@ -82,6 +96,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		signupEnabled: allowSignup === 'true',
 		oidcProviders,
 		oidcError,
-		oidcNotice
+		oidcNotice,
+		localLogin: {
+			formVisible: access.formVisible,
+			emergency: access.emergency,
+			noProviderMessage: access.disabled && !access.emergency && oidcProviders.length === 0 ? NO_PROVIDER_COPY : null
+		}
 	};
 };

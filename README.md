@@ -136,6 +136,20 @@ Each sync reads the whole audiobook library:
 
 Linked books get a **Listen on Audiobookshelf** button, and their **Media** tab shows the audiobook's details and your listening progress. Admins can link, re-link or unlink a book by hand from its book page (**Find on Audiobookshelf**, **Change link**, **Unlink**); an item can only be linked to one book. The Integrations tab lists every audiobook that isn't linked yet with a **Find match** button.
 
+### Turning Off Password Sign-In
+
+Once single sign-on works for you, you can make it the only way in: **Admin → Settings → SSO → Manage SSO Providers → Password sign-in → Turn off password sign-in**. It can't be turned off until at least one provider is enabled and your own account is linked to one. The confirm step lists any accounts with no single sign-on link; they can't sign in until they link one, or until you turn password sign-in back on. Existing sessions are not ended.
+
+While it is off:
+
+- The sign-in page shows only the single sign-on buttons. The email and password form and the "Forgot password?" link are hidden. Password reset emails still work, but a reset password only signs someone in through the emergency URL.
+- **Emergency sign-in URL:** the panel shows a URL (`/login?local=1&t=…`) that brings the password form back for 15 minutes on that browser, for one sign-in. Save it somewhere outside BookShelf, such as a password manager. Every use is logged and shown as "Last used". **Rotate URL** replaces it and ends any windows already open. The secret never appears in BookShelf's own logs, but a reverse proxy in front of BookShelf probably logs full URLs, query string included, so rotate after each use. Repeated wrong URLs are rate limited by the `X-Forwarded-For` address; the secret's length is the real protection.
+- The last enabled provider can't be disabled or deleted, and users can't remove their only single sign-on link.
+- **OPDS** catalogs for e-readers still sign in with an email and password, because they can't use single sign-on.
+- Public signup, if on, still creates accounts, but those accounts can only sign in through single sign-on or after linking.
+
+The displayed URL uses the `ORIGIN` environment variable, so set it to your public address.
+
 ### Volumes
 
 BookShelf stores data in these locations:

@@ -83,6 +83,35 @@ export const DEFAULT_SETTINGS = {
 		label: 'Enable Public Library',
 		description: 'Show the shared public library. When disabled, only personal libraries are available.'
 	},
+	// Sign-in (2.34.0): written only by the admin password sign-in panel and the server, never at boot
+	'auth.disable_local_login': {
+		value: 'false',
+		type: 'boolean',
+		category: 'auth',
+		label: 'Turn off password sign-in',
+		description: 'Hide the email and password form; sign-in goes through single sign-on only'
+	},
+	'auth.local_login_bypass_secret': {
+		value: '',
+		type: 'string',
+		category: 'auth',
+		label: 'Emergency sign-in secret',
+		description: 'Managed automatically'
+	},
+	'auth.local_login_bypass_last_used_at': {
+		value: '',
+		type: 'string',
+		category: 'auth',
+		label: 'Emergency sign-in last used',
+		description: 'Managed automatically'
+	},
+	'auth.oidc_pending_signing_key': {
+		value: '',
+		type: 'string',
+		category: 'auth',
+		label: 'Single sign-on handoff signing key',
+		description: 'Managed automatically'
+	},
 	// Registration settings
 	'registration.allow_signup': {
 		value: 'false',
@@ -411,10 +440,21 @@ export const DEFAULT_SETTINGS = {
 } as const;
 
 // Settings whose stored values must never be sent back to the browser
-export const SECRET_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_api_key'];
+export const SECRET_SETTING_KEYS: readonly SettingKey[] = [
+	'integration.abs_api_key',
+	'auth.local_login_bypass_secret',
+	'auth.oidc_pending_signing_key'
+];
 
-// Settings written by the server only; excluded from the editable settings form
-export const SERVER_MANAGED_SETTING_KEYS: readonly SettingKey[] = ['integration.abs_sync_anchor_at'];
+// Settings written by the server or a dedicated admin endpoint only: excluded from the editable
+// settings form and stripped from the generic settings PUT
+export const SERVER_MANAGED_SETTING_KEYS: readonly SettingKey[] = [
+	'integration.abs_sync_anchor_at',
+	'auth.disable_local_login',
+	'auth.local_login_bypass_secret',
+	'auth.local_login_bypass_last_used_at',
+	'auth.oidc_pending_signing_key'
+];
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;
 

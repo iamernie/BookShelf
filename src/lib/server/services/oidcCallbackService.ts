@@ -19,6 +19,7 @@ import {
 import type { users } from '$lib/server/db';
 import type { UserOidcLink } from '$lib/server/db/schema';
 import { getSessionCookieOptions, shouldUseSecureCookies } from '$lib/server/utils/cookies';
+import { OIDC_PENDING_COOKIE, signPendingCookie } from './oidcPendingCookie';
 
 /**
  * The OIDC callback (/auth/oidc/callback). Branch order after the token exchange:
@@ -212,7 +213,8 @@ export async function runOidcCallback(
 			returnUrl: stateData.returnUrl
 		};
 
-		cookies.set('oidc_pending', JSON.stringify(oidcPendingData), {
+		// Signed (2.34.0): the complete page only trusts an identity this callback vouched for
+		cookies.set(OIDC_PENDING_COOKIE, signPendingCookie(JSON.stringify(oidcPendingData)), {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'lax',

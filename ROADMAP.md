@@ -25,7 +25,9 @@ This document outlines planned features, improvements, and future direction for 
 - [x] Account linking for OIDC providers
 - [x] OIDC auto-create users on first sign-in
 - [x] OIDC minimum-group gate per provider
-- [ ] Sign the OIDC state and pending cookies (HMAC)
+- [x] Turn off password sign-in, with an emergency sign-in URL
+- [x] Sign the OIDC pending cookie (HMAC)
+- [ ] Sign the OIDC state cookie (HMAC)
 - [x] **SMTP/Email settings in UI** - Configure email via settings page or environment variables
 
 ### Import/Export

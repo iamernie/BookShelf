@@ -1,4 +1,5 @@
 import type { PageServerLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 import { getAllSettings, getSetting, SECRET_SETTING_KEYS, SERVER_MANAGED_SETTING_KEYS, type SettingKey } from '$lib/server/services/settingsService';
 import { getAISettings } from '$lib/server/services/recommendationService';
 import { getEmailConfigStatus } from '$lib/server/services/emailService';
@@ -9,6 +10,14 @@ import { db, users } from '$lib/server/db';
 import { asc, inArray } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// Admin only, like the OIDC page
+	if (!locals.user) {
+		throw redirect(302, '/login');
+	}
+	if (locals.user.role !== 'admin') {
+		throw redirect(302, '/');
+	}
+
 	// Secrets and server-managed values never enter the editable form
 	const hidden = new Set<string>([...SECRET_SETTING_KEYS, ...SERVER_MANAGED_SETTING_KEYS]);
 	const settings = (await getAllSettings()).filter((s) => !hidden.has(s.key as SettingKey));
@@ -49,6 +58,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		aiSettings,
 		emailStatus,
 		statuses,
+		localLoginDisabled: (await getSetting('auth.disable_local_login')) === 'true',
 		isAdmin: locals.user?.role === 'admin'
 	};
 };

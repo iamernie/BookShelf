@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Password sign-in can be turned off. Under **Admin → Settings → SSO → Manage SSO Providers**, the new **Password sign-in** panel hides the email and password form so everyone signs in through single sign-on. It can't be turned off until at least one provider is enabled and your own account is linked to one, and the confirm step lists any accounts that have no single sign-on link yet. Existing sessions are not ended. It is off by default, and nothing changes until an admin uses it.
+- An emergency sign-in URL comes with it. While password sign-in is off, opening that URL brings the password form back for 15 minutes on that browser, for one sign-in, and the use is recorded in the logs and shown as "Last used" in the panel. The URL is only shown to admins when they click Show or Copy. **Rotate URL** replaces it and ends any emergency windows already open. Turning password sign-in back on keeps the URL for next time.
+- The SSO tab on the main settings page shows whether password sign-in is on or off.
+
+### Changed
+- While password sign-in is off, the sign-in page never repeats text from its address. Error codes it doesn't recognise show a fixed message instead.
+- While password sign-in is off, the last enabled provider can't be disabled or deleted, a user can't unlink their only single sign-on link (the account settings page now says why), and changing a provider's required group asks for confirmation first.
+- OPDS catalogs for e-readers still sign in with an email and password, because they can't use single sign-on.
+
+### Security
+- The cookie that carries a provider sign-in to the "link or create account" step is now signed. Before this, a hand-made cookie could reach that step without the provider and skip the required-group check. Anyone partway through that step during the upgrade (a 15-minute window) will need to start the provider sign-in again.
+- The main admin settings page is now admin-only. Other roles used to be able to load its data.
+- Turned-off password sign-in fails closed: if the setting can't be read, the sign-in is refused.
+- The emergency secret never appears in BookShelf's own logs; the debug error log redacts it from URLs. A reverse proxy in front of BookShelf probably logs full URLs, so rotate the URL after each use.
+
 ## [2.33.0] - 2026-11-13
 
 ### Added
