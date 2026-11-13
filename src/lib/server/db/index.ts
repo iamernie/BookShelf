@@ -1622,10 +1622,16 @@ function runMigrations() {
 			iconUrl TEXT,
 			buttonColor TEXT,
 			displayOrder INTEGER DEFAULT 0,
+			groupsClaim TEXT DEFAULT 'groups',
+			requiredGroup TEXT DEFAULT '',
 			createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 			updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 		)
 	`);
+	// 2.33.0 group gate columns for aged DBs; ADD COLUMN backfills the defaults, so an existing
+	// provider reads groupsClaim='groups', requiredGroup='' and stays ungated
+	safeAddColumn('oidc_providers', 'groupsClaim', "TEXT DEFAULT 'groups'");
+	safeAddColumn('oidc_providers', 'requiredGroup', "TEXT DEFAULT ''");
 
 	// ========== User OIDC Links table ==========
 	safeCreateTable('user_oidc_links', `

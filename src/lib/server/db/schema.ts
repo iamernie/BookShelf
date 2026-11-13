@@ -562,6 +562,10 @@ export const oidcProviders = sqliteTable('oidc_providers', {
 	iconUrl: text('iconUrl'), // Optional icon for login button
 	buttonColor: text('buttonColor'), // Optional button color
 	displayOrder: integer('displayOrder').default(0),
+	// 2.33.0 group gate: the token claim listing the user's groups (literal key, else a dot path)
+	// and the one group a user must be in to sign in with this provider ('' = no gate)
+	groupsClaim: text('groupsClaim').default('groups'),
+	requiredGroup: text('requiredGroup').default(''),
 	createdAt: text('createdAt').default('CURRENT_TIMESTAMP'),
 	updatedAt: text('updatedAt').default('CURRENT_TIMESTAMP')
 });

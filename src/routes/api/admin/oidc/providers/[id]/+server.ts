@@ -6,7 +6,8 @@ import {
 	deleteProvider,
 	testProviderConnection,
 	generateSlug,
-	isSlugUnique
+	isSlugUnique,
+	normalizeProviderGroupFields
 } from '$lib/server/services/oidcService';
 
 // GET /api/admin/oidc/providers/[id] - Get single provider
@@ -89,6 +90,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (data.clientSecret === '••••••••') {
 		delete data.clientSecret;
 	}
+
+	// Group-gate fields: normalised only when present, so the enabled toggle's partial PATCH is untouched
+	Object.assign(data, normalizeProviderGroupFields(data));
 
 	try {
 		const updated = await updateProvider(id, data);

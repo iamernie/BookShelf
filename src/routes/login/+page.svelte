@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-svelte';
+	import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, Info } from 'lucide-svelte';
 	import { APP_CONFIG } from '$lib/config/app';
 
 	let { data } = $props();
@@ -116,6 +116,11 @@
 						<div class="flex items-center gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/30">
 							<AlertCircle class="w-5 h-5 text-red-400 flex-shrink-0" />
 							<span class="text-red-400 text-sm">{error || data.oidcError}</span>
+						</div>
+					{:else if data.oidcNotice}
+						<div class="oidc-notice flex items-center gap-3 p-4 rounded-lg border" style="background: var(--bg-tertiary); border-color: var(--border-color);">
+							<Info class="w-5 h-5 flex-shrink-0" style="color: var(--text-muted);" />
+							<span class="text-sm" style="color: var(--text-secondary);">{data.oidcNotice}</span>
 						</div>
 					{/if}
 

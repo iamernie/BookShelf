@@ -71,6 +71,13 @@
       "when": 1794161316361,
       "tag": "0009_user_entity_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794600860366,
+      "tag": "0010_oidc_group_gate",
+      "breakpoints": true
     }
   ]
 }

@@ -32,6 +32,8 @@
 		iconUrl: string | null;
 		buttonColor: string | null;
 		displayOrder: number | null;
+		groupsClaim: string | null;
+		requiredGroup: string | null;
 	}
 
 	interface Preset {
@@ -65,7 +67,9 @@
 		autoCreateUsers: false,
 		defaultRole: 'member',
 		iconUrl: '',
-		buttonColor: ''
+		buttonColor: '',
+		groupsClaim: 'groups',
+		requiredGroup: ''
 	});
 
 	let saving = $state(false);
@@ -88,7 +92,9 @@
 			autoCreateUsers: false,
 			defaultRole: 'member',
 			iconUrl: '',
-			buttonColor: ''
+			buttonColor: '',
+			groupsClaim: 'groups',
+			requiredGroup: ''
 		};
 		testResult = null;
 		showSecret = false;
@@ -109,7 +115,9 @@
 			autoCreateUsers: provider.autoCreateUsers ?? false,
 			defaultRole: provider.defaultRole || 'member',
 			iconUrl: provider.iconUrl || '',
-			buttonColor: provider.buttonColor || ''
+			buttonColor: provider.buttonColor || '',
+			groupsClaim: provider.groupsClaim || 'groups',
+			requiredGroup: provider.requiredGroup || ''
 		};
 		testResult = null;
 		showSecret = false;
@@ -460,6 +468,11 @@
 											Disabled
 										</span>
 									{/if}
+									{#if provider.requiredGroup?.trim()}
+										<span class="group-pill text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
+											Group: {provider.requiredGroup}
+										</span>
+									{/if}
 								</div>
 								<p class="text-sm" style="color: var(--text-muted);">{provider.issuerUrl}</p>
 							</div>
@@ -695,6 +708,7 @@
 								<option value="librarian">Librarian</option>
 								<option value="admin">Admin</option>
 							</select>
+							<p class="text-xs mt-1" style="color: var(--text-muted);">Applies to auto-created accounts.</p>
 						</div>
 
 						<!-- Button Color -->
@@ -745,10 +759,57 @@
 							<div>
 								<p class="font-medium" style="color: var(--text-primary);">Auto-create users</p>
 								<p class="text-xs" style="color: var(--text-muted);">
-									Automatically create accounts for new OIDC users (follows registration settings)
+									Create an account the first time someone signs in. Uses the default role above. Admin approval still applies; the public sign-up switch doesn't.
 								</p>
 							</div>
 						</label>
+
+						<!-- Access (group gate) -->
+						<div class="space-y-4">
+							<p class="text-sm font-medium" style="color: var(--text-secondary);">Access</p>
+							<div>
+								<label for="requiredGroup" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
+									Required group
+								</label>
+								<input
+									id="requiredGroup"
+									type="text"
+									bind:value={formData.requiredGroup}
+									placeholder="bookshelf-users"
+									maxlength="200"
+									class="w-full px-3 py-2 rounded-lg"
+									style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
+								/>
+								<p class="text-xs mt-1" style="color: var(--text-muted);">
+									Only members of this group can sign in with this provider, admins included. Leave empty to allow everyone the provider lets through. Local email sign-in isn't affected.
+								</p>
+								<p class="text-xs mt-1" style="color: var(--text-muted);">
+									Removing a user from the group blocks new SSO sign-ins only; existing sessions and any local password keep working.
+								</p>
+								{#if formData.requiredGroup.trim()}
+									<p class="group-lockout-note text-xs mt-2 p-2 rounded" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+										Make sure your own account is in this group before saving, or you'll need to sign in with your email and password.
+									</p>
+								{/if}
+							</div>
+							<div>
+								<label for="groupsClaim" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
+									Groups claim
+								</label>
+								<input
+									id="groupsClaim"
+									type="text"
+									bind:value={formData.groupsClaim}
+									placeholder="groups"
+									maxlength="200"
+									class="w-full px-3 py-2 rounded-lg font-mono text-sm"
+									style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary);"
+								/>
+								<p class="text-xs mt-1" style="color: var(--text-muted);">
+									Token claim that lists the user's groups. Dotted paths work (e.g. <code>realm_access.roles</code>).
+								</p>
+							</div>
+						</div>
 					</div>
 				</details>
 

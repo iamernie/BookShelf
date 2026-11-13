@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { getUserPreferences } from '$lib/server/services/userPreferencesService';
-import { getUserOidcLinks, getEnabledProviders } from '$lib/server/services/oidcService';
+import { getUserOidcLinks, getEnabledProviders, getProviderBySlug } from '$lib/server/services/oidcService';
 import { getLibraryShares, getSharedLibraries, getShareableUsers } from '$lib/server/services/libraryShareService';
 import { isNtfyEnabled } from '$lib/server/services/notificationService';
 
@@ -26,10 +26,25 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const linkedParam = url.searchParams.get('linked');
 	const errorParam = url.searchParams.get('error');
 
+	// Linking refusals are codes mapped to fixed copy; the provider name comes from the DB
+	let linkingError: string | null = null;
+	if (errorParam === 'already_linked') {
+		linkingError = 'This identity is already linked to another account';
+	} else if (errorParam === 'oidc_group_denied' || errorParam === 'oidc_group_unverified') {
+		const slug = url.searchParams.get('provider');
+		const provider = slug ? await getProviderBySlug(slug) : null;
+		linkingError =
+			errorParam === 'oidc_group_denied'
+				? `That ${provider?.name ?? 'sign-in'} account doesn't have access to BookShelf.`
+				: `Couldn't confirm your access with ${provider?.name ?? 'your sign-in provider'}. Try again or contact your administrator.`;
+	} else if (errorParam === 'link_session_mismatch') {
+		linkingError = "That sign-in didn't match your current session. Try linking again.";
+	}
+
 	const linkingStatus = {
 		justLinked: linkedParam === 'true',
 		alreadyLinked: linkedParam === 'already',
-		error: errorParam === 'already_linked' ? 'This identity is already linked to another account' : null
+		error: linkingError
 	};
 
 	// Get library sharing data and ntfy status

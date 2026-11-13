@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Single sign-on can now create accounts. With "Auto-create users" on for a provider, the first sign-in from someone new makes their BookShelf account with that provider's default role, so there is no sign-up form to fill in. Admin approval still applies when it is switched on; the public sign-up switch and invite codes do not. If the email already belongs to an account, nothing is merged: the person is asked for that account's password to link it, as before.
+- A "Required group" setting per sign-in provider. When set, only members of that group (as the provider reports it in the token, or from its user info) can sign in or link an account with that provider, administrators included. Leave it empty and nothing changes. The "Groups claim" setting names the token field that lists groups, and dotted paths such as `realm_access.roles` work. Note: removing a user from the group blocks new SSO sign-ins only; existing sessions and any local password keep working.
+
+### Changed
+- Accounts awaiting approval now see a clear notice on the sign-in page after signing up through a provider, instead of nothing.
+- Signing in through a provider with no matching BookShelf account, when sign-up is closed, now returns to the sign-in page with an explanation instead of a form that could not succeed.
+- A provider's email address is matched to existing accounts regardless of letter case.
+
+### Security
+- Accounts that are pending approval or were not approved can no longer sign in through a provider, on either the direct or the link-by-password path.
+- Linking a provider to an account now requires being signed in as that account.
+- The link-by-password step after a provider sign-in is now rate limited and counts toward the same account lockout as the regular sign-in.
+- A disabled provider can no longer complete a sign-in.
+- Sign-in return addresses must stay on this site.
+
 ## [2.32.0] - 2026-11-09
 
 ### Added

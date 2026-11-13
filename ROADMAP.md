@@ -23,6 +23,9 @@ This document outlines planned features, improvements, and future direction for 
 - [x] Admin approval workflow
 - [x] **OIDC/SSO authentication** (Authentik, Keycloak, Google, GitHub, etc.)
 - [x] Account linking for OIDC providers
+- [x] OIDC auto-create users on first sign-in
+- [x] OIDC minimum-group gate per provider
+- [ ] Sign the OIDC state and pending cookies (HMAC)
 - [x] **SMTP/Email settings in UI** - Configure email via settings page or environment variables
 
 ### Import/Export

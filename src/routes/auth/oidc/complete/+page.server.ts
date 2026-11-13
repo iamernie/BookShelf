@@ -1,12 +1,16 @@
 import type { PageServerLoad, Actions } from './$types';
 import { redirect, fail } from '@sveltejs/kit';
-import { getUserByEmail, verifyPassword, hashPassword } from '$lib/server/services/authService';
+import { getUserByEmail, hashPassword } from '$lib/server/services/authService';
 import { getSetting } from '$lib/server/services/settingsService';
 import {
 	getProviderById,
 	linkAccount,
-	createSessionForUser
+	createSessionForUser,
+	checkLinkPassword,
+	oidcLoginBlock,
+	safeReturnUrl
 } from '$lib/server/services/oidcService';
+import { loginLimiter } from '$lib/server/middleware/rateLimiter';
 import { db, users } from '$lib/server/db';
 import { getSessionCookieOptions } from '$lib/server/utils/cookies';
 
@@ -48,6 +52,16 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const allowSignup = (await getSetting('registration.allow_signup')) === 'true';
 	const requireApproval = (await getSetting('registration.require_admin_approval')) === 'true';
 
+	// Nothing to link and no way to create: send them back with a fixed message, not a dead-end form
+	if (!existingUser && !allowSignup) {
+		const provider = await getProviderById(pendingData.providerId);
+		cookies.delete('oidc_pending', { path: '/' });
+		throw redirect(
+			302,
+			`/login?error=oidc_no_account${provider ? `&provider=${encodeURIComponent(provider.slug)}` : ''}`
+		);
+	}
+
 	return {
 		providerName: pendingData.providerName,
 		email: pendingData.claims.email,
@@ -76,6 +90,12 @@ export const actions: Actions = {
 			throw redirect(302, '/login?error=invalid_session');
 		}
 
+		// Same per-IP limiter as the password login, under its own key
+		const rateLimit = loginLimiter.check(request, 'oidc-link');
+		if (!rateLimit.allowed) {
+			return fail(429, { linkError: 'Too many attempts. Please try again later.' });
+		}
+
 		const formData = await request.formData();
 		const password = formData.get('password') as string;
 
@@ -92,10 +112,17 @@ export const actions: Actions = {
 			return fail(400, { linkError: 'No account found with this email' });
 		}
 
-		// Verify password
-		const passwordValid = await verifyPassword(password, user.password);
-		if (!passwordValid) {
-			return fail(400, { linkError: 'Invalid password' });
+		// Verify password, with the account lockout counted exactly as the password login counts it
+		const passwordCheck = await checkLinkPassword(user, password);
+		if (!passwordCheck.ok) {
+			return fail(400, { linkError: passwordCheck.error });
+		}
+
+		// A pending or rejected account gets no link and no session, as at the password login
+		const block = oidcLoginBlock(user);
+		if (block) {
+			cookies.delete('oidc_pending', { path: '/' });
+			throw redirect(302, `/login?error=${block}`);
 		}
 
 		// Link the account
@@ -116,7 +143,7 @@ export const actions: Actions = {
 		// Set session cookie
 		cookies.set('session', sessionId, getSessionCookieOptions());
 
-		throw redirect(302, pendingData.returnUrl || '/');
+		throw redirect(302, safeReturnUrl(pendingData.returnUrl));
 	},
 
 	// Create new account
@@ -199,7 +226,7 @@ export const actions: Actions = {
 			// If approval is required, redirect to pending page
 			if (requireApproval) {
 				cookies.delete('oidc_pending', { path: '/' });
-				throw redirect(302, '/login?message=Account created. Awaiting admin approval.');
+				throw redirect(302, '/login?notice=approval_pending');
 			}
 
 			// Create session
@@ -211,7 +238,7 @@ export const actions: Actions = {
 			// Set session cookie
 			cookies.set('session', sessionId, getSessionCookieOptions());
 
-			throw redirect(302, pendingData.returnUrl || '/');
+			throw redirect(302, safeReturnUrl(pendingData.returnUrl));
 		} catch (e) {
 			if (e instanceof Response || (e as { status?: number })?.status === 302) {
 				throw e;

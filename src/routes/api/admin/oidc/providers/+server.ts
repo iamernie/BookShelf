@@ -6,6 +6,7 @@ import {
 	testProviderConnection,
 	generateSlug,
 	isSlugUnique,
+	normalizeProviderGroupFields,
 	PROVIDER_PRESETS
 } from '$lib/server/services/oidcService';
 
@@ -81,7 +82,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			defaultRole: data.defaultRole || 'member',
 			iconUrl: data.iconUrl || null,
 			buttonColor: data.buttonColor || null,
-			displayOrder: data.displayOrder ?? 0
+			displayOrder: data.displayOrder ?? 0,
+			// Trimmed and capped, never refused: empty claim -> 'groups', empty group -> no gate
+			...(normalizeProviderGroupFields({
+				groupsClaim: data.groupsClaim ?? '',
+				requiredGroup: data.requiredGroup ?? ''
+			}) as { groupsClaim: string; requiredGroup: string })
 		});
 
 		return json({
