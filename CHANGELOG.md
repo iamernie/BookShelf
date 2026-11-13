@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.33.0] - 2026-11-13
+
 ### Added
 - Single sign-on can now create accounts. With "Auto-create users" on for a provider, the first sign-in from someone new makes their BookShelf account with that provider's default role, so there is no sign-up form to fill in. Admin approval still applies when it is switched on; the public sign-up switch and invite codes do not. If the email already belongs to an account, nothing is merged: the person is asked for that account's password to link it, as before.
 - A "Required group" setting per sign-in provider. When set, only members of that group (as the provider reports it in the token, or from its user info) can sign in or link an account with that provider, administrators included. Leave it empty and nothing changes. The "Groups claim" setting names the token field that lists groups, and dotted paths such as `realm_access.roles` work. Note: removing a user from the group blocks new SSO sign-ins only; existing sessions and any local password keep working.
