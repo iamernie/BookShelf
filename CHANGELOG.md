@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.34.0] - 2026-11-13
+
 ### Added
 - Password sign-in can be turned off. Under **Admin → Settings → SSO → Manage SSO Providers**, the new **Password sign-in** panel hides the email and password form so everyone signs in through single sign-on. It can't be turned off until at least one provider is enabled and your own account is linked to one, and the confirm step lists any accounts that have no single sign-on link yet. Existing sessions are not ended. It is off by default, and nothing changes until an admin uses it.
 - An emergency sign-in URL comes with it. While password sign-in is off, opening that URL brings the password form back for 15 minutes on that browser, for one sign-in, and the use is recorded in the logs and shown as "Last used" in the panel. The URL is only shown to admins when they click Show or Copy. **Rotate URL** replaces it and ends any emergency windows already open. Turning password sign-in back on keeps the URL for next time.
