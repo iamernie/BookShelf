@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.35.0] - 2026-11-14
+
+### Added
+- Audiobooks added by the Audiobookshelf sync can now go to the public library. In **Admin → Settings → Integrations**, the new **New audiobooks from ABS sync join** setting chooses **My library** (the default, which works as before) or **The public library**. With the public library chosen, each new audiobook the sync finds is added to the public library with no owner and is not in anyone's library, so it doesn't count in anyone's stats or dashboard. Anyone can add it to their own library from the book's page. Later syncs link to that same book instead of creating a second copy.
+
 ## [2.34.0] - 2026-11-13
 
 ### Added

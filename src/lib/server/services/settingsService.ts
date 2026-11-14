@@ -402,6 +402,13 @@ export const DEFAULT_SETTINGS = {
 		label: 'Sync owner',
 		description: 'Admin or librarian who owns books created by the sync; matching and status sync only touch this user\'s and public books'
 	},
+	'integration.abs_create_mode': {
+		value: 'personal',
+		type: 'string',
+		category: 'integrations',
+		label: 'New audiobooks from ABS sync join',
+		description: 'My library: books the sync creates belong to the sync owner. The public library: they join the public library with no owner, and anyone can add them to their own library'
+	},
 	'integration.abs_sync_interval_minutes': {
 		value: '360',
 		type: 'number',

@@ -1229,6 +1229,27 @@
 						</div>
 					</div>
 
+					<!-- Where sync-created audiobooks go -->
+					<div class="p-4 flex items-start gap-4">
+						<div class="flex-1">
+							<label for="integration.abs_create_mode" class="font-medium" style="color: var(--text-primary);">New audiobooks from ABS sync join</label>
+							<p class="text-sm mt-0.5" style="color: var(--text-muted);">My library puts new audiobooks in the sync owner's library; the public library adds them with no owner, for anyone to add to their own library.</p>
+						</div>
+						<div class="w-72">
+							<select
+								id="integration.abs_create_mode"
+								value={editedSettings['integration.abs_create_mode'] === 'public' ? 'public' : 'personal'}
+								onchange={(e) => updateSetting('integration.abs_create_mode', (e.target as HTMLSelectElement).value)}
+								disabled={!data.isAdmin}
+								class="w-full px-3 py-2 rounded-lg text-sm"
+								style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);"
+							>
+								<option value="personal">My library</option>
+								<option value="public">The public library</option>
+							</select>
+						</div>
+					</div>
+
 					<!-- Sync interval -->
 					<div class="p-4 flex items-start gap-4">
 						<div class="flex-1">

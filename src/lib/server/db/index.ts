@@ -2211,6 +2211,23 @@ function runMigrations() {
 		console.error('[db] Failed to migrate Audiobookshelf settings:', e);
 	}
 
+	// Seed where sync-created audiobooks go (2.35.0), every column set: aged settings tables have
+	// createdAt/updatedAt NOT NULL with no default. Never overwrites an existing row.
+	try {
+		const seeded = sqlite.prepare(
+			`INSERT INTO settings (key, value, type, category, label, description, isSystem, createdAt, updatedAt)
+			 SELECT 'integration.abs_create_mode', 'personal', 'string', 'integrations', ?, ?, 0, datetime('now'), datetime('now')
+			 WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = 'integration.abs_create_mode')`
+		).run(
+			'New audiobooks from ABS sync join',
+			// Same text as DEFAULT_SETTINGS in settingsService (this module can't import it)
+			'My library: books the sync creates belong to the sync owner. The public library: they join the public library with no owner, and anyone can add them to their own library'
+		);
+		if (seeded.changes > 0) migrationsMade = true;
+	} catch (e) {
+		console.error('[db] Failed to seed the Audiobookshelf create mode setting:', e);
+	}
+
 	completeStep('Creating Audiobookshelf sync tables');
 
 	// ========== Audible series suggestions (2.27.0) ==========

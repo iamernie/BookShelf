@@ -744,6 +744,14 @@ export interface CreateCache {
 	formatId?: number;
 	statusId?: number | null;
 	tagIds?: number[];
+	createMode?: AbsCreateMode;
+}
+
+export type AbsCreateMode = 'personal' | 'public';
+
+/** Where born-linked books go: 'public' only when set exactly so; anything else is 'personal'. */
+export async function getAbsCreateMode(): Promise<AbsCreateMode> {
+	return (await getSetting('integration.abs_create_mode')).trim() === 'public' ? 'public' : 'personal';
 }
 
 async function keyedIds(table: typeof authors | typeof narrators): Promise<Map<string, number>> {
@@ -769,7 +777,9 @@ async function ensurePerson(table: typeof authors | typeof narrators, cache: Map
 
 /**
  * Create a book already linked to an ABS item: split authors (first is primary), first
- * narrator, audio format, owned by the sync owner, tagged Audiobook Shelf + Auto-Added.
+ * narrator, audio format, tagged Audiobook Shelf + Auto-Added. Owned by the sync owner, or, when
+ * integration.abs_create_mode is 'public', an ownerless public library book that is in nobody's
+ * library (no user_books row; Add to library is the only way in).
  */
 export async function createBookFromItem(ownerId: number, item: AbsLibraryItem | AbsExpandedItem, cache: CreateCache = {}): Promise<CreatedBook> {
 	const mi = toMatchItem(item);
@@ -781,6 +791,10 @@ export async function createBookFromItem(ownerId: number, item: AbsLibraryItem |
 	cache.formatId ??= await ensureAudioFormat();
 	if (cache.statusId === undefined) cache.statusId = await getUnreadStatusId();
 	cache.tagIds ??= [await ensureAbsTag(), await ensureAutoAddedTag()];
+	cache.createMode ??= await getAbsCreateMode();
+	const born = cache.createMode === 'public'
+		? { ownerId: undefined, libraryType: 'public' as const }
+		: { ownerId, libraryType: 'personal' as const };
 
 	const authorIds: number[] = [];
 	for (const name of mi.authors) {
@@ -797,14 +811,14 @@ export async function createBookFromItem(ownerId: number, item: AbsLibraryItem |
 		narratorId,
 		formatId: cache.formatId,
 		statusId: cache.statusId,
-		ownerId,
-		libraryType: 'personal',
+		ownerId: born.ownerId,
+		libraryType: born.libraryType,
 		asin: normalizeAsin(mi.asin),
 		isbn13,
 		absItemId: item.id,
 		tagIds: cache.tagIds
 	});
-	log.info('Created book from Audiobookshelf item', { bookId: book.id, absItemId: item.id, title });
+	log.info('Created book from Audiobookshelf item', { bookId: book.id, absItemId: item.id, title, libraryType: born.libraryType });
 	return { id: book.id, title, author: mi.authors[0] ?? null };
 }
 
