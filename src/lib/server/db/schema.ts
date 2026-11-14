@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, primaryKey, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
 
 // ============================================
@@ -523,6 +523,7 @@ export const userPreferences = sqliteTable('user_preferences', {
 	notifyBookCompleted: integer('notifyBookCompleted', { mode: 'boolean' }).default(true),
 	notifyGoalReached: integer('notifyGoalReached', { mode: 'boolean' }).default(true),
 	notifySeriesCompleted: integer('notifySeriesCompleted', { mode: 'boolean' }).default(true),
+	notifyAbsConnection: integer('notifyAbsConnection', { mode: 'boolean' }).default(true), // ABS key stopped working (2.36.0)
 	// Sidebar state
 	sidebarCollapsed: integer('sidebarCollapsed', { mode: 'boolean' }).default(false),
 	// Timestamps
@@ -864,6 +865,80 @@ export const absSyncAttention = sqliteTable('abs_sync_attention', {
 });
 
 // ============================================
+// Audiobookshelf per-member listening sync (2.36.0)
+// ============================================
+
+// One row per BookShelf user connected to Audiobookshelf. 'own' rows hold the member's own ABS API key,
+// AES-256-GCM sealed under SESSION_SECRET (secretBox); the one 'site' row is the sync owner reusing
+// integration.abs_api_key (no ciphertext, absUserId NULL until the first run resolves it).
+export const absUserConnections = sqliteTable(
+	'abs_user_connections',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		userId: integer('userId').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+		absUserId: text('absUserId'), // GET /api/me id with the key; NULL only on a pending 'site' row
+		absUsername: text('absUsername'), // display only
+		keySource: text('keySource').notNull(), // own | site
+		keyCiphertext: text('keyCiphertext'), // secretBox v1; NULL exactly when keySource = 'site'
+		keyFingerprint: text('keyFingerprint'), // sha256 hex prefix of the key, display + rotation audit
+		syncListening: integer('syncListening').notNull().default(0), // the member's consent (default off)
+		baselineAt: integer('baselineAt'), // epoch ms on the ABS clock: progress at or before this is history
+		connectedBy: integer('connectedBy').references(() => users.id, { onDelete: 'set null' }),
+		connectedAt: text('connectedAt').notNull(),
+		lastSyncAt: text('lastSyncAt'),
+		lastError: text('lastError'), // key_rejected | identity_changed | identity_conflict | decrypt_failed | network text
+		lastErrorAt: text('lastErrorAt'),
+		createdAt: text('createdAt').notNull(),
+		updatedAt: text('updatedAt').notNull()
+	},
+	(table) => [
+		uniqueIndex('abs_user_connections_abs_user').on(table.absUserId),
+		uniqueIndex('abs_user_connections_single_site').on(table.keySource).where(sql`${table.keySource} = 'site'`),
+		check('abs_user_connections_key_source', sql`${table.keySource} IN ('own','site')`),
+		check('abs_user_connections_ciphertext', sql`(${table.keySource} = 'site') = (${table.keyCiphertext} IS NULL)`),
+		check('abs_user_connections_abs_user_set', sql`${table.keySource} = 'site' OR ${table.absUserId} IS NOT NULL`),
+		check('abs_user_connections_sync_listening', sql`${table.syncListening} IN (0,1)`)
+	]
+);
+
+// Per-(user, ABS item) watermark: only progress newer than this acts
+export const absMemberItemState = sqliteTable(
+	'abs_member_item_state',
+	{
+		userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+		absItemId: text('absItemId').notNull(),
+		lastActedUpdate: integer('lastActedUpdate').notNull(), // ABS mediaProgress.lastUpdate (epoch ms)
+		lastActedFinished: integer('lastActedFinished').notNull().default(0),
+		bookId: integer('bookId').references(() => books.id, { onDelete: 'set null' }),
+		updatedAt: text('updatedAt').notNull()
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.absItemId] })]
+);
+
+// Per-member results of one sync run (the run row stays site-level)
+export const absSyncMemberRuns = sqliteTable(
+	'abs_sync_member_runs',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		runId: integer('runId').notNull().references(() => absSyncRuns.id, { onDelete: 'cascade' }),
+		userId: integer('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+		status: text('status').notNull(), // succeeded | partial | failed | skipped
+		progressSeen: integer('progressSeen').notNull().default(0),
+		statusFlips: integer('statusFlips').notNull().default(0),
+		autoAdded: integer('autoAdded').notNull().default(0),
+		notReachable: integer('notReachable').notNull().default(0),
+		unlinked: integer('unlinked').notNull().default(0),
+		error: text('error'),
+		details: text('details') // JSON [{action, bookId?}]: book ids only, never titles
+	},
+	(table) => [
+		index('abs_sync_member_runs_run').on(table.runId),
+		index('abs_sync_member_runs_user').on(table.userId),
+		check('abs_sync_member_runs_status', sql`${table.status} IN ('succeeded','partial','failed','skipped')`)
+	]
+);
+
+// ============================================
 // Audible series suggestions (2.27.0)
 // ============================================
 
@@ -1131,6 +1206,9 @@ export type NewWidgetInstance = typeof widgetInstances.$inferInsert;
 // Audiobookshelf sync types
 export type AbsSyncRun = typeof absSyncRuns.$inferSelect;
 export type AbsSyncAttention = typeof absSyncAttention.$inferSelect;
+export type AbsUserConnection = typeof absUserConnections.$inferSelect;
+export type AbsMemberItemState = typeof absMemberItemState.$inferSelect;
+export type AbsSyncMemberRun = typeof absSyncMemberRuns.$inferSelect;
 
 // Audible series suggestion types
 export type AudibleSeriesBook = typeof audibleSeriesBooks.$inferSelect;

@@ -78,6 +78,13 @@
       "when": 1794600860366,
       "tag": "0010_oidc_group_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1794671968605,
+      "tag": "0011_abs_member_sync",
+      "breakpoints": true
     }
   ]
 }

@@ -669,6 +669,58 @@ export function copyEntityCommentsToNotes(): EntityNotesCopyReport {
 	return report;
 }
 
+export interface AbsSiteConnectionReport {
+	skipped: 'no-tables' | 'no-key' | 'no-owner' | 'exists' | null;
+	ownerId: number | null;
+	inserted: boolean;
+	syncListening: boolean;
+}
+
+/**
+ * The sync owner's listening mirror (2.36.0): before, integration.abs_sync_status mirrored the site
+ * key user's ABS progress onto the sync owner's books. That consent becomes the owner's own
+ * connection row, keySource 'site', reusing integration.abs_api_key (no ciphertext). absUserId stays
+ * NULL (no network at boot); the first sync run resolves it with GET /api/me. Runs whenever a key and
+ * a valid owner (an existing admin or librarian) exist, whatever abs_enabled says. One transaction;
+ * NOT EXISTS plus the unique userId and the single-'site' index make a racing second boot a no-op.
+ */
+export function migrateAbsSiteConnection(): AbsSiteConnectionReport {
+	const report: AbsSiteConnectionReport = { skipped: null, ownerId: null, inserted: false, syncListening: false };
+	if (!tableExists('settings') || !tableExists('users') || !tableExists('abs_user_connections')) {
+		report.skipped = 'no-tables';
+		return report;
+	}
+	const value = (key: string) =>
+		(sqlite.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string | null } | undefined)?.value ?? null;
+
+	if (!(value('integration.abs_api_key') ?? '').trim()) {
+		report.skipped = 'no-key';
+		return report;
+	}
+	const ownerId = parseInt((value('integration.abs_owner_user_id') ?? '').trim(), 10);
+	const owner = Number.isInteger(ownerId) && ownerId > 0
+		? sqlite.prepare("SELECT id FROM users WHERE id = ? AND role IN ('admin','librarian')").get(ownerId) as { id: number } | undefined
+		: undefined;
+	if (!owner) {
+		report.skipped = 'no-owner';
+		return report;
+	}
+	report.ownerId = owner.id;
+	report.syncListening = value('integration.abs_sync_status') === 'true';
+
+	const now = new Date().toISOString();
+	sqlite.transaction(() => {
+		report.inserted = sqlite.prepare(`
+			INSERT INTO abs_user_connections (userId, absUserId, keySource, keyCiphertext, syncListening, baselineAt, connectedBy, connectedAt, createdAt, updatedAt)
+			SELECT ?, NULL, 'site', NULL, ?, NULL, NULL, ?, ?, ?
+			WHERE NOT EXISTS (SELECT 1 FROM abs_user_connections WHERE userId = ? OR keySource = 'site')
+		`).run(owner.id, report.syncListening ? 1 : 0, now, now, now, owner.id).changes > 0;
+	})();
+	if (!report.inserted) report.skipped = 'exists';
+	else migrationsMade = true;
+	return report;
+}
+
 export interface EntityCommentsBlankReport {
 	skipped: 'no-marker' | 'no-admin' | 'no-tables' | null;
 	targetUserId: number | null;
@@ -2226,6 +2278,92 @@ function runMigrations() {
 		if (seeded.changes > 0) migrationsMade = true;
 	} catch (e) {
 		console.error('[db] Failed to seed the Audiobookshelf create mode setting:', e);
+	}
+
+	// ========== Audiobookshelf per-member listening sync (2.36.0) ==========
+	// Same tables, CHECKs, FK actions and index names as drizzle/0011_abs_member_sync.sql
+	safeCreateTable('abs_user_connections', `
+		CREATE TABLE abs_user_connections (
+			id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+			userId integer NOT NULL,
+			absUserId text,
+			absUsername text,
+			keySource text NOT NULL,
+			keyCiphertext text,
+			keyFingerprint text,
+			syncListening integer DEFAULT 0 NOT NULL,
+			baselineAt integer,
+			connectedBy integer,
+			connectedAt text NOT NULL,
+			lastSyncAt text,
+			lastError text,
+			lastErrorAt text,
+			createdAt text NOT NULL,
+			updatedAt text NOT NULL,
+			FOREIGN KEY (userId) REFERENCES users(id) ON UPDATE no action ON DELETE cascade,
+			FOREIGN KEY (connectedBy) REFERENCES users(id) ON UPDATE no action ON DELETE set null,
+			CONSTRAINT abs_user_connections_key_source CHECK(keySource IN ('own','site')),
+			CONSTRAINT abs_user_connections_ciphertext CHECK((keySource = 'site') = (keyCiphertext IS NULL)),
+			CONSTRAINT abs_user_connections_abs_user_set CHECK(keySource = 'site' OR absUserId IS NOT NULL),
+			CONSTRAINT abs_user_connections_sync_listening CHECK(syncListening IN (0,1))
+		)
+	`);
+
+	safeCreateTable('abs_member_item_state', `
+		CREATE TABLE abs_member_item_state (
+			userId integer NOT NULL,
+			absItemId text NOT NULL,
+			lastActedUpdate integer NOT NULL,
+			lastActedFinished integer DEFAULT 0 NOT NULL,
+			bookId integer,
+			updatedAt text NOT NULL,
+			PRIMARY KEY(userId, absItemId),
+			FOREIGN KEY (userId) REFERENCES users(id) ON UPDATE no action ON DELETE cascade,
+			FOREIGN KEY (bookId) REFERENCES books(id) ON UPDATE no action ON DELETE set null
+		)
+	`);
+
+	safeCreateTable('abs_sync_member_runs', `
+		CREATE TABLE abs_sync_member_runs (
+			id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+			runId integer NOT NULL,
+			userId integer NOT NULL,
+			status text NOT NULL,
+			progressSeen integer DEFAULT 0 NOT NULL,
+			statusFlips integer DEFAULT 0 NOT NULL,
+			autoAdded integer DEFAULT 0 NOT NULL,
+			notReachable integer DEFAULT 0 NOT NULL,
+			unlinked integer DEFAULT 0 NOT NULL,
+			error text,
+			details text,
+			FOREIGN KEY (runId) REFERENCES abs_sync_runs(id) ON UPDATE no action ON DELETE cascade,
+			FOREIGN KEY (userId) REFERENCES users(id) ON UPDATE no action ON DELETE cascade,
+			CONSTRAINT abs_sync_member_runs_status CHECK(status IN ('succeeded','partial','failed','skipped'))
+		)
+	`);
+
+	// Separate statements: safeCreateTable skips its whole SQL once the table exists
+	try {
+		sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS abs_user_connections_userId_unique ON abs_user_connections(userId)');
+		// One BookShelf user per ABS user (NULLs, i.e. a pending 'site' row, don't collide)
+		sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS abs_user_connections_abs_user ON abs_user_connections(absUserId)');
+		sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS abs_user_connections_single_site ON abs_user_connections(keySource) WHERE keySource = 'site'");
+		sqlite.exec('CREATE INDEX IF NOT EXISTS abs_sync_member_runs_run ON abs_sync_member_runs(runId)');
+		sqlite.exec('CREATE INDEX IF NOT EXISTS abs_sync_member_runs_user ON abs_sync_member_runs(userId)');
+	} catch (e) {
+		console.error('[db] Failed to create Audiobookshelf member sync indexes:', e);
+	}
+
+	if (tableExists('user_preferences') && !columnExists('user_preferences', 'notifyAbsConnection')) {
+		safeAddColumn('user_preferences', 'notifyAbsConnection', 'INTEGER DEFAULT 1');
+	}
+
+	// The sync owner's status-sync consent becomes their 'site' connection
+	try {
+		const r = migrateAbsSiteConnection();
+		if (r.inserted) console.log(`[db] Audiobookshelf: sync owner ${r.ownerId} connected with the site key (sync listening ${r.syncListening ? 'on' : 'off'})`);
+	} catch (e) {
+		console.error('[db] Failed to migrate the Audiobookshelf sync owner connection:', e);
 	}
 
 	completeStep('Creating Audiobookshelf sync tables');

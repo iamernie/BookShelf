@@ -4,6 +4,9 @@ import { getUserPreferences } from '$lib/server/services/userPreferencesService'
 import { getUserOidcLinks, getEnabledProviders, getProviderBySlug } from '$lib/server/services/oidcService';
 import { getLibraryShares, getSharedLibraries, getShareableUsers } from '$lib/server/services/libraryShareService';
 import { isNtfyEnabled } from '$lib/server/services/notificationService';
+import { getAbsLinkBaseUrl } from '$lib/server/services/absService';
+import { getConnection, getSyncCadence, getUnplacedCount, toConnectionView } from '$lib/server/services/absConnectionService';
+import { secretBoxRefusal } from '$lib/server/services/secretBox';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) {
@@ -48,12 +51,31 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	};
 
 	// Get library sharing data and ntfy status
-	const [myShares, sharedWithMe, shareableUsers, ntfyEnabled] = await Promise.all([
+	const [myShares, sharedWithMe, shareableUsers, ntfyEnabled, absBaseUrl] = await Promise.all([
 		getLibraryShares(locals.user.id),
 		getSharedLibraries(locals.user.id),
 		getShareableUsers(locals.user.id),
-		isNtfyEnabled()
+		isNtfyEnabled(),
+		getAbsLinkBaseUrl()
 	]);
+
+	// Audiobookshelf card (2.36.0): every role but guest, only when the admin has set ABS up
+	let absCard = null;
+	if (absBaseUrl && locals.user.role !== 'guest') {
+		const [conn, cadence, unplaced] = await Promise.all([
+			getConnection(locals.user.id),
+			getSyncCadence(),
+			getUnplacedCount(locals.user.id)
+		]);
+		absCard = {
+			available: true,
+			baseUrl: absBaseUrl,
+			secretAvailable: secretBoxRefusal() === null,
+			connection: toConnectionView(conn),
+			cadence,
+			unplaced
+		};
+	}
 
 	return {
 		preferences,
@@ -83,6 +105,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			sharedWithMe,
 			shareableUsers
 		},
-		ntfyEnabled
+		ntfyEnabled,
+		absCard
 	};
 };

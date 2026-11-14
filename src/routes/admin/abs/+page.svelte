@@ -2,6 +2,7 @@
 	import { RefreshCw, Loader2, AlertTriangle, ChevronDown, ChevronRight, Headphones } from 'lucide-svelte';
 	import AbsRunSummary from '$lib/components/audiobook/AbsRunSummary.svelte';
 	import AbsAttentionRow from '$lib/components/audiobook/AbsAttentionRow.svelte';
+	import AbsMembersPanel from '$lib/components/audiobook/AbsMembersPanel.svelte';
 	import { toasts } from '$lib/stores/toast';
 
 	let { data } = $props();
@@ -23,7 +24,7 @@
 	let overview = $state<Overview>(data.overview);
 	let runs = $state<Run[]>(data.runs);
 	let attention = $state<AttentionItem[]>(data.attention);
-	let activeTab = $state<'runs' | 'attention'>(data.attention.length > 0 ? 'attention' : 'runs');
+	let activeTab = $state<'runs' | 'attention' | 'members'>(data.attention.length > 0 ? 'attention' : 'runs');
 	let attentionFilter = $state<'open' | 'ignored' | 'resolved'>('open');
 	let starting = $state(false);
 	let busyAttentionId = $state<number | null>(null);
@@ -226,6 +227,7 @@
 		<button type="button" class={activeTab === 'attention' ? 'btn-accent' : 'btn-secondary'} onclick={() => (activeTab = 'attention')}>
 			Needs attention{#if overview.attentionOpen > 0} ({overview.attentionOpen}){/if}
 		</button>
+		<button type="button" class={activeTab === 'members' ? 'btn-accent' : 'btn-secondary'} onclick={() => (activeTab = 'members')}>Members</button>
 		{#if overview.staleLinks > 0}
 			<span class="self-center text-sm ml-2" style="color: #ef4444;">
 				{overview.staleLinks} stale {overview.staleLinks === 1 ? 'link' : 'links'}: open the book and use Re-check or Change link
@@ -291,6 +293,8 @@
 				</div>
 			{/if}
 		</div>
+	{:else if activeTab === 'members'}
+		<AbsMembersPanel />
 	{:else}
 		<div class="flex gap-2 mb-3">
 			{#each ['open', 'ignored', 'resolved'] as const as f (f)}

@@ -38,6 +38,7 @@
 		Tag
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
+	import AbsAccountCard from '$lib/components/audiobook/AbsAccountCard.svelte';
 	import { theme as themeStore, type Theme } from '$lib/stores/theme';
 
 	let { data } = $props();
@@ -1175,6 +1176,11 @@
 					{/each}
 				</div>
 			</section>
+		{/if}
+
+		<!-- Audiobookshelf Section (2.36.0) -->
+		{#if data.absCard}
+			<AbsAccountCard initial={data.absCard} />
 		{/if}
 
 		<!-- KOReader Sync Section -->

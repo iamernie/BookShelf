@@ -9,6 +9,7 @@ import { migrationStatus } from '$lib/server/db';
 import { startAbsSyncScheduler } from '$lib/server/services/absSyncService';
 import { startAudibleSuggestScheduler } from '$lib/server/services/audibleSuggestService';
 import { bypassNeedsRepair } from '$lib/server/services/localLoginService';
+import { logSecretBoxStatusAtBoot } from '$lib/server/services/absConnectionService';
 
 const log = createLogger('hooks');
 
@@ -18,6 +19,12 @@ export const init: ServerInit = () => {
 		startAbsSyncScheduler();
 	} catch (e) {
 		log.error('Failed to start Audiobookshelf sync scheduler', { error: e instanceof Error ? e.message : String(e) });
+	}
+	try {
+		// Members' Audiobookshelf keys are sealed under SESSION_SECRET; say so once when it is unusable
+		logSecretBoxStatusAtBoot();
+	} catch (e) {
+		log.error('Failed to check secret storage', { error: e instanceof Error ? e.message : String(e) });
 	}
 	try {
 		startAudibleSuggestScheduler();
