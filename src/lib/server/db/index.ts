@@ -670,8 +670,9 @@ export function copyEntityCommentsToNotes(): EntityNotesCopyReport {
 }
 
 export interface AbsSiteConnectionReport {
-	skipped: 'no-tables' | 'no-key' | 'no-owner' | 'exists' | null;
+	skipped: 'no-tables' | 'marker' | 'no-key' | 'no-owner' | 'exists' | null;
 	ownerId: number | null;
+	removedSetting: boolean;
 	inserted: boolean;
 	syncListening: boolean;
 }
@@ -681,11 +682,14 @@ export interface AbsSiteConnectionReport {
  * key user's ABS progress onto the sync owner's books. That consent becomes the owner's own
  * connection row, keySource 'site', reusing integration.abs_api_key (no ciphertext). absUserId stays
  * NULL (no network at boot); the first sync run resolves it with GET /api/me. Runs whenever a key and
- * a valid owner (an existing admin or librarian) exist, whatever abs_enabled says. One transaction;
- * NOT EXISTS plus the unique userId and the single-'site' index make a racing second boot a no-op.
+ * a valid owner (an existing admin or librarian) exist, whatever abs_enabled says. One transaction:
+ * the INSERT, the DELETE of the retired setting and the marker row; NOT EXISTS plus the unique userId
+ * and the single-'site' index make a racing second boot a no-op. Until a key and an owner exist the
+ * retired setting is left in place (its consent migrates later). Once the marker is set this never
+ * runs again, so a site row the owner disconnects is not re-created.
  */
 export function migrateAbsSiteConnection(): AbsSiteConnectionReport {
-	const report: AbsSiteConnectionReport = { skipped: null, ownerId: null, inserted: false, syncListening: false };
+	const report: AbsSiteConnectionReport = { skipped: null, ownerId: null, inserted: false, syncListening: false, removedSetting: false };
 	if (!tableExists('settings') || !tableExists('users') || !tableExists('abs_user_connections')) {
 		report.skipped = 'no-tables';
 		return report;
@@ -693,6 +697,10 @@ export function migrateAbsSiteConnection(): AbsSiteConnectionReport {
 	const value = (key: string) =>
 		(sqlite.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string | null } | undefined)?.value ?? null;
 
+	if (value(schema.ABS_SITE_CONNECTION_MIGRATED_SETTING) !== null) {
+		report.skipped = 'marker';
+		return report;
+	}
 	if (!(value('integration.abs_api_key') ?? '').trim()) {
 		report.skipped = 'no-key';
 		return report;
@@ -715,9 +723,16 @@ export function migrateAbsSiteConnection(): AbsSiteConnectionReport {
 			SELECT ?, NULL, 'site', NULL, ?, NULL, NULL, ?, ?, ?
 			WHERE NOT EXISTS (SELECT 1 FROM abs_user_connections WHERE userId = ? OR keySource = 'site')
 		`).run(owner.id, report.syncListening ? 1 : 0, now, now, now, owner.id).changes > 0;
+		// The setting is retired: its value now lives in the row's syncListening
+		report.removedSetting = sqlite.prepare("DELETE FROM settings WHERE key = 'integration.abs_sync_status'").run().changes > 0;
+		// Every column set: older settings tables have createdAt/updatedAt NOT NULL with no default
+		sqlite.prepare(`
+			INSERT OR IGNORE INTO settings (key, value, type, category, label, description, isSystem, createdAt, updatedAt)
+			VALUES (?, ?, 'string', 'migration', 'Audiobookshelf owner connection migrated', 'Listening status sync moved to the sync owner''s own connection', 1, ?, ?)
+		`).run(schema.ABS_SITE_CONNECTION_MIGRATED_SETTING, now, now, now);
 	})();
 	if (!report.inserted) report.skipped = 'exists';
-	else migrationsMade = true;
+	if (report.inserted || report.removedSetting) migrationsMade = true;
 	return report;
 }
 
@@ -2362,6 +2377,7 @@ function runMigrations() {
 	try {
 		const r = migrateAbsSiteConnection();
 		if (r.inserted) console.log(`[db] Audiobookshelf: sync owner ${r.ownerId} connected with the site key (sync listening ${r.syncListening ? 'on' : 'off'})`);
+		if (r.removedSetting) console.log('[db] Audiobookshelf: retired integration.abs_sync_status (now the owner connection\'s Sync my listening)');
 	} catch (e) {
 		console.error('[db] Failed to migrate the Audiobookshelf sync owner connection:', e);
 	}

@@ -30,6 +30,19 @@
 	let busyAttentionId = $state<number | null>(null);
 	let expandedRunId = $state<number | null>(null);
 	let runDetails = $state<Record<number, RunDetail[]>>({});
+	interface MemberRun {
+		userId: number;
+		username: string;
+		status: string;
+		progressSeen: number;
+		statusFlips: number;
+		autoAdded: number;
+		notReachable: number;
+		unlinked: number;
+		error: string | null;
+		details: { action: string; bookId?: number; to?: string }[];
+	}
+	let runMembers = $state<Record<number, MemberRun[]>>({});
 
 	const running = $derived(!!overview.running || starting);
 
@@ -85,7 +98,11 @@
 		expandedRunId = id;
 		if (!runDetails[id]) {
 			const res = await fetch(`/api/admin/abs/runs/${id}`);
-			if (res.ok) runDetails = { ...runDetails, [id]: (await res.json()).details ?? [] };
+			if (res.ok) {
+				const body = await res.json();
+				runDetails = { ...runDetails, [id]: body.details ?? [] };
+				runMembers = { ...runMembers, [id]: body.members ?? [] };
+			}
 		}
 	}
 
@@ -265,9 +282,27 @@
 								<div class="px-11 pb-4 space-y-3">
 									{#if !runDetails[run.id]}
 										<Loader2 class="w-4 h-4 animate-spin" />
-									{:else if runDetails[run.id].length === 0}
+									{:else if runDetails[run.id].length === 0 && !runMembers[run.id]?.length}
 										<p class="text-sm" style="color: var(--text-muted);">Nothing changed.</p>
 									{:else}
+										{#if runMembers[run.id]?.length}
+											<div>
+												<p class="text-xs font-medium uppercase tracking-wide mb-1" style="color: var(--text-muted);">Members' listening ({runMembers[run.id].length})</p>
+												<ul class="text-sm space-y-0.5" style="color: var(--text-secondary);">
+													{#each runMembers[run.id] as m (m.userId)}
+														<li>
+															{m.username}: <span style="color: {statusColor[m.status] ?? 'inherit'};">{m.status}</span>
+															· {m.progressSeen} seen · {m.statusFlips} {run.mode === 'preview' ? 'would change' : 'changed'} · {m.autoAdded} {run.mode === 'preview' ? 'would add' : 'added'}
+															{#if m.unlinked + m.notReachable > 0} · {m.unlinked} not linked · {m.notReachable} not reachable{/if}
+															{#if m.error}<span style="color: #ef4444;"> · {m.error}</span>{/if}
+															{#each m.details.filter((d) => d.bookId) as d, i (i)}
+																{' '}<a href="/books/{d.bookId}" class="underline">#{d.bookId}</a>{d.action === 'auto_added' ? '+' : ''}{d.action === 'failed' ? '!' : ''}
+															{/each}
+														</li>
+													{/each}
+												</ul>
+											</div>
+										{/if}
 										{#each groupDetails(runDetails[run.id]) as [action, entries] (action)}
 											<div>
 												<p class="text-xs font-medium uppercase tracking-wide mb-1" style="color: var(--text-muted);">

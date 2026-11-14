@@ -868,6 +868,9 @@ export const absSyncAttention = sqliteTable('abs_sync_attention', {
 // Audiobookshelf per-member listening sync (2.36.0)
 // ============================================
 
+// Marker row: the sync owner's integration.abs_sync_status was moved into their 'site' connection
+export const ABS_SITE_CONNECTION_MIGRATED_SETTING = 'migration.abs_site_connection_at';
+
 // One row per BookShelf user connected to Audiobookshelf. 'own' rows hold the member's own ABS API key,
 // AES-256-GCM sealed under SESSION_SECRET (secretBox); the one 'site' row is the sync owner reusing
 // integration.abs_api_key (no ciphertext, absUserId NULL until the first run resolves it).

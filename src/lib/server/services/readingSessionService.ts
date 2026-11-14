@@ -9,6 +9,7 @@ import { db } from '$lib/server/db';
 import { readingSessions, books } from '$lib/server/db/schema';
 import { eq, and, gte, lt, lte, desc, sql, isNull } from 'drizzle-orm';
 import { getAbsListeningByDay } from './absService';
+import { readableConnection } from './absConnectionService';
 import { addDays, dateInAppTz, isDateOnlyString, startOfDayInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 
 export interface ReadingSessionData {
@@ -211,16 +212,21 @@ export async function getHeatmapData(year: number, userId?: number): Promise<Hea
 }
 
 /**
- * Get heatmap data for a year from BookShelf reading sessions, ABS listening, or both.
- * 'auto' resolves to 'all' when ABS listening is available, else 'books'. Never throws on ABS failure.
+ * One user's heatmap for a year from their BookShelf reading sessions, their own ABS listening, or
+ * both (2.36.0: both halves are the viewer's own; listening needs their own ABS connection).
+ * 'auto' resolves to 'all' when their listening is available, else 'books'. Never throws on ABS failure.
  */
 export async function getHeatmapDataForSource(
 	year: number,
 	requested: HeatmapSource | 'auto',
-	userId?: number
+	userId: number
 ): Promise<HeatmapData & { source: HeatmapSource; listeningAvailable: boolean }> {
+	const listeningFor = async () => {
+		const c = await readableConnection(userId);
+		return getAbsListeningByDay(year, c ? { baseUrl: c.config.baseUrl, apiKey: c.apiKey, absUserId: c.conn.absUserId as string } : null);
+	};
 	const [listening, reading] = await Promise.all([
-		getAbsListeningByDay(year),
+		listeningFor(),
 		requested === 'listening' ? Promise.resolve(null) : getHeatmapData(year, userId)
 	]);
 

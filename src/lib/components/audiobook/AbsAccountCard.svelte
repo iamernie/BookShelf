@@ -29,7 +29,7 @@
 	let card = $state<AbsCardData>(structuredClone(initial));
 	let apiKey = $state('');
 	let replacing = $state(false);
-	let busy = $state<'connect' | 'toggle' | 'disconnect' | null>(null);
+	let busy = $state<'connect' | 'toggle' | 'disconnect' | 'import' | null>(null);
 	let message = $state<string | null>(null);
 
 	const conn = $derived(card.connection);
@@ -87,6 +87,30 @@
 			});
 			if (res.ok) await reload();
 			else toasts.error((await res.json()).message ?? 'Could not change the setting');
+		} finally {
+			busy = null;
+		}
+	}
+
+	async function importHistory() {
+		busy = 'import';
+		try {
+			const preview = await fetch('/api/account/abs/import-history');
+			const counts = await preview.json();
+			if (!preview.ok) {
+				toasts.error(counts.message ?? 'Could not check your listening history');
+				return;
+			}
+			if (counts.added === 0 && counts.changed === 0) {
+				toasts.success('Nothing to add: your library already matches what you listened to');
+				return;
+			}
+			const parts = [counts.added > 0 ? `add ${counts.added} ${counts.added === 1 ? 'book' : 'books'} to your library` : '', counts.changed > 0 ? `update the status of ${counts.changed}` : ''].filter(Boolean);
+			if (!confirm(`This will ${parts.join(' and ')} from what you listened to before connecting. Continue?`)) return;
+			const res = await fetch('/api/account/abs/import-history', { method: 'POST' });
+			const body = await res.json();
+			if (!res.ok) toasts.error(body.message ?? 'Import failed');
+			else toasts.success(`Added ${body.added}, updated ${body.changed}`);
 		} finally {
 			busy = null;
 		}
@@ -177,6 +201,15 @@
 					{/if}
 				</div>
 			</div>
+
+			{#if !conn.pending && !conn.lastError}
+				<div>
+					<button type="button" class="btn-secondary flex items-center gap-2" disabled={busy !== null} onclick={importHistory}>
+						{#if busy === 'import'}<Loader2 class="w-4 h-4 animate-spin" />{/if} Add what I've already listened to
+					</button>
+					<p class="text-xs mt-1" style="color: var(--text-muted);">Only listening after you connected syncs on its own. This brings in the rest once, after showing you how many books it touches.</p>
+				</div>
+			{/if}
 
 			{#if replacing}
 				<div class="flex gap-2">

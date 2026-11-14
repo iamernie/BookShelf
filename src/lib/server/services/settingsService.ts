@@ -400,7 +400,7 @@ export const DEFAULT_SETTINGS = {
 		type: 'number',
 		category: 'integrations',
 		label: 'Sync owner',
-		description: 'Admin or librarian who owns books created by the sync; matching and status sync only touch this user\'s and public books'
+		description: 'Admin or librarian who owns books created by the sync; matching only touches this user\'s and public books. Listening status follows each person\'s own Audiobookshelf connection (Account settings)'
 	},
 	'integration.abs_create_mode': {
 		value: 'personal',
@@ -415,13 +415,6 @@ export const DEFAULT_SETTINGS = {
 		category: 'integrations',
 		label: 'Audiobookshelf Sync Interval',
 		description: 'Minutes between scheduled syncs: 0 (off, Sync Now only), 15, 30, 60, 360, 720 or 1440'
-	},
-	'integration.abs_sync_status': {
-		value: 'false',
-		type: 'boolean',
-		category: 'integrations',
-		label: 'Sync listening status',
-		description: 'Books move to Currently Reading while listening and Done when finished, based on Audiobookshelf progress (Audiobookshelf to BookShelf only)'
 	},
 	'integration.abs_sync_pushback_people': {
 		value: 'true',

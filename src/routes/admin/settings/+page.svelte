@@ -1272,25 +1272,10 @@
 						</div>
 					</div>
 
-					<!-- Status Sync Toggle -->
-					<div class="p-4 flex items-start gap-4">
-						<div class="flex-1">
-							<label class="font-medium" style="color: var(--text-primary);">Sync listening status (Audiobookshelf → BookShelf only)</label>
-							<p class="text-sm mt-0.5" style="color: var(--text-muted);">During each sync, books move to Currently Reading while listening and Done when finished, based on the API key user's Audiobookshelf progress. Nothing is written to Audiobookshelf.</p>
-						</div>
-						<div class="w-72">
-							<button
-								type="button"
-								class="toggle-switch {editedSettings['integration.abs_sync_status'] === 'true' ? 'active' : ''}"
-								onclick={() => updateSetting('integration.abs_sync_status', editedSettings['integration.abs_sync_status'] === 'true' ? 'false' : 'true')}
-								disabled={!data.isAdmin}
-								role="switch"
-								aria-checked={editedSettings['integration.abs_sync_status'] === 'true'}
-								aria-label="Sync listening status"
-							>
-								<span class="toggle-knob"></span>
-							</button>
-						</div>
+					<!-- Listening status (2.36.0): per person, no site toggle -->
+					<div class="p-4">
+						<p class="font-medium" style="color: var(--text-primary);">Listening status</p>
+						<p class="text-sm mt-0.5" style="color: var(--text-muted);">Each person connects their own Audiobookshelf account in their Account settings and turns <strong>Sync my listening</strong> on themselves; it runs with each sync above. See <a href="/admin/abs" class="underline">Admin → Audiobookshelf Sync → Members</a>.</p>
 					</div>
 
 					<!-- People pushback -->

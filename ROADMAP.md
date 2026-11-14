@@ -160,7 +160,7 @@ Users can optionally share their library with other users (e.g., family members 
 
 ## Audiobooks
 
-The built-in audiobook upload and player was removed in v2.12.0. Audiobooks are now handled by an [Audiobookshelf](https://www.audiobookshelf.org) server through the Audiobookshelf integration (Admin → Settings → Integrations): BookShelf links books to Audiobookshelf items, syncs new audiobooks into the library on its own schedule, fills blank Audiobookshelf series, authors and narrators from the linked book, and shows a **Listen on Audiobookshelf** button on linked books. Since v2.23.0 every sync run is recorded on **Admin → Audiobookshelf Sync**, where items that could match several books wait for a decision instead of being guessed.
+The built-in audiobook upload and player was removed in v2.12.0. Audiobooks are now handled by an [Audiobookshelf](https://www.audiobookshelf.org) server through the Audiobookshelf integration (Admin → Settings → Integrations): BookShelf links books to Audiobookshelf items, syncs new audiobooks into the library on its own schedule, fills blank Audiobookshelf series, authors and narrators from the linked book, and shows a **Listen on Audiobookshelf** button on linked books. Since v2.23.0 every sync run is recorded on **Admin → Audiobookshelf Sync**, where items that could match several books wait for a decision instead of being guessed. Since v2.36.0 each person connects their own Audiobookshelf account from their Account settings, and their listening (once they turn it on) moves their own books to Currently Reading or Done.
 
 ---
 

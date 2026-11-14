@@ -98,6 +98,7 @@ export interface UserPreferencesData {
 	notifyBookCompleted: boolean;
 	notifyGoalReached: boolean;
 	notifySeriesCompleted: boolean;
+	notifyAbsConnection: boolean;
 	// UI state
 	sidebarCollapsed: boolean;
 }
@@ -129,6 +130,7 @@ const DEFAULT_PREFERENCES: UserPreferencesData = {
 	notifyBookCompleted: true,
 	notifyGoalReached: true,
 	notifySeriesCompleted: true,
+	notifyAbsConnection: true,
 	sidebarCollapsed: false
 };
 
@@ -181,6 +183,7 @@ export async function getUserPreferences(userId: number): Promise<UserPreference
 		notifyBookCompleted: prefs.notifyBookCompleted ?? true,
 		notifyGoalReached: prefs.notifyGoalReached ?? true,
 		notifySeriesCompleted: prefs.notifySeriesCompleted ?? true,
+		notifyAbsConnection: prefs.notifyAbsConnection ?? true,
 		sidebarCollapsed: prefs.sidebarCollapsed || false
 	};
 }
@@ -257,6 +260,7 @@ export async function updateUserPreferences(
 	if (updates.notifyBookCompleted !== undefined) updateData.notifyBookCompleted = updates.notifyBookCompleted;
 	if (updates.notifyGoalReached !== undefined) updateData.notifyGoalReached = updates.notifyGoalReached;
 	if (updates.notifySeriesCompleted !== undefined) updateData.notifySeriesCompleted = updates.notifySeriesCompleted;
+	if (updates.notifyAbsConnection !== undefined) updateData.notifyAbsConnection = updates.notifyAbsConnection;
 
 	if (existing.length === 0) {
 		// Insert

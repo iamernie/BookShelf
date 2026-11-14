@@ -20,22 +20,21 @@
 import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { absMemberItemState, absSyncMemberRuns, absSyncRuns, absUserConnections, users, type AbsUserConnection } from '$lib/server/db/schema';
-import { AbsHttpError, describeError, getAbsConfig, type AbsConfig, type AbsMediaProgress } from './absService';
+import { AbsHttpError, absUserGet, describeError, getAbsConfig, getAbsProgressWithKey, type AbsConfig, type AbsMediaProgress, type AbsProgress } from './absService';
 import { getSetting, getSettingAs, ABS_SYNC_INTERVALS } from './settingsService';
 import { openSecret, sealSecret, secretBoxRefusal, secretFingerprint, SecretBoxUnavailable } from './secretBox';
 import { createLogger } from './loggerService';
 
 const log = createLogger('abs-connect');
 
-const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_KEY_LENGTH = 4096;
 const SITE_IDENTITY_TTL_MS = 60_000;
 
 // ============================================
-// Member-key ABS client (allow-listed paths only)
+// Member-key ABS calls (absUserGet allow-lists the paths)
 // ============================================
 
-const MEMBER_PATHS = [/^\/api\/me$/, /^\/api\/me\/progress\/[^/?]+$/, /^\/api\/me\/listening-sessions(\?.*)?$/];
+export { absUserGet };
 
 export interface AbsMe {
 	id: string;
@@ -44,26 +43,6 @@ export interface AbsMe {
 	progress: AbsMediaProgress[];
 	/** ABS's own clock (Date response header), epoch ms; null when absent */
 	serverDateMs: number | null;
-}
-
-/**
- * GET with a per-user key. Only the allow-listed /api/me paths; never follows a redirect (the key
- * must not be replayed to another host). Throws AbsHttpError on non-2xx, plain fetch errors otherwise.
- */
-export async function absUserGet<T>(baseUrl: string, apiKey: string, path: string): Promise<{ body: T; serverDateMs: number | null }> {
-	if (!MEMBER_PATHS.some((re) => re.test(path))) throw new Error(`Refused Audiobookshelf path for a user key: ${path.split('?')[0]}`);
-	const res = await fetch(`${baseUrl}${path}`, {
-		headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
-		redirect: 'error',
-		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-	});
-	if (!res.ok) {
-		await res.body?.cancel();
-		const reason = res.status === 401 || res.status === 403 ? 'API key rejected' : res.statusText;
-		throw new AbsHttpError(`Audiobookshelf returned ${res.status}${reason ? ` (${reason})` : ''} for ${path.split('?')[0]}`, res.status);
-	}
-	const date = Date.parse(res.headers.get('date') ?? '');
-	return { body: (await res.json()) as T, serverDateMs: Number.isNaN(date) ? null : date };
 }
 
 /** GET /api/me, reduced to what we keep. The raw body (older builds carry a token) is never stored or logged. */
@@ -149,6 +128,16 @@ export async function readableConnection(userId: number): Promise<{ conn: AbsUse
 	if (!key.ok) return null;
 	if (conn.keySource === 'site' && (await getSiteAbsUserId(config)) !== conn.absUserId) return null;
 	return { conn, config, apiKey: key.apiKey };
+}
+
+/**
+ * The user's own progress on one ABS item: their connection only (N3). connected=false when they have
+ * none (or it can't be used); progress null when ABS has none. Throws a described Error on ABS failure.
+ */
+export async function getAbsProgressForUser(userId: number, itemId: string): Promise<{ connected: boolean; progress: AbsProgress | null }> {
+	const c = await readableConnection(userId);
+	if (!c) return { connected: false, progress: null };
+	return { connected: true, progress: await getAbsProgressWithKey(c.config.baseUrl, c.apiKey, itemId) };
 }
 
 // ============================================

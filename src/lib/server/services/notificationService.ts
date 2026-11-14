@@ -10,6 +10,7 @@ export type NotificationEvent =
 	| 'goal_reached'
 	| 'series_completed'
 	| 'backup_completed'
+	| 'abs_connection_problem'
 	| 'test';
 
 // ntfy priority levels
@@ -31,6 +32,7 @@ const eventToPreferenceColumn: Record<NotificationEvent, keyof typeof userPrefer
 	goal_reached: 'notifyGoalReached',
 	series_completed: 'notifySeriesCompleted',
 	backup_completed: null, // System event, no user preference
+	abs_connection_problem: 'notifyAbsConnection',
 	test: null // Always allowed for testing
 };
 
@@ -64,6 +66,7 @@ export async function getUserNotificationPrefs(userId: number): Promise<{
 	notifyBookCompleted: boolean;
 	notifyGoalReached: boolean;
 	notifySeriesCompleted: boolean;
+	notifyAbsConnection: boolean;
 } | null> {
 	const prefs = await db
 		.select({
@@ -72,7 +75,8 @@ export async function getUserNotificationPrefs(userId: number): Promise<{
 			notifyBookAdded: userPreferences.notifyBookAdded,
 			notifyBookCompleted: userPreferences.notifyBookCompleted,
 			notifyGoalReached: userPreferences.notifyGoalReached,
-			notifySeriesCompleted: userPreferences.notifySeriesCompleted
+			notifySeriesCompleted: userPreferences.notifySeriesCompleted,
+			notifyAbsConnection: userPreferences.notifyAbsConnection
 		})
 		.from(userPreferences)
 		.where(eq(userPreferences.userId, userId))
@@ -86,7 +90,8 @@ export async function getUserNotificationPrefs(userId: number): Promise<{
 		notifyBookAdded: prefs.notifyBookAdded ?? true,
 		notifyBookCompleted: prefs.notifyBookCompleted ?? true,
 		notifyGoalReached: prefs.notifyGoalReached ?? true,
-		notifySeriesCompleted: prefs.notifySeriesCompleted ?? true
+		notifySeriesCompleted: prefs.notifySeriesCompleted ?? true,
+		notifyAbsConnection: prefs.notifyAbsConnection ?? true
 	};
 }
 
@@ -236,6 +241,26 @@ export async function sendAdminTestNotification(): Promise<{ success: boolean; e
 }
 
 // ==================== Event-specific notification helpers ====================
+
+const ABS_PROBLEM_TEXT: Record<string, string> = {
+	key_rejected: 'Audiobookshelf no longer accepts your key, so your listening has stopped syncing. Replace the key on your Account page.',
+	identity_changed: 'Your Audiobookshelf key now belongs to a different account, so your listening has stopped syncing. Replace the key on your Account page.',
+	decrypt_failed: "Your saved Audiobookshelf key can't be read any more, so your listening has stopped syncing. Replace the key on your Account page."
+};
+
+/**
+ * Tell a member once that their Audiobookshelf connection stopped working (the sync calls this
+ * only when the error changes, never every run). Own preference, default on.
+ */
+export async function notifyAbsConnectionProblem(userId: number, code: string, baseUrl?: string): Promise<void> {
+	await sendNotification(userId, 'abs_connection_problem', {
+		title: '🎧 Audiobookshelf sync stopped',
+		message: ABS_PROBLEM_TEXT[code] ?? 'Your Audiobookshelf listening has stopped syncing. Check the connection on your Account page.',
+		priority: 3,
+		tags: ['headphones', 'warning'],
+		click: baseUrl ? `${baseUrl}/account/settings#audiobookshelf` : undefined
+	});
+}
 
 /**
  * Notify when a book is added to library

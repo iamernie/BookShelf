@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.36.0] - 2026-11-14
+
+### Added
+- Everyone can connect their own Audiobookshelf account. A new **Audiobookshelf** card on **Account → Settings** takes an Audiobookshelf API key for your own account (made in Audiobookshelf under Settings → API Keys). BookShelf checks the key against the server your admin set up and shows which Audiobookshelf account it belongs to. Every role except guest can connect. Keys from Audiobookshelf admin accounts are refused for anyone who isn't a BookShelf admin, and one Audiobookshelf account can only be connected to one BookShelf user.
+- **Sync my listening**, a switch on that card, is off until you turn it on. With it on, each Audiobookshelf sync follows your own listening. A book you listen to for 5 minutes or more moves to Currently Reading, and a finished one moves to Done, on your own record only. A book from the public library that you listen to is added to your library. A book that is only in someone else's personal library (shared with you or not) is left alone, and the card shows how many listened items couldn't be placed, without naming them. Only listening after you connect counts. **Add what I've already listened to** brings in earlier listening once, after showing how many books it would add, and it never changes a book you already have.
+- Admins get a **Members** tab on **Admin → Audiobookshelf Sync**. It lists everyone's connection (Audiobookshelf username, own key or the server's key, who connected it, sync on or off, last sync, last error). **Assign key** connects someone who won't make a key themselves: create a key in Audiobookshelf that acts as that person if your Audiobookshelf version allows it, or ask them to paste their own. An assigned key never turns syncing on, and assigning over an existing connection turns it off until the member turns it back on. **Re-bind** fixes the sync owner's connection after the server's API key was changed to another Audiobookshelf account.
+- A new notification, **Audiobookshelf Sync Stopped** (on by default), tells you once when your key stops working, not on every sync.
+- Each sync run's details now list every member's listening results (what changed and what was added, by book number).
+
+### Changed
+- The sync owner's listening mirror now acts only on listening after this upgrade. The first sync after upgrading records what is already in Audiobookshelf as history.
+- A DNF or On Hold you set by hand is no longer switched back to Currently Reading on every sync. It changes only when you listen to that book again.
+- The stats heatmap shows only your own reading and your own listening. Before, everyone's heatmap showed the sync owner's (Ernie's) Audiobookshelf listening and could include other people's reading sessions. Listening appears once you connect your own account.
+- The listening progress on a book's Media tab is now the viewing admin's own, from their own connection.
+- The **Sync listening status** setting (`integration.abs_sync_status`) is retired. Its value moved into the sync owner's connection as **Sync my listening**: on if it was on, off if it was off. Rolling back to 2.35 after this upgrade reads it as off.
+- Listening sync runs inside the library sync. It needs **Sync library items** on, a sync owner and an interval other than Off. Each member's card says whether it is running.
+
+### Notes for the owner
+- A public-library book that the sync adds to someone's library stays in their library, even if the book is later made personal again. That is the same rule as a book they added by hand.
+- About 217 books linked before 2.35 are your personal books. Other people's listening on them is left alone and counted on their card. Promoting a book to the public library later delivers that listening on the next sync, without them listening again.
+- Keys are stored encrypted with `SESSION_SECRET`. It must be at least 32 characters and not an example value. If it isn't, connecting is refused and the server logs why at startup. Changing `SESSION_SECRET` later means everyone reconnects.
+
 ## [2.35.0] - 2026-11-14
 
 ### Added

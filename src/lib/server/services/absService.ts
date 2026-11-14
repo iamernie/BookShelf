@@ -8,8 +8,9 @@
  *
  * When the integration is disabled or not configured, every public function no-ops.
  *
- * The item sync (match/link, create, series pushback, stale check, status sync) lives in
- * absSyncService; status only ever flows Audiobookshelf → BookShelf.
+ * The item sync (match/link, create, series pushback, stale check) lives in absSyncService; each
+ * member's listening (absMemberSyncService) uses that member's own key (absConnectionService) and
+ * only ever flows Audiobookshelf → BookShelf.
  *
  * Linked books carry the "Audiobook Shelf" system tag. Links made here tag the book
  * immediately; every sync also self-heals drift (tag = absItemId IS NOT NULL).
@@ -220,6 +221,29 @@ export async function absPatch(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>, pa
 		throw new AbsHttpError(`Audiobookshelf returned ${res.status}${reason ? ` (${reason})` : ''} for ${path.split('?')[0]}`, res.status);
 	}
 	await res.body?.cancel();
+}
+
+// Per-user keys (2.36.0) may only call these, and never follow a redirect to another host
+const USER_KEY_PATHS = [/^\/api\/me$/, /^\/api\/me\/progress\/[^/?]+$/, /^\/api\/me\/listening-sessions(\?.*)?$/];
+
+/**
+ * GET with a member's own key: only GET /api/me, /api/me/progress/:id and /api/me/listening-sessions.
+ * Returns ABS's Date header too (the ABS clock). Throws AbsHttpError on non-2xx, fetch errors otherwise.
+ */
+export async function absUserGet<T>(baseUrl: string, apiKey: string, path: string): Promise<{ body: T; serverDateMs: number | null }> {
+	if (!USER_KEY_PATHS.some((re) => re.test(path))) throw new Error(`Refused Audiobookshelf path for a user key: ${path.split('?')[0]}`);
+	const res = await fetch(`${baseUrl}${path}`, {
+		headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+		redirect: 'error',
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+	});
+	if (!res.ok) {
+		await res.body?.cancel();
+		const reason = res.status === 401 || res.status === 403 ? 'API key rejected' : res.statusText;
+		throw new AbsHttpError(`Audiobookshelf returned ${res.status}${reason ? ` (${reason})` : ''} for ${path.split('?')[0]}`, res.status);
+	}
+	const date = Date.parse(res.headers.get('date') ?? '');
+	return { body: (await res.json()) as T, serverDateMs: Number.isNaN(date) ? null : date };
 }
 
 export async function getLibraries(config: Pick<AbsConfig, 'baseUrl' | 'apiKey'>): Promise<AbsLibrary[]> {
@@ -543,16 +567,13 @@ export function toAbsProgress(p: AbsMediaProgress): AbsProgress {
 }
 
 /**
- * The API key user's listening progress for one ABS item; null when ABS has none
- * (never listened). Throws when the integration is unusable or ABS fails.
+ * One user's listening progress for one ABS item with their own key (connection resolved by the
+ * caller); null when ABS has none. Throws a described Error when ABS fails.
  */
-export async function getAbsProgress(itemId: string): Promise<AbsProgress | null> {
-	const config = await getAbsConfig();
-	if (!config.enabled) throw new Error('Audiobookshelf integration is disabled');
-	if (!isUsable(config)) throw new Error('Audiobookshelf URL or API key is not set');
-
+export async function getAbsProgressWithKey(baseUrl: string, apiKey: string, itemId: string): Promise<AbsProgress | null> {
 	try {
-		return toAbsProgress(await absGet<AbsMediaProgress>(config, `/api/me/progress/${encodeURIComponent(itemId)}`));
+		const { body } = await absUserGet<AbsMediaProgress>(baseUrl, apiKey, `/api/me/progress/${encodeURIComponent(itemId)}`);
+		return toAbsProgress(body);
 	} catch (err) {
 		if (err instanceof AbsHttpError && err.status === 404) return null;
 		throw new Error(describeError(err));
@@ -595,16 +616,6 @@ export async function getAbsLinkStats(): Promise<AbsLinkStats> {
 	};
 }
 
-/** The API key user's progress for every book item, in one GET /api/me (podcast episodes skipped). */
-export async function fetchProgressByItem(config: AbsConfig): Promise<Map<string, AbsMediaProgress>> {
-	const me = await absGet<{ mediaProgress?: AbsMediaProgress[] }>(config, '/api/me');
-	const progressByItem = new Map<string, AbsMediaProgress>();
-	for (const p of me.mediaProgress ?? []) {
-		if (p.libraryItemId && !p.episodeId) progressByItem.set(p.libraryItemId, p);
-	}
-	return progressByItem;
-}
-
 // ============================================
 // Listening history (read-only, for the stats heatmap)
 // ============================================
@@ -645,7 +656,7 @@ export interface AbsListeningResult {
 // Promise is cached (not the result) so concurrent loads share one fetch; failures are cached too
 const listeningCache = new Map<string, { at: number; promise: Promise<AbsListeningResult> }>();
 
-async function fetchListeningByDay(config: AbsConfig, year: number): Promise<AbsListeningResult> {
+async function fetchListeningByDay(source: AbsListeningSource, year: number): Promise<AbsListeningResult> {
 	// App-timezone year window, so the bounds match the day keys below and the reading heatmap
 	const yearStart = Date.parse(startOfDayInAppTz(`${year}-01-01`));
 	const yearEnd = Date.parse(startOfDayInAppTz(`${year + 1}-01-01`));
@@ -660,8 +671,9 @@ async function fetchListeningByDay(config: AbsConfig, year: number): Promise<Abs
 				break;
 			}
 
-			const data = await absGet<AbsListeningSessionsPage>(
-				config,
+			const { body: data } = await absUserGet<AbsListeningSessionsPage>(
+				source.baseUrl,
+				source.apiKey,
 				`/api/me/listening-sessions?itemsPerPage=${PAGE_SIZE}&page=${page}`
 			);
 			const sessions = data.sessions ?? [];
@@ -693,17 +705,27 @@ async function fetchListeningByDay(config: AbsConfig, year: number): Promise<Abs
 	}
 }
 
-/** Per-day ABS listening for an app-timezone calendar year. Never throws; cached for 60s per server + year. */
-export async function getAbsListeningByDay(year: number): Promise<AbsListeningResult> {
-	const config = await getAbsConfig();
-	if (!isUsable(config)) return { available: false, days: [] };
+/** Whose listening: one user's own connection (resolved and identity-checked by the caller) */
+export interface AbsListeningSource {
+	baseUrl: string;
+	apiKey: string;
+	absUserId: string;
+}
 
-	const key = `${config.baseUrl}|${year}`;
+/**
+ * Per-day ABS listening of ONE connected user for an app-timezone calendar year; unavailable without
+ * a connection (never the site key's user for someone else). Never throws; cached 60 s per
+ * server + ABS user + year.
+ */
+export async function getAbsListeningByDay(year: number, source: AbsListeningSource | null): Promise<AbsListeningResult> {
+	if (!source) return { available: false, days: [] };
+
+	const key = `${source.baseUrl}|${source.absUserId}|${year}`;
 	const now = Date.now();
 	const cached = listeningCache.get(key);
 	if (cached && now - cached.at < LISTENING_CACHE_TTL_MS) return cached.promise;
 
-	const promise = fetchListeningByDay(config, year);
+	const promise = fetchListeningByDay(source, year);
 	listeningCache.set(key, { at: now, promise });
 	return promise;
 }

@@ -13,11 +13,13 @@
  *   4. Create  - born-linked books owned by the sync owner, tagged Audiobook Shelf + Auto-Added
  *   5. Push    - series (and optionally author/narrator) into BLANK ABS fields only
  *   6. Stale   - only after a complete scan; a link is stale only on a confirmed 404
- *   7. Status  - (toggle) ABS progress → BookShelf status, by status key, advance-only
+ *   7. Members - each opted-in member's NEW listening with their own key (absMemberSyncService):
+ *                advance-only status on their own rows, auto-add of ownerless/public books only
  *   8. Tags    - "Audiobook Shelf" tag parity
  *
- * Matching and status sync only see the owner's books, books in the owner's library and
- * public books. Preview runs write nothing but the run row and attention rows.
+ * Matching only sees the owner's books, books in the owner's library and public books. Preview runs
+ * write nothing but the run row, attention rows and member-run rows. In preview the catalog passes
+ * neither link nor create, so the members' would-change counts miss items first seen that run.
  */
 
 import { env } from '$env/dynamic/private';
@@ -45,7 +47,6 @@ import {
 	ensureAbsTag,
 	ensureAudioFormat,
 	ensureAutoAddedTag,
-	fetchProgressByItem,
 	getAbsConfig,
 	getAbsItemOrNull,
 	getAudioFormatIds,
@@ -56,11 +57,9 @@ import {
 	itemNarrators,
 	itemTitle,
 	pickAudiobookLibrary,
-	toAbsProgress,
 	type AbsConfig,
 	type AbsExpandedItem,
-	type AbsLibraryItem,
-	type AbsMediaProgress
+	type AbsLibraryItem
 } from './absService';
 import {
 	addToMatchIndex,
@@ -78,11 +77,11 @@ import {
 	type MatchItem
 } from './absMatch';
 import { createBook } from './bookService';
-import { applyStatusChange, getStatusByKey } from './statusService';
 import { getSetting, getSettingAs, ABS_SYNC_INTERVALS } from './settingsService';
+import { getMemberRuns, memberListeningPass, type ItemIdents } from './absMemberSyncService';
+import { memberWorkHolder } from './absConnectionService';
 import { notifyBookAdded, sendNotification, sendSystemNotification } from './notificationService';
 import { createLogger } from './loggerService';
-import { dateInAppTz, todayInAppTz } from '$lib/server/utils/appTime';
 
 const log = createLogger('abs-sync');
 
@@ -172,7 +171,7 @@ async function checkReadiness(): Promise<Readiness> {
 // ============================================
 
 export interface RunDetail {
-	pass: 'setup' | 'match' | 'create' | 'pushback' | 'stale' | 'status';
+	pass: 'setup' | 'match' | 'create' | 'pushback' | 'stale' | 'members';
 	action: string;
 	absItemId?: string;
 	title?: string;
@@ -182,7 +181,7 @@ export interface RunDetail {
 	fields?: string[];
 }
 
-export type SyncRunView = Omit<AbsSyncRun, 'details'> & { details?: RunDetail[] };
+export type SyncRunView = Omit<AbsSyncRun, 'details'> & { details?: RunDetail[]; members?: Awaited<ReturnType<typeof getMemberRuns>> };
 
 function toRunView(row: AbsSyncRun, withDetails: boolean): SyncRunView {
 	const { details, ...rest } = row;
@@ -219,7 +218,7 @@ export async function listRuns(opts: { limit?: number; before?: number } = {}): 
 
 export async function getRun(id: number): Promise<SyncRunView | null> {
 	const [row] = await db.select().from(absSyncRuns).where(eq(absSyncRuns.id, id)).limit(1);
-	return row ? toRunView(row, true) : null;
+	return row ? { ...toRunView(row, true), members: await getMemberRuns(row.id) } : null;
 }
 
 async function getRunningRun(): Promise<AbsSyncRun | null> {
@@ -262,6 +261,8 @@ export async function startSync(opts: { mode: SyncMode; trigger: SyncTrigger; us
 
 	const st = state();
 	if (st.activeRunId !== null) return busyResult(await getRunningRun());
+	// A member's listening history import is writing (it holds no run row)
+	if (memberWorkHolder() !== null) return { ok: false, status: 409, message: 'A listening history import is running. Try again in a minute.' };
 
 	let row: AbsSyncRun;
 	try {
@@ -411,6 +412,8 @@ interface ScannedItem {
 	hasSeries: boolean | null;
 	hasAuthors: boolean | null;
 	hasNarrators: boolean | null;
+	/** Exact identifiers, for the members' own-copy guard */
+	idents: ItemIdents;
 }
 
 async function runPasses(ctx: RunContext): Promise<void> {
@@ -427,7 +430,18 @@ async function runPasses(ctx: RunContext): Promise<void> {
 	await pushbackPass(ctx, scope, scanned);
 	if (ctx.scanComplete) await stalePass(ctx, scanned);
 
-	if (await getSettingAs<boolean>('integration.abs_sync_status', 'boolean')) await statusPass(ctx, scope);
+	// Each member's own listening (replaces the 2.23-2.35 site-key status pass)
+	const members = await memberListeningPass({
+		runId: ctx.run.id,
+		preview: ctx.preview,
+		config: ctx.config,
+		itemIdents: new Map([...scanned].map(([id, s]) => [id, s.idents]))
+	});
+	ctx.statusFlips += members.statusChanges;
+	for (const m of members.failedMembers) {
+		ctx.failed++;
+		ctx.detail({ pass: 'members', action: 'failed', reason: `user #${m.userId}: ${m.error}` });
+	}
 
 	if (!ctx.preview) {
 		const healed = await healAbsTags(await ensureAbsTag());
@@ -606,7 +620,8 @@ function describeScanned(item: AbsLibraryItem): ScannedItem {
 		id: item.id,
 		hasSeries: has(meta?.series, meta?.seriesName),
 		hasAuthors: has(meta?.authors, meta?.authorName),
-		hasNarrators: has(meta?.narrators, meta?.narratorName)
+		hasNarrators: has(meta?.narrators, meta?.narratorName),
+		idents: { asin: normalizeAsin(meta?.asin), isbn: normalizeIsbn(meta?.isbn) }
 	};
 }
 
@@ -979,98 +994,6 @@ async function stalePass(ctx: RunContext, scanned: Map<string, ScannedItem>): Pr
 }
 
 // ============================================
-// Status sync (ABS → BookShelf only, by status key)
-// ============================================
-
-// ABS timestamps are epoch ms; book reading dates are YYYY-MM-DD in the app timezone
-function toDateOnly(epochMs: number | null | undefined): string {
-	return epochMs ? dateInAppTz(epochMs) : todayInAppTz();
-}
-
-async function statusPass(ctx: RunContext, scope: Scope): Promise<void> {
-	const [done, current] = await Promise.all([getStatusByKey('READ'), getStatusByKey('CURRENT')]);
-	if (!done && !current) {
-		log.warn('No READ or CURRENT status found; status sync skipped');
-		return;
-	}
-
-	let progressByItem: Map<string, AbsMediaProgress>;
-	try {
-		progressByItem = await fetchProgressByItem(ctx.config);
-	} catch (err) {
-		ctx.fail({ pass: 'status' }, err);
-		return;
-	}
-	if (progressByItem.size === 0) return;
-
-	const linkedIds = [...scope.byId.values()].filter((b) => b.id > 0 && b.absItemId).map((b) => b.id);
-	if (linkedIds.length === 0) return;
-
-	// Re-read link + status: the match pass may have linked books in this run. Status is always the
-	// sync owner's own record (user_books), for owned books too
-	const [rows, ownerRows] = await Promise.all([
-		db.select({ id: books.id, title: books.title, absItemId: books.absItemId, absWritebackItemId: books.absWritebackItemId })
-			.from(books).where(and(inArray(books.id, linkedIds), isNotNull(books.absItemId))),
-		db.select({ bookId: userBooks.bookId, statusId: userBooks.statusId })
-			.from(userBooks).where(and(eq(userBooks.userId, ctx.owner.id), inArray(userBooks.bookId, linkedIds)))
-	]);
-	const ownerStatus = new Map(ownerRows.map((r) => [r.bookId, r.statusId]));
-
-	for (const book of rows) {
-		const raw = progressByItem.get(book.absItemId as string);
-		if (!raw) continue;
-
-		// Owned books and other books in the owner's library both move only the owner's record
-		const owned = scope.ownedIds.has(book.id);
-		if (!owned && !ownerStatus.has(book.id)) continue;
-		const statusNow = ownerStatus.get(book.id) ?? null;
-
-		// Done stays Done, whatever ABS says now
-		if (done && statusNow === done.id) continue;
-
-		const progress = toAbsProgress(raw);
-		let target: number | null = null;
-		const stampDates: { startReadingDate?: string; completedDate?: string } = {};
-		if (raw.startedAt) stampDates.startReadingDate = toDateOnly(raw.startedAt);
-
-		if (progress.isFinished) {
-			if (!done) continue;
-			// Historical guard: the removed write-back finished this item itself; the user has since moved the book off Done
-			if (book.absWritebackItemId === book.absItemId) continue;
-			target = done.id;
-			stampDates.completedDate = toDateOnly(raw.finishedAt);
-		} else if (progress.progress > 0) {
-			if (!current || statusNow === current.id) continue;
-			target = current.id;
-		}
-		if (target === null) continue;
-
-		try {
-			if (!ctx.preview) {
-				const { changed } = await applyStatusChange([book.id], target, {
-					source: 'abs_sync',
-					userId: ctx.owner.id,
-					stampDates,
-					userBooksOnly: !owned
-				});
-				if (changed.length === 0) continue;
-			}
-			ctx.statusFlips++;
-			ctx.detail({
-				pass: 'status',
-				action: 'status',
-				absItemId: book.absItemId as string,
-				bookId: book.id,
-				title: book.title,
-				reason: target === done?.id ? 'READ' : 'CURRENT'
-			});
-		} catch (err) {
-			ctx.fail({ pass: 'status', absItemId: book.absItemId as string, bookId: book.id, title: book.title }, err);
-		}
-	}
-}
-
-// ============================================
 // Attention rows written by runs
 // ============================================
 
@@ -1218,7 +1141,7 @@ export type TickOutcome = 'running' | 'not-ready' | 'off' | 'not-due' | 'started
  */
 export async function schedulerTick(now: number = Date.now()): Promise<TickOutcome> {
 	try {
-		if (state().activeRunId !== null) return 'running';
+		if (state().activeRunId !== null || memberWorkHolder() !== null) return 'running';
 
 		const ready = await checkReadiness();
 		if (!ready.ok) {

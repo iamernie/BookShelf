@@ -18,16 +18,18 @@ import {
 
 const HEATMAP_SOURCES: Array<HeatmapSource | 'auto'> = ['all', 'books', 'listening', 'auto'];
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	const year = parseInt(url.searchParams.get('year') || currentYearInAppTz().toString());
 	const type = url.searchParams.get('type') || 'heatmap';
 
 	if (type === 'heatmap') {
+		// The viewer's own reading and listening only (2.36.0)
+		if (!locals.user) throw error(401, 'Unauthorized');
 		const source = url.searchParams.get('source') || 'auto';
 		if (!HEATMAP_SOURCES.includes(source as HeatmapSource | 'auto')) {
 			throw error(400, 'Invalid source parameter');
 		}
-		const data = await getHeatmapDataForSource(year, source as HeatmapSource | 'auto');
+		const data = await getHeatmapDataForSource(year, source as HeatmapSource | 'auto', locals.user.id);
 		return json(data);
 	}
 

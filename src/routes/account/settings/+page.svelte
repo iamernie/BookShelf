@@ -1046,6 +1046,20 @@
 										bind:checked={preferences.notifySeriesCompleted}
 									/>
 								</label>
+
+								{#if data.absCard}
+									<label class="flex items-center justify-between p-3 rounded-lg cursor-pointer" style="background-color: var(--bg-tertiary);">
+										<div>
+											<p class="font-medium" style="color: var(--text-primary);">Audiobookshelf Sync Stopped</p>
+											<p class="text-sm" style="color: var(--text-muted);">Your Audiobookshelf key stops working (told once, not every sync)</p>
+										</div>
+										<input
+											type="checkbox"
+											class="toggle"
+											bind:checked={preferences.notifyAbsConnection}
+										/>
+									</label>
+								{/if}
 							</div>
 
 							<!-- Test Notification Button -->
