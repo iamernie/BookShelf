@@ -6,12 +6,12 @@ import { getGenreById, updateGenre, deleteGenre, getBooksInGenre } from '$lib/se
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid genre ID' });
+		throw error(400, 'Invalid genre ID');
 	}
 
 	const genre = await getGenreById(id, locals.user);
 	if (!genre) {
-		throw error(404, { message: 'Genre not found' });
+		throw error(404, 'Genre not found');
 	}
 
 	// Get books in this genre (filtered by user's library)
@@ -26,18 +26,18 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit genres' });
+		throw error(403, 'You do not have permission to edit genres');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid genre ID' });
+		throw error(400, 'Invalid genre ID');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Genre name is required' });
+		throw error(400, 'Genre name is required');
 	}
 
 	const genre = await updateGenre(id, {
@@ -49,7 +49,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 
 	if (!genre) {
-		throw error(404, { message: 'Genre not found' });
+		throw error(404, 'Genre not found');
 	}
 
 	return json(genre);
@@ -61,24 +61,24 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to delete genres' });
+		throw error(403, 'You do not have permission to delete genres');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid genre ID' });
+		throw error(400, 'Invalid genre ID');
 	}
 
 	try {
 		const deleted = await deleteGenre(id);
 		if (!deleted) {
-			throw error(404, { message: 'Genre not found' });
+			throw error(404, 'Genre not found');
 		}
 
 		return json({ success: true });
 	} catch (err) {
 		if (err instanceof Error && err.message.includes('Cannot delete genre')) {
-			throw error(400, { message: err.message });
+			throw error(400, err.message);
 		}
 		throw err;
 	}

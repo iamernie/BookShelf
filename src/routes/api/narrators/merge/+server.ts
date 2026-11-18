@@ -21,7 +21,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { targetId, sourceId } = data;
 
 	if (!Number.isInteger(targetId) || targetId <= 0 || !Number.isInteger(sourceId) || sourceId <= 0) {
-		throw error(400, { message: 'targetId and sourceId are required' });
+		throw error(400, 'targetId and sourceId are required');
 	}
 
 	let result: Awaited<ReturnType<typeof mergeNarrators>>;
@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!result.success) {
-		throw error(400, { message: result.error || 'Failed to merge narrators' });
+		throw error(400, result.error || 'Failed to merge narrators');
 	}
 
 	return json({

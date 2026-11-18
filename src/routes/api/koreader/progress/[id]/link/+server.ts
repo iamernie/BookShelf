@@ -65,7 +65,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// KOReader reads the book, so it has to be in the user's library, not just reachable
 	if (!(await holdsBook(locals.user.id, data.bookId))) {
-		throw error(403, { message: 'You do not have access to this book' });
+		throw error(403, 'You do not have access to this book');
 	}
 
 	// Moving a link takes the hash away from the book it was on

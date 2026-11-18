@@ -20,23 +20,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	// Creating stays open to everyone who can add books: the book forms create authors, series and narrators inline
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to add series' });
+		throw error(403, 'You do not have permission to add series');
 	}
 
 	const data = await request.json();
 
 	if (!data.title?.trim()) {
-		throw error(400, { message: 'Title is required' });
+		throw error(400, 'Title is required');
 	}
 
 	const status = await checkSeriesRefId(data.statusId, 'status');
 	if (!status.valid) {
-		throw error(400, { message: 'Unknown series status' });
+		throw error(400, 'Unknown series status');
 	}
 
 	const genre = await checkSeriesRefId(data.genreId, 'genre');
 	if (!genre.valid) {
-		throw error(400, { message: 'Unknown genre' });
+		throw error(400, 'Unknown genre');
 	}
 
 	const newSeries = await createSeries({

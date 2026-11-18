@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ArrowLeft, Library, Edit, Settings } from 'lucide-svelte';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import BookCard from '$lib/components/book/BookCard.svelte';
 	import BookGrid from '$lib/components/book/BookGrid.svelte';
 	import ShelfModal from '$lib/components/shelves/ShelfModal.svelte';
@@ -37,7 +37,7 @@
 	}
 
 	function changePage(newPage: number) {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		url.searchParams.set('page', newPage.toString());
 		goto(url.pathname + url.search);
 	}

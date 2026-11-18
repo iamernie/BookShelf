@@ -27,7 +27,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		throw error(404, 'Book not found');
 	}
 	if (!(await canEditBookCatalog(locals.user, book))) {
-		throw error(403, { message: 'You do not have permission to change this book\'s media sources' });
+		throw error(403, 'You do not have permission to change this book\'s media sources');
 	}
 
 	await removeBookMediaSource(bookId, sourceId);

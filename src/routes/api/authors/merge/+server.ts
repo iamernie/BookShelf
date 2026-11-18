@@ -21,13 +21,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { targetId, sourceId } = data;
 
 	if (!targetId || !sourceId) {
-		throw error(400, { message: 'targetId and sourceId are required' });
+		throw error(400, 'targetId and sourceId are required');
 	}
 
 	const result = await mergeAuthors(targetId, sourceId);
 
 	if (!result.success) {
-		throw error(400, { message: result.error || 'Failed to merge authors' });
+		throw error(400, result.error || 'Failed to merge authors');
 	}
 
 	return json({

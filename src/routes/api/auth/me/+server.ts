@@ -6,14 +6,14 @@ export const GET: RequestHandler = async ({ cookies }) => {
 	const sessionId = cookies.get('session');
 
 	if (!sessionId) {
-		throw error(401, { message: 'Not authenticated' });
+		throw error(401, 'Not authenticated');
 	}
 
 	const session = await getSession(sessionId);
 
 	if (!session) {
 		cookies.delete('session', { path: '/' });
-		throw error(401, { message: 'Session expired' });
+		throw error(401, 'Session expired');
 	}
 
 	return json({ user: session.user });

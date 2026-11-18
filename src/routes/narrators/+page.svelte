@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { untrack } from 'svelte';
 	import { Search, Plus, Mic, ChevronLeft, ChevronRight, X } from 'lucide-svelte';
 	import NarratorCard from '$lib/components/narrator/NarratorCard.svelte';
@@ -36,7 +36,7 @@
 	}
 
 	function handleSearch() {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		if (searchInput) {
 			params.set('search', searchInput);
 		} else {
@@ -47,21 +47,21 @@
 	}
 
 	function clearTag() {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.delete('tag');
 		params.delete('page');
 		navigate(params);
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', pageNum.toString());
 		navigate(params);
 	}
 
 	function applySortChoice(sort: string, order: SortOrder) {
 		saveBrowsePrefs('narrators', { sort, order });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		applySort(params, sort, order);
 		navigate(params);
 	}
@@ -78,7 +78,7 @@
 
 	function setLimit(limit: number) {
 		saveBrowsePrefs('narrators', { limit });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('limit', String(limit));
 		params.delete('page');
 		navigate(params);

@@ -20,13 +20,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	// Creating stays open to everyone who can add books: the book forms create authors, series and narrators inline
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to add authors' });
+		throw error(403, 'You do not have permission to add authors');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Name is required' });
+		throw error(400, 'Name is required');
 	}
 
 	const author = await createAuthor({

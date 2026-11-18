@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { Search, Plus, Tag } from 'lucide-svelte';
 	import TagCard from '$lib/components/tag/TagCard.svelte';
 	import TagModal from '$lib/components/tag/TagModal.svelte';
@@ -62,7 +62,7 @@
 			goto(`/books?tag=${tag.id}`);
 			return;
 		}
-		const returnUrl = encodeURIComponent($page.url.pathname + $page.url.search);
+		const returnUrl = encodeURIComponent(page.url.pathname + page.url.search);
 		goto(`/tags/${tag.id}/edit?returnTo=${returnUrl}`);
 	}
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import {
 		ArrowLeft,
@@ -17,7 +17,7 @@
 	const genre = data.genre;
 
 	// Get return URL from query params
-	let returnTo = $derived($page.url.searchParams.get('returnTo') || `/genres`);
+	let returnTo = $derived(page.url.searchParams.get('returnTo') || `/genres`);
 
 	let saving = $state(false);
 

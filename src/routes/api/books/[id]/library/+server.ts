@@ -81,7 +81,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// A book the user can't reach stays off their library list
 	if (!(await canReachBook(locals.user.id, bookId))) {
-		throw error(403, { message: 'You do not have access to this book' });
+		throw error(403, 'You do not have access to this book');
 	}
 
 	const body = await request.json().catch(() => ({}));

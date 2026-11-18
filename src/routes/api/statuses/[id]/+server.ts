@@ -6,12 +6,12 @@ import { getStatusById, updateStatusName, getBooksByStatus } from '$lib/server/s
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid status ID' });
+		throw error(400, 'Invalid status ID');
 	}
 
 	const status = await getStatusById(id, locals.user?.id);
 	if (!status) {
-		throw error(404, { message: 'Status not found' });
+		throw error(404, 'Status not found');
 	}
 
 	const books = await getBooksByStatus(id, locals.user?.id);
@@ -26,24 +26,24 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (!isAdmin(locals.user)) {
-		throw error(403, { message: 'Only admins can rename statuses' });
+		throw error(403, 'Only admins can rename statuses');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid status ID' });
+		throw error(400, 'Invalid status ID');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Status name is required' });
+		throw error(400, 'Status name is required');
 	}
 
 	const status = await updateStatusName(id, data.name.trim());
 
 	if (!status) {
-		throw error(404, { message: 'Status not found' });
+		throw error(404, 'Status not found');
 	}
 
 	return json(status);

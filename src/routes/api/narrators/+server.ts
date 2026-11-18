@@ -19,13 +19,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	// Creating stays open to everyone who can add books: the book forms create authors, series and narrators inline
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to add narrators' });
+		throw error(403, 'You do not have permission to add narrators');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Narrator name is required' });
+		throw error(400, 'Narrator name is required');
 	}
 
 	// Near-duplicates count as existing ('R.C. Bray' and 'RC Bray' match 'R. C. Bray'); the body names the row so callers can use it

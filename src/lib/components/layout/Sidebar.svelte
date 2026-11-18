@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Home,
 		BookOpen,
@@ -84,7 +84,7 @@
 	let adminOpen = $state(true);
 
 	// Active path
-	let currentPath = $derived($page.url.pathname);
+	let currentPath = $derived(page.url.pathname);
 
 	function isActive(path: string): boolean {
 		if (path === '/') return currentPath === '/';

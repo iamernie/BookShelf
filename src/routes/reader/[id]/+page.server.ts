@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		if (hasPermission(locals.user, Permission.READ_EBOOKS) && (await canReachBook(locals.user.id, bookId))) {
 			redirect(303, `/books/${bookId}?read=1`);
 		}
-		throw error(403, { message: 'You do not have access to this book' });
+		throw error(403, 'You do not have access to this book');
 	}
 
 	if (!book.ebookPath) {

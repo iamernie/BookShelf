@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Users,
 		UserPlus,
@@ -27,7 +27,7 @@
 	let { data } = $props();
 
 	// Search & filter state
-	let searchQuery = $state($page.url.searchParams.get('search') || '');
+	let searchQuery = $state(page.url.searchParams.get('search') || '');
 	let searchTimeout: ReturnType<typeof setTimeout>;
 
 	// Modal state
@@ -60,7 +60,7 @@
 	function handleSearch() {
 		clearTimeout(searchTimeout);
 		searchTimeout = setTimeout(() => {
-			const url = new URL($page.url);
+			const url = new URL(page.url);
 			if (searchQuery) {
 				url.searchParams.set('search', searchQuery);
 			} else {
@@ -72,7 +72,7 @@
 	}
 
 	function handleSort(field: string) {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		const currentSort = url.searchParams.get('sortBy');
 		const currentOrder = url.searchParams.get('sortOrder') || 'desc';
 
@@ -86,7 +86,7 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		url.searchParams.set('page', pageNum.toString());
 		goto(url.toString(), { replaceState: true });
 	}

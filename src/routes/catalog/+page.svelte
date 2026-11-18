@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Users,
 		FolderOpen,
@@ -139,7 +139,7 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`/catalog?${params.toString()}`);
 	}
@@ -197,7 +197,7 @@
 
 	function editItemFn(item: CatalogItem) {
 		// Navigate to the entity's dedicated edit page with return URL
-		const returnUrl = encodeURIComponent($page.url.pathname + $page.url.search);
+		const returnUrl = encodeURIComponent(page.url.pathname + page.url.search);
 		const editUrls: Record<string, string> = {
 			authors: `/authors/${item.id}/edit`,
 			series: `/series/${item.id}/edit`,
@@ -248,7 +248,7 @@
 			showAddModal = false;
 			editItem = null;
 			// Refresh
-			goto($page.url.href, { invalidateAll: true });
+			goto(page.url.href, { invalidateAll: true });
 		} catch (err: any) {
 			toasts.error(err.message || 'Failed to save');
 			throw err;
@@ -284,7 +284,7 @@
 
 		selectedIds = new Set();
 		showDeleteConfirm = false;
-		goto($page.url.href, { invalidateAll: true });
+		goto(page.url.href, { invalidateAll: true });
 	}
 
 	async function handleMerge() {
@@ -317,7 +317,7 @@
 			toasts.success(`Merged ${mergeIds.length} items into "${result.name}"`);
 			selectedIds = new Set();
 			showMergeConfirm = false;
-			goto($page.url.href, { invalidateAll: true });
+			goto(page.url.href, { invalidateAll: true });
 		} catch (err: any) {
 			toasts.error(err.message || 'Failed to merge');
 		}
@@ -405,7 +405,7 @@
 		showBulkEditModal = false;
 		bulkEditBookIds = [];
 		selectedIds = new Set();
-		goto($page.url.href, { invalidateAll: true });
+		goto(page.url.href, { invalidateAll: true });
 	}
 
 	function canBulkEdit(): boolean {

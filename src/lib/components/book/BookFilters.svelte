@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { ChevronDown, ChevronRight, X, Filter } from 'lucide-svelte';
 
@@ -55,7 +55,7 @@
 	}
 
 	function applyFilter(key: string, value: number | undefined) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		if (value !== undefined) {
 			params.set(key, value.toString());
 		} else {
@@ -67,16 +67,16 @@
 
 	function clearFilters() {
 		const params = new URLSearchParams();
-		const search = $page.url.searchParams.get('search');
+		const search = page.url.searchParams.get('search');
 		if (search) params.set('search', search);
 		// Preserve filter mode when clearing
-		const mode = $page.url.searchParams.get('filterMode');
+		const mode = page.url.searchParams.get('filterMode');
 		if (mode) params.set('filterMode', mode);
 		goto(`/books?${params.toString()}`);
 	}
 
 	function toggleFilterMode() {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		const currentMode = params.get('filterMode') || 'and';
 		params.set('filterMode', currentMode === 'and' ? 'or' : 'and');
 		params.delete('page'); // Reset to page 1

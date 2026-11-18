@@ -36,7 +36,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 
 	if (!(await canReadEbook(locals.user, bookId))) {
-		throw error(403, { message: 'You do not have access to this book' });
+		throw error(403, 'You do not have access to this book');
 	}
 
 	if (!book.ebookPath) {

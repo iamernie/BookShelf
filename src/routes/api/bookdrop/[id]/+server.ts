@@ -90,7 +90,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	switch (action) {
 		case 'import': {
 			if (!hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
-				throw error(403, { message: 'You do not have permission to import books' });
+				throw error(403, 'You do not have permission to import books');
 			}
 
 			const result = await importQueueItem(id, {

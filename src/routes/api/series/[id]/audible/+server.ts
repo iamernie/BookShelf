@@ -17,14 +17,14 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!/^\d+$/.test(params.id)) {
-		throw error(400, { message: 'Invalid series ID' });
+		throw error(400, 'Invalid series ID');
 	}
 
 	const result = (await canReachEntity(locals.user, 'series', Number(params.id)))
 		? await getSeriesSuggestions(Number(params.id), locals.user.id)
 		: null;
 	if (!result) {
-		throw error(404, { message: 'Series not found' });
+		throw error(404, 'Series not found');
 	}
 
 	return json({ ...result, canAdd: hasPermission(locals.user, Permission.ADD_BOOKS) });

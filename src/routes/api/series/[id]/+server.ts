@@ -6,12 +6,12 @@ import { getSeriesWithBooks, updateSeries, deleteSeries, checkSeriesRefId } from
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid series ID' });
+		throw error(400, 'Invalid series ID');
 	}
 
 	const result = await getSeriesWithBooks(id, locals.user);
 	if (!result) {
-		throw error(404, { message: 'Series not found' });
+		throw error(404, 'Series not found');
 	}
 
 	return json(result);
@@ -22,12 +22,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit series' });
+		throw error(403, 'You do not have permission to edit series');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid series ID' });
+		throw error(400, 'Invalid series ID');
 	}
 
 	const data = await request.json();
@@ -38,7 +38,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	// Title is required only for full updates, not partial updates
 	if (data.title !== undefined) {
 		if (!data.title?.trim()) {
-			throw error(400, { message: 'Title cannot be empty' });
+			throw error(400, 'Title cannot be empty');
 		}
 		updateData.title = data.title.trim();
 	}
@@ -54,7 +54,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.statusId !== undefined) {
 		const status = await checkSeriesRefId(data.statusId, 'status');
 		if (!status.valid) {
-			throw error(400, { message: 'Unknown series status' });
+			throw error(400, 'Unknown series status');
 		}
 		updateData.statusId = status.id;
 	}
@@ -62,20 +62,20 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.genreId !== undefined) {
 		const genre = await checkSeriesRefId(data.genreId, 'genre');
 		if (!genre.valid) {
-			throw error(400, { message: 'Unknown genre' });
+			throw error(400, 'Unknown genre');
 		}
 		updateData.genreId = genre.id;
 	}
 
 	// Require at least one field to update
 	if (Object.keys(updateData).length === 0) {
-		throw error(400, { message: 'No fields to update' });
+		throw error(400, 'No fields to update');
 	}
 
 	const updated = await updateSeries(id, updateData);
 
 	if (!updated) {
-		throw error(404, { message: 'Series not found' });
+		throw error(404, 'Series not found');
 	}
 
 	return json(updated);
@@ -86,17 +86,17 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to delete series' });
+		throw error(403, 'You do not have permission to delete series');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid series ID' });
+		throw error(400, 'Invalid series ID');
 	}
 
 	const deleted = await deleteSeries(id);
 	if (!deleted) {
-		throw error(404, { message: 'Series not found' });
+		throw error(404, 'Series not found');
 	}
 
 	return json({ success: true });

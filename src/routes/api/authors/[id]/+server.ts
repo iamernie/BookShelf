@@ -6,12 +6,12 @@ import { getAuthorWithBooks, updateAuthor, deleteAuthor } from '$lib/server/serv
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid author ID' });
+		throw error(400, 'Invalid author ID');
 	}
 
 	const result = await getAuthorWithBooks(id, locals.user);
 	if (!result) {
-		throw error(404, { message: 'Author not found' });
+		throw error(404, 'Author not found');
 	}
 
 	return json(result);
@@ -22,18 +22,18 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit authors' });
+		throw error(403, 'You do not have permission to edit authors');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid author ID' });
+		throw error(400, 'Invalid author ID');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Name is required' });
+		throw error(400, 'Name is required');
 	}
 
 	const author = await updateAuthor(id, {
@@ -48,7 +48,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 
 	if (!author) {
-		throw error(404, { message: 'Author not found' });
+		throw error(404, 'Author not found');
 	}
 
 	return json(author);
@@ -59,17 +59,17 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to delete authors' });
+		throw error(403, 'You do not have permission to delete authors');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid author ID' });
+		throw error(400, 'Invalid author ID');
 	}
 
 	const deleted = await deleteAuthor(id);
 	if (!deleted) {
-		throw error(404, { message: 'Author not found' });
+		throw error(404, 'Author not found');
 	}
 
 	return json({ success: true });

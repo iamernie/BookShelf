@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const ids: number[] = data.ids || [];
 
 	if ((action === 'import' || action === 'import_all') && !hasPermission(locals.user, Permission.IMPORT_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to import books' });
+		throw error(403, 'You do not have permission to import books');
 	}
 
 	const results: Array<{ id: number; success: boolean; error?: string; bookId?: number }> = [];

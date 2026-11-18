@@ -22,19 +22,19 @@ async function absLinkConflict(err: AbsItemAlreadyLinkedError, userId: number): 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid book ID' });
+		throw error(400, 'Invalid book ID');
 	}
 
 	const book = await getBookById(id, locals.user?.id ?? null);
 	if (!book) {
-		throw error(404, { message: 'Book not found' });
+		throw error(404, 'Book not found');
 	}
 
 	// Check if user can see this book (admins and librarians see every book; writes stay on canReachBook)
 	if (locals.user) {
 		const hasAccess = await canViewBook(locals.user, id);
 		if (!hasAccess) {
-			throw error(403, { message: 'You do not have access to this book' });
+			throw error(403, 'You do not have access to this book');
 		}
 	}
 
@@ -48,7 +48,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid book ID' });
+		throw error(400, 'Invalid book ID');
 	}
 
 	// Check the book's library type to determine permission model
@@ -63,13 +63,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		.limit(1);
 
 	if (!existingBook) {
-		throw error(404, { message: 'Book not found' });
+		throw error(404, 'Book not found');
 	}
 
 	// Personal fields (rating, notes, status, reading dates, DNF) are the caller's own and only need
 	// the book to be reachable; the catalog permission gate below applies to catalog fields only
 	if (!(await canReachBook(locals.user.id, id))) {
-		throw error(403, { message: 'You do not have access to this book' });
+		throw error(403, 'You do not have access to this book');
 	}
 
 	const data = await request.json();
@@ -91,7 +91,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	// Title is required only for full updates, not partial updates
 	if (data.title !== undefined) {
 		if (!data.title?.trim()) {
-			throw error(400, { message: 'Title cannot be empty' });
+			throw error(400, 'Title cannot be empty');
 		}
 		updateData.title = data.title.trim();
 	}
@@ -148,22 +148,23 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const catalogChange = Object.keys(updateData).length > 0;
 	// Require at least one field to update
 	if (!catalogChange && statusId === undefined && !hasPersonal(personal)) {
-		throw error(400, { message: 'No fields to update' });
+		throw error(400, 'No fields to update');
 	}
 
 	// Catalog permission depends on library type
 	if (catalogChange) {
 		// Public library books: admins and librarians; personal ones: ownership or a write share
 		if (!(await canEditBookCatalog(locals.user, { id, libraryType: existingBook.libraryType }))) {
-			throw error(403, {
-				message: existingBook.libraryType === 'public'
+			throw error(
+				403,
+				existingBook.libraryType === 'public'
 					? 'Only librarians and admins can edit public library books'
 					: 'You do not have permission to modify this book'
-			});
+			);
 		}
 		try {
 			const updated = await updateBook(id, updateData);
-			if (!updated) throw error(404, { message: 'Book not found' });
+			if (!updated) throw error(404, 'Book not found');
 		} catch (err) {
 			if (err instanceof AbsItemAlreadyLinkedError) return absLinkConflict(err, locals.user.id);
 			throw err;
@@ -184,7 +185,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (data.absItemId !== undefined) await applyAbsTagParity(id);
 
 	const [row] = await db.select().from(books).where(eq(books.id, id)).limit(1);
-	if (!row) throw error(404, { message: 'Book not found' });
+	if (!row) throw error(404, 'Book not found');
 	const [book] = await overlayPersonal([row], locals.user.id);
 	return json(hideOwnerFrom(locals.user, book));
 };
@@ -196,7 +197,7 @@ export const DELETE: RequestHandler = async ({ params, request, url, locals }) =
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid book ID' });
+		throw error(400, 'Invalid book ID');
 	}
 
 	// Check if admin wants to permanently delete (via query param)
@@ -210,7 +211,7 @@ export const DELETE: RequestHandler = async ({ params, request, url, locals }) =
 		.limit(1);
 
 	if (!book) {
-		throw error(404, { message: 'Book not found' });
+		throw error(404, 'Book not found');
 	}
 
 	// If it's a public library book
@@ -218,14 +219,12 @@ export const DELETE: RequestHandler = async ({ params, request, url, locals }) =
 		// Admin can permanently delete public library books
 		if (permanentDelete) {
 			if (!canManagePublicLibrary(locals.user)) {
-				throw error(403, {
-					message: 'Only admins can permanently delete books from the public library.'
-				});
+				throw error(403, 'Only admins can permanently delete books from the public library.');
 			}
 
 			const deleted = await deleteBook(id);
 			if (!deleted) {
-				throw error(404, { message: 'Book not found' });
+				throw error(404, 'Book not found');
 			}
 
 			return json({
@@ -238,9 +237,7 @@ export const DELETE: RequestHandler = async ({ params, request, url, locals }) =
 		// Regular users can only remove from their personal library
 		const userBook = await getUserBook(locals.user.id, id);
 		if (!userBook) {
-			throw error(400, {
-				message: 'This is a public library book. You can only remove it from your personal library if you have added it.'
-			});
+			throw error(400, 'This is a public library book. You can only remove it from your personal library if you have added it.');
 		}
 
 		await removeBookFromUserLibrary(locals.user.id, id);
@@ -254,12 +251,12 @@ export const DELETE: RequestHandler = async ({ params, request, url, locals }) =
 	// For personal library books, check delete permission
 	const canDelete = await canDeleteBook(locals.user.id, id);
 	if (!canDelete) {
-		throw error(403, { message: 'You do not have permission to delete this book' });
+		throw error(403, 'You do not have permission to delete this book');
 	}
 
 	const deleted = await deleteBook(id);
 	if (!deleted) {
-		throw error(404, { message: 'Book not found' });
+		throw error(404, 'Book not found');
 	}
 
 	return json({ success: true, action: 'deleted' });

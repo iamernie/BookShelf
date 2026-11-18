@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const data = await request.json();
 
 	if (!data.email?.trim() || !data.password) {
-		throw error(400, { message: 'Email and password are required' });
+		throw error(400, 'Email and password are required');
 	}
 
 	const normalizedEmail = data.email.trim().toLowerCase();
@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const result = await login(normalizedEmail, data.password);
 
 	if (!result.success) {
-		throw error(401, { message: result.error || 'Login failed' });
+		throw error(401, result.error || 'Login failed');
 	}
 
 	// Check if email verification is required
@@ -48,9 +48,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	if (requireVerification === 'true' && result.user) {
 		const verified = await isEmailVerified(result.user.id);
 		if (!verified) {
-			throw error(403, {
-				message: 'Please verify your email address before signing in. Check your inbox for the verification link.'
-			});
+			throw error(403, 'Please verify your email address before signing in. Check your inbox for the verification link.');
 		}
 	}
 
@@ -58,14 +56,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	if (result.user) {
 		const approvalStatus = await getUserApprovalStatus(result.user.id);
 		if (approvalStatus === 'pending') {
-			throw error(403, {
-				message: 'Your account is pending approval. An administrator will review your registration soon.'
-			});
+			throw error(403, 'Your account is pending approval. An administrator will review your registration soon.');
 		}
 		if (approvalStatus === 'rejected') {
-			throw error(403, {
-				message: 'Your account registration was not approved. Please contact an administrator for more information.'
-			});
+			throw error(403, 'Your account registration was not approved. Please contact an administrator for more information.');
 		}
 	}
 

@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!isAdmin(locals.user)) {
-		throw error(403, { message: 'Only admins can merge catalog entries' });
+		throw error(403, 'Only admins can merge catalog entries');
 	}
 
 	const body = await request.json();

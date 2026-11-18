@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { Lock, Eye, EyeOff, Loader2, AlertCircle, CheckCircle } from 'lucide-svelte';
 
-	let token = $derived($page.url.searchParams.get('token') || '');
+	let token = $derived(page.url.searchParams.get('token') || '');
 	let password = $state('');
 	let confirmPassword = $state('');
 	let showPassword = $state(false);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import {
 		Home,
@@ -20,8 +20,8 @@
 	} from 'lucide-svelte';
 
 	// Get error info from page store
-	let status = $derived($page.status);
-	let message = $derived($page.error?.message || 'An unexpected error occurred');
+	let status = $derived(page.status);
+	let message = $derived(page.error?.message || 'An unexpected error occurred');
 
 	// Determine icon and title based on status code
 	let errorConfig = $derived.by(() => {
@@ -89,7 +89,7 @@
 
 		<!-- URL for 404 -->
 		{#if status === 404}
-			<div class="error-url">{$page.url.pathname}</div>
+			<div class="error-url">{page.url.pathname}</div>
 		{/if}
 
 		<!-- Actions -->
@@ -156,13 +156,13 @@
 		{/if}
 
 		<!-- Debug info in development -->
-		{#if import.meta.env.DEV && $page.error}
+		{#if import.meta.env.DEV && page.error}
 			<details class="error-details">
 				<summary>
 					<Bug class="w-4 h-4" />
 					<span>Technical Details (Development)</span>
 				</summary>
-				<pre class="error-stack">{JSON.stringify($page.error, null, 2)}</pre>
+				<pre class="error-stack">{JSON.stringify(page.error, null, 2)}</pre>
 			</details>
 		{/if}
 	</div>

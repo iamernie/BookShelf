@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { Search, Plus, Disc } from 'lucide-svelte';
 	import FormatCard from '$lib/components/format/FormatCard.svelte';
 	import FormatModal from '$lib/components/format/FormatModal.svelte';
@@ -53,7 +53,7 @@
 			goto(`/books?format=${format.id}`);
 			return;
 		}
-		const returnUrl = encodeURIComponent($page.url.pathname + $page.url.search);
+		const returnUrl = encodeURIComponent(page.url.pathname + page.url.search);
 		goto(`/formats/${format.id}/edit?returnTo=${returnUrl}`);
 	}
 

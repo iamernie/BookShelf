@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		BookOpen,
 		ArrowLeft,
@@ -212,7 +212,7 @@
 
 	// Reading needs the book in your library (2.30.0): Read or Download on a book you only reach
 	// asks to Add it first, then goes on. The reader sends such a book back here with ?read=1
-	const askToRead = $derived(data.canAdd && !data.inLibrary && !!data.book.ebookPath && $page.url.searchParams.get('read') === '1');
+	const askToRead = $derived(data.canAdd && !data.inLibrary && !!data.book.ebookPath && page.url.searchParams.get('read') === '1');
 	let addingToRead = $state(false);
 	async function addThen(url: string) {
 		addingToRead = true;

@@ -68,7 +68,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 
 	const invalid = await validateSettingValues(values);
 	if (invalid) {
-		throw error(400, { message: invalid });
+		throw error(400, invalid);
 	}
 
 	await setSettings(values);

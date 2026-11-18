@@ -26,7 +26,7 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
 	const user = requireAdmin(locals);
 	const body = await request.json().catch(() => null);
 	if (!body || typeof body.disabled !== 'boolean') {
-		throw error(400, { message: 'disabled must be true or false' });
+		throw error(400, 'disabled must be true or false');
 	}
 	const result = await setLocalLoginDisabled(body.disabled, user);
 	if (!result.ok) {

@@ -6,12 +6,12 @@ import { getTagById, updateTag, deleteTag, getBooksWithTag, getSeriesWithTag, TA
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid tag ID' });
+		throw error(400, 'Invalid tag ID');
 	}
 
 	const tag = await getTagById(id, locals.user);
 	if (!tag) {
-		throw error(404, { message: 'Tag not found' });
+		throw error(404, 'Tag not found');
 	}
 
 	// Get books and series with this tag (books filtered by user's library)
@@ -26,12 +26,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit tags' });
+		throw error(403, 'You do not have permission to edit tags');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid tag ID' });
+		throw error(400, 'Invalid tag ID');
 	}
 
 	const data = await request.json();
@@ -44,7 +44,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 
 	if (!tag) {
-		throw error(404, { message: 'Tag not found' });
+		throw error(404, 'Tag not found');
 	}
 
 	return json(tag);
@@ -56,24 +56,24 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to delete tags' });
+		throw error(403, 'You do not have permission to delete tags');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid tag ID' });
+		throw error(400, 'Invalid tag ID');
 	}
 
 	try {
 		const deleted = await deleteTag(id);
 		if (!deleted) {
-			throw error(404, { message: 'Tag not found' });
+			throw error(404, 'Tag not found');
 		}
 
 		return json({ success: true });
 	} catch (err) {
 		if (err instanceof Error && err.message === 'System tags cannot be deleted') {
-			throw error(403, { message: err.message });
+			throw error(403, err.message);
 		}
 		throw err;
 	}

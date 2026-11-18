@@ -8,11 +8,11 @@ import { canReachEntity } from '$lib/server/services/libraryShareService';
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid narrator ID' });
+		throw error(400, 'Invalid narrator ID');
 	}
 
 	if (!(await canReachEntity(locals.user, 'narrator', id))) {
-		throw error(404, { message: 'Narrator not found' });
+		throw error(404, 'Narrator not found');
 	}
 
 	const tags = await getNarratorTags(id);
@@ -25,22 +25,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit narrators' });
+		throw error(403, 'You do not have permission to edit narrators');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid narrator ID' });
+		throw error(400, 'Invalid narrator ID');
 	}
 
 	const data = await request.json();
 	if (!data.tagId) {
-		throw error(400, { message: 'Tag ID is required' });
+		throw error(400, 'Tag ID is required');
 	}
 
 	const tagId = parseInt(data.tagId);
 	if (isNaN(tagId)) {
-		throw error(400, { message: 'Invalid tag ID' });
+		throw error(400, 'Invalid tag ID');
 	}
 
 	const result = await toggleNarratorTag(id, tagId);
@@ -53,22 +53,22 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit narrators' });
+		throw error(403, 'You do not have permission to edit narrators');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid narrator ID' });
+		throw error(400, 'Invalid narrator ID');
 	}
 
 	const data = await request.json();
 	if (!data.tagId) {
-		throw error(400, { message: 'Tag ID is required' });
+		throw error(400, 'Tag ID is required');
 	}
 
 	const tagId = parseInt(data.tagId);
 	if (isNaN(tagId)) {
-		throw error(400, { message: 'Invalid tag ID' });
+		throw error(400, 'Invalid tag ID');
 	}
 
 	const result = await toggleNarratorTag(id, tagId);

@@ -22,7 +22,7 @@ BookShelf is a self-hosted personal book library management application built wi
 - **Language:** TypeScript (strict mode)
 - **Database:** SQLite with Drizzle ORM
 - **Styling:** Tailwind CSS
-- **Runtime:** Node.js 20 LTS
+- **Runtime:** Node.js 22
 - **Containerization:** Docker with Alpine
 
 ## Directory Structure

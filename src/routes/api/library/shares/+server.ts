@@ -47,12 +47,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const data = await request.json();
 
 	if (!data.userId) {
-		throw error(400, { message: 'userId is required' });
+		throw error(400, 'userId is required');
 	}
 
 	const permission = (data.permission || 'read') as LibrarySharePermission;
 	if (!['read', 'read_write', 'full'].includes(permission)) {
-		throw error(400, { message: 'Invalid permission level' });
+		throw error(400, 'Invalid permission level');
 	}
 
 	try {
@@ -60,7 +60,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json(share, { status: 201 });
 	} catch (e) {
 		if (e instanceof Error && e.message === 'Cannot share library with yourself') {
-			throw error(400, { message: e.message });
+			throw error(400, e.message);
 		}
 		throw e;
 	}
@@ -79,17 +79,17 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	const data = await request.json();
 
 	if (!data.userId) {
-		throw error(400, { message: 'userId is required' });
+		throw error(400, 'userId is required');
 	}
 
 	const permission = data.permission as LibrarySharePermission;
 	if (!['read', 'read_write', 'full'].includes(permission)) {
-		throw error(400, { message: 'Invalid permission level' });
+		throw error(400, 'Invalid permission level');
 	}
 
 	const updated = await updateSharePermission(locals.user.id, data.userId, permission);
 	if (!updated) {
-		throw error(404, { message: 'Share not found' });
+		throw error(404, 'Share not found');
 	}
 
 	return json({ success: true });
@@ -107,12 +107,12 @@ export const DELETE: RequestHandler = async ({ url, locals }) => {
 
 	const userId = url.searchParams.get('userId');
 	if (!userId) {
-		throw error(400, { message: 'userId is required' });
+		throw error(400, 'userId is required');
 	}
 
 	const removed = await removeShare(locals.user.id, parseInt(userId));
 	if (!removed) {
-		throw error(404, { message: 'Share not found' });
+		throw error(404, 'Share not found');
 	}
 
 	return json({ success: true });

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import {
@@ -44,7 +44,7 @@
 	let saving = $state(false);
 
 	// Get initial tab from URL query param
-	const urlTab = $page.url.searchParams.get('tab');
+	const urlTab = page.url.searchParams.get('tab');
 	const validTabs = ['basic', 'summary', 'identifiers', 'cover', 'dates', 'media'] as const;
 	const initialTab = urlTab && validTabs.includes(urlTab as any) ? urlTab as typeof validTabs[number] : 'basic';
 	let activeTab = $state<typeof validTabs[number]>(initialTab);

@@ -6,7 +6,7 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import WhatsNewModal from '$lib/components/WhatsNewModal.svelte';
 	import { toasts } from '$lib/stores/toast';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	let { children, data } = $props();
 
@@ -14,8 +14,8 @@
 	let sidebarOpen = $state(false);
 
 	// Check if we're on special pages (no layout)
-	let isReaderPage = $derived($page.url.pathname.startsWith('/reader/'));
-	let isLoginPage = $derived($page.url.pathname === '/login');
+	let isReaderPage = $derived(page.url.pathname.startsWith('/reader/'));
+	let isLoginPage = $derived(page.url.pathname === '/login');
 </script>
 
 {#if isReaderPage || isLoginPage}

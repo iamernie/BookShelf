@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to add books' });
+		throw error(403, 'You do not have permission to add books');
 	}
 
 	const body = await request.json();

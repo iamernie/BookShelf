@@ -17,10 +17,10 @@ export const POST: RequestHandler = async ({ params, locals, request }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to add books' });
+		throw error(403, 'You do not have permission to add books');
 	}
 	if (!/^\d+$/.test(params.id)) {
-		throw error(400, { message: 'Invalid series ID' });
+		throw error(400, 'Invalid series ID');
 	}
 
 	let body: unknown;
@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ params, locals, request }) => {
 	}
 
 	if (!(await canReachEntity(locals.user, 'series', Number(params.id)))) {
-		throw error(404, { message: 'Series not found' });
+		throw error(404, 'Series not found');
 	}
 
 	const result = await addSuggestion(locals.user.id, Number(params.id), asin);

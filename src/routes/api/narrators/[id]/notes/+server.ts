@@ -10,19 +10,19 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!hasPermission(locals.user, Permission.EDIT_OWN_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to write notes' });
+		throw error(403, 'You do not have permission to write notes');
 	}
 
 	const narratorId = parseInt(params.id);
 	// An unreachable narrator 404s the same as a missing one
 	if (isNaN(narratorId) || !(await canReachEntity(locals.user, 'narrator', narratorId))) {
-		throw error(404, { message: 'Narrator not found' });
+		throw error(404, 'Narrator not found');
 	}
 
 	const body = await request.json().catch(() => null);
 	const notes: unknown = body?.notes;
 	if (notes !== null && typeof notes !== 'string') {
-		throw error(400, { message: 'notes must be a string or null' });
+		throw error(400, 'notes must be a string or null');
 	}
 
 	const saved = await putEntityNotes(locals.user.id, 'narrator', narratorId, notes);

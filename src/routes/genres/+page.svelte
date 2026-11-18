@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { Search, Plus, Folder } from 'lucide-svelte';
 	import GenreCard from '$lib/components/genre/GenreCard.svelte';
 	import GenreModal from '$lib/components/genre/GenreModal.svelte';
@@ -57,7 +57,7 @@
 			goto(`/books?genre=${genre.id}`);
 			return;
 		}
-		const returnUrl = encodeURIComponent($page.url.pathname + $page.url.search);
+		const returnUrl = encodeURIComponent(page.url.pathname + page.url.search);
 		goto(`/genres/${genre.id}/edit?returnTo=${returnUrl}`);
 	}
 

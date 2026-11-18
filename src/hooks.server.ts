@@ -1,5 +1,5 @@
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
-import { redirect, error } from '@sveltejs/kit';
+import { redirect, error, isHttpError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { getSession, validateCredentials } from '$lib/server/services/authService';
 import { validateToken as validateApiToken } from '$lib/server/services/apiTokenService';
@@ -284,18 +284,28 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 // Global error handler
 export const handleError: HandleServerError = async ({ error: err, event, status, message }) => {
-	const errorObj = err instanceof Error ? err : new Error(String(err));
+	const httpError = isHttpError(err) ? err : null;
+	const effectiveStatus = httpError ? httpError.status : status;
+	const where = `${event.request.method} ${redactWidgetKey(event.url.pathname)}`;
 
-	logError(errorObj, `${event.request.method} ${redactWidgetKey(event.url.pathname)}`);
+	// Expected client errors (an error() the app threw on purpose, unknown routes, bad
+	// methods) are not server faults: keep them out of the error log
+	if (effectiveStatus >= 500) {
+		logError(httpError ? new Error(httpError.body.message) : err instanceof Error ? err : new Error(String(err)), where);
+	}
 
 	// Log additional details for debugging
 	log.debug('Error details', {
-		status,
-		message,
+		status: effectiveStatus,
+		message: httpError ? httpError.body.message : message,
 		url: redactUrlForLog(event.url),
 		method: event.request.method,
 		userAgent: event.request.headers.get('user-agent')
 	});
+
+	// An error() the app threw on purpose already carries the body it wants sent
+	// (message and, where set, code): pass it through untouched
+	if (httpError) return httpError.body;
 
 	return {
 		message: status === 500 ? 'Internal Server Error' : message

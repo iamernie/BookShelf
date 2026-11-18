@@ -65,7 +65,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
 	const [account] = await db.select({ role: users.role }).from(users).where(eq(users.id, user.userId)).limit(1);
 	if (!hasPermission(account ?? null, Permission.READ_EBOOKS)) {
 		console.log('[Kobo Download] Role cannot read ebooks');
-		throw error(403, { message: 'You do not have access to this book' });
+		throw error(403, 'You do not have access to this book');
 	}
 
 	console.log('[Kobo Download] Book found:', {

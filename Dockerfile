@@ -1,8 +1,8 @@
 # BookShelf - Personal Book Management Application
 # https://github.com/iamernie/BookShelf
 
-# Use Node.js 20 LTS (Alpine for smaller image)
-FROM node:20-alpine AS builder
+# Use Node.js 22 (Alpine for smaller image)
+FROM node:22.17-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -23,7 +23,7 @@ ENV BODY_SIZE_LIMIT=500M
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:22.17-alpine
 
 # Set labels for GitHub Container Registry
 LABEL org.opencontainers.image.source="https://github.com/iamernie/BookShelf"

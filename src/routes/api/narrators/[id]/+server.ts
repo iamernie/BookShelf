@@ -6,12 +6,12 @@ import { getNarratorById, updateNarrator, deleteNarrator, getNarratorTags } from
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid narrator ID' });
+		throw error(400, 'Invalid narrator ID');
 	}
 
 	const narrator = await getNarratorById(id, locals.user);
 	if (!narrator) {
-		throw error(404, { message: 'Narrator not found' });
+		throw error(404, 'Narrator not found');
 	}
 
 	const tags = await getNarratorTags(id);
@@ -24,18 +24,18 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit narrators' });
+		throw error(403, 'You do not have permission to edit narrators');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid narrator ID' });
+		throw error(400, 'Invalid narrator ID');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Narrator name is required' });
+		throw error(400, 'Narrator name is required');
 	}
 
 	const narrator = await updateNarrator(id, {
@@ -50,7 +50,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 
 	if (!narrator) {
-		throw error(404, { message: 'Narrator not found' });
+		throw error(404, 'Narrator not found');
 	}
 
 	return json(narrator);
@@ -61,24 +61,24 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		throw error(401, 'Unauthorized');
 	}
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to delete narrators' });
+		throw error(403, 'You do not have permission to delete narrators');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid narrator ID' });
+		throw error(400, 'Invalid narrator ID');
 	}
 
 	try {
 		const deleted = await deleteNarrator(id);
 		if (!deleted) {
-			throw error(404, { message: 'Narrator not found' });
+			throw error(404, 'Narrator not found');
 		}
 
 		return json({ success: true });
 	} catch (err) {
 		if (err instanceof Error && err.message.includes('Cannot delete narrator')) {
-			throw error(400, { message: err.message });
+			throw error(400, err.message);
 		}
 		throw err;
 	}

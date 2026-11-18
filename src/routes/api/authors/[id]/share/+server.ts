@@ -10,7 +10,7 @@ async function reached({ params, locals }: RequestEvent) {
 	}
 	const id = parseInt(params.id);
 	if (isNaN(id) || !(await canReachEntity(locals.user, 'author', id))) {
-		throw error(404, { message: 'Author not found' });
+		throw error(404, 'Author not found');
 	}
 	return { user: locals.user, id };
 }
@@ -25,7 +25,7 @@ export const GET: RequestHandler = async (event) => {
 export const POST: RequestHandler = async (event) => {
 	const { user, id } = await reached(event);
 	if ((await promoteEntityBooks(user, 'author', id, { dryRun: true })).promoted === 0) {
-		throw error(403, { message: 'No books in this author that you can share' });
+		throw error(403, 'No books in this author that you can share');
 	}
 	return json(await promoteEntityBooks(user, 'author', id));
 };
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async (event) => {
 export const DELETE: RequestHandler = async (event) => {
 	const { user, id } = await reached(event);
 	if (!isAdmin(user)) {
-		throw error(403, { message: 'Only admins can un-share a author' });
+		throw error(403, 'Only admins can un-share a author');
 	}
 	return json(await unshareEntityBooks(user, 'author', id));
 };

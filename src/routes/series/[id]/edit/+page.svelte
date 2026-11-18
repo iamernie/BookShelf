@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { ArrowLeft, Loader2, Library, Hash, BookOpen, Tag } from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
@@ -10,7 +10,7 @@
 	const series = data.series;
 
 	// Get return URL from query params
-	let returnTo = $derived($page.url.searchParams.get('returnTo') || `/series/${series.id}`);
+	let returnTo = $derived(page.url.searchParams.get('returnTo') || `/series/${series.id}`);
 
 	let saving = $state(false);
 

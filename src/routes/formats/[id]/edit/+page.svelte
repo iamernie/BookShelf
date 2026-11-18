@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import {
 		ArrowLeft,
@@ -21,7 +21,7 @@
 	const format = data.format;
 
 	// Get return URL from query params
-	let returnTo = $derived($page.url.searchParams.get('returnTo') || `/formats`);
+	let returnTo = $derived(page.url.searchParams.get('returnTo') || `/formats`);
 
 	let saving = $state(false);
 	let deleting = $state(false);

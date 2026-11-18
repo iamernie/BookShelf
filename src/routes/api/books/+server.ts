@@ -32,19 +32,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to add books' });
+		throw error(403, 'You do not have permission to add books');
 	}
 
 	const data = await request.json();
 
 	if (!data.title?.trim()) {
-		throw error(400, { message: 'Title is required' });
+		throw error(400, 'Title is required');
 	}
 
 	// Adds default to the personal library; public library adds are librarian/admin only
 	const isPublic = data.libraryType === 'public';
 	if (isPublic && !canManagePublicLibrary(locals.user)) {
-		throw error(403, { message: 'Only librarians and admins can add public library books' });
+		throw error(403, 'Only librarians and admins can add public library books');
 	}
 
 	// If there's an originalCoverUrl but no coverImageUrl, try to download the cover

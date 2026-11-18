@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!hasPermission(locals.user, Permission.UPLOAD_EBOOKS)) {
-		throw error(403, { message: 'You do not have permission to upload ebooks' });
+		throw error(403, 'You do not have permission to upload ebooks');
 	}
 
 	const formData = await request.formData();

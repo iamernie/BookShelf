@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import BookCard from '$lib/components/book/BookCard.svelte';
 	import BookGrid from '$lib/components/book/BookGrid.svelte';
 	import BookRow from '$lib/components/book/BookRow.svelte';
@@ -71,7 +71,7 @@
 
 	function handleSearch(e: Event) {
 		e.preventDefault();
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		if (searchQuery) {
 			params.set('q', searchQuery);
 		} else {
@@ -82,14 +82,14 @@
 	}
 
 	function setLibraryFilter(filter: string) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('library', filter);
 		params.set('page', '1');
 		goto(`?${params.toString()}`);
 	}
 
 	function setGenreFilter(genreId: number | null) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		if (genreId) {
 			params.set('genre', genreId.toString());
 		} else {
@@ -100,7 +100,7 @@
 	}
 
 	function setSort(field: string) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		const currentSort = params.get('sort');
 		const currentOrder = params.get('order') || 'desc';
 
@@ -161,7 +161,7 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`?${params.toString()}`);
 	}

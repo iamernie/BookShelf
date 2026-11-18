@@ -19,19 +19,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to create genres' });
+		throw error(403, 'You do not have permission to create genres');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Genre name is required' });
+		throw error(400, 'Genre name is required');
 	}
 
 	// Check for duplicate name
 	const existing = await getGenreByName(data.name.trim());
 	if (existing) {
-		throw error(409, { message: 'A genre with this name already exists' });
+		throw error(409, 'A genre with this name already exists');
 	}
 
 	const genre = await createGenre({

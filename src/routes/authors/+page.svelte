@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { untrack } from 'svelte';
 	import AuthorCard from '$lib/components/author/AuthorCard.svelte';
 	import AuthorRow from '$lib/components/author/AuthorRow.svelte';
@@ -36,7 +36,7 @@
 	let totalPages = $derived(Math.ceil(data.total / data.limit));
 
 	function handleSearch() {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		if (searchInput) {
 			params.set('search', searchInput);
 		} else {
@@ -47,14 +47,14 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`/authors?${params.toString()}`);
 	}
 
 	function applySortChoice(sort: string, order: SortOrder) {
 		saveBrowsePrefs('authors', { sort, order });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		applySort(params, sort, order);
 		goto(`/authors?${params.toString()}`);
 	}
@@ -71,7 +71,7 @@
 
 	function setLimit(limit: number) {
 		saveBrowsePrefs('authors', { limit });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('limit', String(limit));
 		params.delete('page');
 		goto(`/authors?${params.toString()}`);

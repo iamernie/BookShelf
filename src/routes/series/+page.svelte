@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount, untrack } from 'svelte';
 	import SeriesCard from '$lib/components/series/SeriesCard.svelte';
 	import SeriesRow from '$lib/components/series/SeriesRow.svelte';
@@ -25,14 +25,14 @@
 
 	// Check for open parameter and redirect to detail page
 	onMount(() => {
-		const openId = $page.url.searchParams.get('open');
+		const openId = page.url.searchParams.get('open');
 		if (openId) {
 			goto(`/series/${openId}`);
 		}
 	});
 
 	function handleSearch() {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		if (searchInput) {
 			params.set('search', searchInput);
 		} else {
@@ -43,14 +43,14 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`/series?${params.toString()}`);
 	}
 
 	function applySortChoice(sort: string, order: SortOrder) {
 		saveBrowsePrefs('series', { sort, order });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		applySort(params, sort, order);
 		goto(`/series?${params.toString()}`);
 	}
@@ -67,7 +67,7 @@
 
 	function setLimit(limit: number) {
 		saveBrowsePrefs('series', { limit });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('limit', String(limit));
 		params.delete('page');
 		goto(`/series?${params.toString()}`);

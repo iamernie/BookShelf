@@ -20,18 +20,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to create formats' });
+		throw error(403, 'You do not have permission to create formats');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Format name is required' });
+		throw error(400, 'Format name is required');
 	}
 
 	const existing = await getFormatByName(data.name.trim());
 	if (existing) {
-		throw error(409, { message: 'A format with this name already exists' });
+		throw error(409, 'A format with this name already exists');
 	}
 
 	const format = await createFormat({

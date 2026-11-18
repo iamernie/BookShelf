@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import { untrack } from 'svelte';
 	import { BookOpen, Plus, Search, ChevronLeft, ChevronRight, SlidersHorizontal, SquareCheck } from 'lucide-svelte';
@@ -58,9 +58,9 @@
 	let showDeleteModal = $state(false);
 
 	// Check for special URL params (audiobook-only flow)
-	let audiobookOnly = $derived($page.url.searchParams.get('audiobookOnly') === 'true');
-	let isPublicLibrary = $derived($page.url.searchParams.get('public') === 'true');
-	let addAudio = $derived($page.url.searchParams.get('addAudio') === 'true');
+	let audiobookOnly = $derived(page.url.searchParams.get('audiobookOnly') === 'true');
+	let isPublicLibrary = $derived(page.url.searchParams.get('public') === 'true');
+	let addAudio = $derived(page.url.searchParams.get('addAudio') === 'true');
 
 	// Auto-show add modal if audiobookOnly or addAudio param is present
 	$effect(() => {
@@ -166,7 +166,7 @@
 	});
 
 	function handleSearch() {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		if (searchInput) {
 			params.set('search', searchInput);
 		} else {
@@ -177,7 +177,7 @@
 	}
 
 	function goToPage(pageNum: number) {
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', pageNum.toString());
 		goto(`/books?${params.toString()}`);
 	}
@@ -190,7 +190,7 @@
 		}
 		// Store return URL before navigating
 		if (browser) {
-			const returnUrl = $page.url.pathname + $page.url.search;
+			const returnUrl = page.url.pathname + page.url.search;
 			sessionStorage.setItem(`book-return-${bookItem.id}`, returnUrl);
 		}
 		goto(`/books/${bookItem.id}`);
@@ -203,7 +203,7 @@
 		}
 		// Store return URL before navigating
 		if (browser) {
-			const returnUrl = $page.url.pathname + $page.url.search;
+			const returnUrl = page.url.pathname + page.url.search;
 			sessionStorage.setItem(`book-return-${book.id}`, returnUrl);
 		}
 		goto(`/books/${book.id}`);
@@ -234,7 +234,7 @@
 	// One handler for the dropdown and the headers: always writes sort AND order, saves the choice
 	function applySortChoice(sort: string, order: SortOrder) {
 		saveBrowsePrefs('books', { sort, order });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		applySort(params, sort, order);
 		goto(`/books?${params.toString()}`);
 	}
@@ -251,7 +251,7 @@
 
 	function setLimit(limit: number) {
 		saveBrowsePrefs('books', { limit });
-		const params = new URLSearchParams($page.url.searchParams);
+		const params = new URLSearchParams(page.url.searchParams);
 		params.set('limit', String(limit));
 		params.delete('page');
 		goto(`/books?${params.toString()}`);

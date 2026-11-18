@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.37.0] - 2026-11-18
+
+### Changed
+- Modernized page-state imports across the app and moved the production image to Node.js 22, preparing for the next SvelteKit upgrade
+### Fixed
+- Errors the app throws on purpose (bad input, a missing page) no longer appear as server errors in the admin log, so expected client traffic like device polling for a missing item stays quiet. Real server faults are still logged in full. Error responses now keep the app's own message and code instead of generic status text
+
 ## [2.36.1] - 2026-11-17
 
 ### Fixed

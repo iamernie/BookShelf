@@ -34,10 +34,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	// Same permission model as PUT /api/books/[id]
 	if (book.libraryType === 'public') {
 		if (!canManagePublicLibrary(locals.user)) {
-			throw error(403, { message: 'Only librarians and admins can edit public library books' });
+			throw error(403, 'Only librarians and admins can edit public library books');
 		}
 	} else if (!(await canModifyBook(locals.user.id, bookId))) {
-		throw error(403, { message: 'You do not have permission to modify this book' });
+		throw error(403, 'You do not have permission to modify this book');
 	}
 
 	// Delete the ebook file

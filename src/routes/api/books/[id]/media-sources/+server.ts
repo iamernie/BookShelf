@@ -18,7 +18,7 @@ async function requireCatalogAuthority(user: { id: number; role: string | null }
 		throw error(404, 'Book not found');
 	}
 	if (!(await canEditBookCatalog(user, book))) {
-		throw error(403, { message: 'You do not have permission to change this book\'s media sources' });
+		throw error(403, 'You do not have permission to change this book\'s media sources');
 	}
 }
 

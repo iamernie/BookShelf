@@ -6,12 +6,12 @@ import { getFormatById, updateFormat, deleteFormat, getBooksInFormat } from '$li
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid format ID' });
+		throw error(400, 'Invalid format ID');
 	}
 
 	const format = await getFormatById(id, locals.user);
 	if (!format) {
-		throw error(404, { message: 'Format not found' });
+		throw error(404, 'Format not found');
 	}
 
 	const books = await getBooksInFormat(id, locals.user);
@@ -25,18 +25,18 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to edit formats' });
+		throw error(403, 'You do not have permission to edit formats');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid format ID' });
+		throw error(400, 'Invalid format ID');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Format name is required' });
+		throw error(400, 'Format name is required');
 	}
 
 	const format = await updateFormat(id, {
@@ -46,7 +46,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	});
 
 	if (!format) {
-		throw error(404, { message: 'Format not found' });
+		throw error(404, 'Format not found');
 	}
 
 	return json(format);
@@ -58,12 +58,12 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	if (!canManageEntities(locals.user)) {
-		throw error(403, { message: 'You do not have permission to delete formats' });
+		throw error(403, 'You do not have permission to delete formats');
 	}
 
 	const id = parseInt(params.id);
 	if (isNaN(id)) {
-		throw error(400, { message: 'Invalid format ID' });
+		throw error(400, 'Invalid format ID');
 	}
 
 	// Check for reassignTo in request body
@@ -81,16 +81,16 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 		// Convert null to undefined for the service function
 		const deleted = await deleteFormat(id, reassignToId ?? undefined);
 		if (!deleted) {
-			throw error(404, { message: 'Format not found' });
+			throw error(404, 'Format not found');
 		}
 
 		return json({ success: true });
 	} catch (err) {
 		if (err instanceof Error && err.message.includes('Cannot delete format')) {
-			throw error(400, { message: err.message });
+			throw error(400, err.message);
 		}
 		if (err instanceof Error && err.message.includes('Target format')) {
-			throw error(400, { message: err.message });
+			throw error(400, err.message);
 		}
 		throw err;
 	}

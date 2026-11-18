@@ -10,13 +10,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	if (!hasPermission(locals.user, Permission.ADD_BOOKS)) {
-		throw error(403, { message: 'You do not have permission to create tags' });
+		throw error(403, 'You do not have permission to create tags');
 	}
 
 	const data = await request.json();
 
 	if (!data.name?.trim()) {
-		throw error(400, { message: 'Tag name is required' });
+		throw error(400, 'Tag name is required');
 	}
 
 	try {
@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json(tag, { status: 201 });
 	} catch (err) {
 		if (err instanceof Error && err.message.includes('already exists')) {
-			throw error(409, { message: err.message });
+			throw error(409, err.message);
 		}
 		throw err;
 	}
