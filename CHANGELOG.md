@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.38.0] - 2026-11-18
+
+### Added
+- The book page can now play an ABS-linked audiobook without leaving BookShelf: a Play button opens the Audiobookshelf player (chapters and details included) in a frame over the page, with an Open in Audiobookshelf link beside it for the full-tab experience. Listening progress syncs back exactly as it always has
+- Requires the ABS server's "allow iframe" setting to be enabled; on this install it is already on
+
 ## [2.37.0] - 2026-11-18
 
 ### Changed

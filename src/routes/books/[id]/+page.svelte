@@ -29,7 +29,8 @@
 		Loader2,
 		BookPlus,
 		AlertTriangle,
-		ExternalLink as LinkIcon
+		ExternalLink as LinkIcon,
+		Play
 	} from 'lucide-svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { formatDate } from '$lib/utils/date';
@@ -40,6 +41,7 @@
 	import InlineTagEditor from '$lib/components/tag/InlineTagEditor.svelte';
 	import MetadataSearchModal from '$lib/components/book/MetadataSearchModal.svelte';
 	import AbsLinkSection from '$lib/components/audiobook/AbsLinkSection.svelte';
+	import AbsPlayerModal from '$lib/components/book/AbsPlayerModal.svelte';
 	import SeriesNotesDigest from '$lib/components/series/SeriesNotesDigest.svelte';
 	import { RefreshCw } from 'lucide-svelte';
 
@@ -87,6 +89,10 @@
 
 	// Audiobookshelf manual linking (admins, integration enabled)
 	const canLinkAbs = $derived(!!data.absBaseUrl && data.isAdmin);
+
+	// Audiobookshelf item page (BookCard's Listen URL): Play embeds it in a modal, the link opens it in a tab
+	const absListenUrl = $derived(data.book.absItemId && data.absBaseUrl ? `${data.absBaseUrl}/item/${data.book.absItemId}` : null);
+	let showAbsPlayer = $state(false);
 
 	// Parse ebook reading progress
 	interface ReadingProgress {
@@ -610,14 +616,24 @@
 						</a>
 					{/if}
 				{/if}
-				{#if data.book.absItemId && data.absBaseUrl}
-					<a
-						href="{data.absBaseUrl}/item/{data.book.absItemId}"
-						target="_blank"
-						rel="noopener noreferrer"
+				{#if absListenUrl}
+					<button
+						type="button"
 						class="btn-accent flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
-						title="Listen on Audiobookshelf"
-						aria-label="Listen on Audiobookshelf"
+						onclick={() => showAbsPlayer = true}
+						title="Play"
+						aria-label="Play"
+					>
+						<Play class="w-4 h-4" />
+						<span class="hidden sm:inline">Play</span>
+					</button>
+					<a
+						href={absListenUrl}
+						target="_blank"
+						rel="noopener"
+						class="btn-ghost flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm"
+						title="Open in Audiobookshelf"
+						aria-label="Open in Audiobookshelf"
 					>
 						<Headphones class="w-4 h-4" />
 						<ExternalLink class="w-3 h-3" />
@@ -1673,6 +1689,15 @@
 	onClose={() => showMetadataModal = false}
 	onApply={handleMetadataApply}
 />
+
+{#if absListenUrl}
+	<AbsPlayerModal
+		open={showAbsPlayer}
+		src={absListenUrl}
+		bookTitle={data.book.title}
+		onClose={() => showAbsPlayer = false}
+	/>
+{/if}
 
 <style>
 	/* Inline Edit Button */
