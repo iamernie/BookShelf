@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.36.1] - 2026-11-17
+
+### Fixed
+- Updated @sveltejs/kit to 2.70.4, the SvelteKit 2.x security backport. This clears a medium-severity advisory where a protocol-relative module import could load during server-side route resolution. The remaining SvelteKit security advisories are only patched in SvelteKit 3, which is planned as its own migration.
+
 ## [2.36.0] - 2026-11-14
 
 ### Added
